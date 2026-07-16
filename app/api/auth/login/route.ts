@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         email: user.email,
         displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
         roles,
         permissions: getPermissionsForRoles(roles),
       },

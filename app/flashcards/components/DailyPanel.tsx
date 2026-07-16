@@ -15,7 +15,7 @@ export function DailyPanel() {
         </div>
         <h3 className="mt-4 text-center text-2xl font-black text-slate-700">Cây 0 ngày</h3>
         <p className="mt-3 rounded-2xl bg-slate-50 p-4 text-center text-sm italic leading-6 text-slate-500">
-          "Học ít nhưng đều sẽ thắng học nhiều rồi bỏ."
+          &quot;Học ít nhưng đều sẽ thắng học nhiều rồi bỏ.&quot;
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   FiBell,
@@ -19,6 +19,7 @@ type CurrentUser = {
   username: string;
   email: string;
   displayName?: string;
+  avatarUrl?: string;
   roles: string[];
   permissions?: string[];
 };
@@ -32,11 +33,7 @@ export function Topbar() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    void loadMe();
-  }, []);
-
-  async function loadMe() {
+  const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
 
     if (!response.ok) {
@@ -46,7 +43,12 @@ export function Topbar() {
 
     const payload = (await response.json()) as { user: CurrentUser };
     setUser(payload.user);
-  }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadMe();
+  }, [loadMe]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,17 +107,21 @@ export function Topbar() {
                   onClick={() => setMenuOpen((value) => !value)}
                   type="button"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-white/15">
-                    {user.username.slice(0, 1).toUpperCase()}
-                  </span>
+                  <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-8 w-8" />
                   <span className="hidden sm:inline">{user.username}</span>
                 </button>
 
                 {menuOpen && (
                   <div className="absolute right-0 top-14 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/12">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="font-black text-slate-950">{user.displayName || user.username}</p>
-                      <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                    <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
+                      <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-12 w-12" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-black text-slate-950">{user.displayName || user.username}</p>
+                        <p className="mt-1 truncate text-sm text-slate-500">{user.email}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-400">@{user.username}</p>
+                      </div>
+                    </div>
+                    <div className="px-4 pt-3">
                       <div className="mt-3 flex flex-wrap gap-2">
                         {user.roles.map((role) => (
                           <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-black text-teal-700" key={role}>
@@ -124,9 +130,9 @@ export function Topbar() {
                         ))}
                       </div>
                     </div>
-                    <button className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-teal-700" type="button">
+                    <Link className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-teal-700" href="/profile">
                       <FiUser /> Hồ sơ cá nhân
-                    </button>
+                    </Link>
                     {user.roles.includes("admin") && (
                       <Link className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-rose-700" href="/admin">
                         <FiShield /> Quản trị hệ thống
@@ -204,5 +210,29 @@ export function Topbar() {
         </div>
       )}
     </>
+  );
+}
+
+function UserAvatar({
+  avatarUrl,
+  name,
+  sizeClassName,
+}: Readonly<{
+  avatarUrl?: string;
+  name: string;
+  sizeClassName: string;
+}>) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initial = name.trim().slice(0, 1).toUpperCase() || "U";
+
+  return (
+    <span className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-white/15 ${sizeClassName}`}>
+      {avatarUrl && !imageFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt={name} className="h-full w-full object-cover" onError={() => setImageFailed(true)} src={avatarUrl} />
+      ) : (
+        <span className="font-black">{initial}</span>
+      )}
+    </span>
   );
 }
