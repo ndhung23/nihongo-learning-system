@@ -598,12 +598,14 @@ function ExampleTranslation({ currentWord }: Readonly<{ currentWord: Word }>) {
         type="button"
       >
         <FiGlobe />
-        {open ? "\u1ea8n d\u1ecbch" : "D\u1ecbch"}
+        {open ? "\u1ea8n d\u1ecbch" : "D\u1ecbch ngh\u0129a"}
       </button>
 
       {open && (
         <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"B\u1ea3n d\u1ecbch"}</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Ngh\u0129a t\u1eeb"}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{currentWord.meaning}</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"D\u1ecbch c\u00e2u"}</p>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{currentWord.exampleVi}</p>
           <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Phi\u00ean \u00e2m"}</p>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{reading}</p>
@@ -671,7 +673,11 @@ function getExampleReading(word: Word) {
 
   if (word.example.includes(word.term)) {
     const kanaSentence = word.example.replace(word.term, kana).replace(/\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002/g, "\u3092\u304b\u304f\u306b\u3093\u3057\u307e\u3059\u3002");
-    const romajiSentence = romaji ? `${romaji} o kakunin shimasu.` : "";
+    const romajiSentence = romaji
+      ? word.example.includes("\u3067\u3059\u3002")
+        ? `${romaji} desu.`
+        : `${romaji} o kakunin shimasu.`
+      : "";
 
     return [kanaSentence, romajiSentence].filter(Boolean).join(" / ");
   }

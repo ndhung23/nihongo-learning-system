@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FiBarChart2, FiBookOpen, FiDatabase, FiHome, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiDatabase, FiHome, FiMail, FiUsers } from "react-icons/fi";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 
 const adminNav = [
@@ -8,6 +8,7 @@ const adminNav = [
   { label: "Người dùng", href: "/admin/users", icon: FiUsers },
   { label: "Khóa học", href: "/admin/courses", icon: FiBookOpen },
   { label: "Từ vựng", href: "/admin/vocabulary", icon: FiDatabase },
+  { label: "Góp ý", href: "/admin/feedback", icon: FiMail },
 ];
 
 export default async function AdminLayout({

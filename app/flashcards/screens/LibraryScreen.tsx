@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiCheckCircle, FiFolder, FiPlus, FiTarget } from "react-icons/fi";
+import { FiBookOpen, FiCheckCircle, FiFolder, FiPlus, FiTarget, FiX } from "react-icons/fi";
 import { decks } from "../data";
 import type { StudyMode } from "../types";
 import { ActionCard, DeckCard, MetricCard } from "../components/Cards";
@@ -29,18 +29,20 @@ export function LibraryScreen({
 }: Readonly<{
   onAdd: () => void;
   onManage: () => void;
-  onStudy: (mode?: StudyMode, deckId?: string) => void;
+  onStudy: (mode?: StudyMode, deckId?: string, lesson?: string) => void;
 }>) {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    return window.localStorage.getItem("selectedCourseId");
+  });
+  const [lessonPickerCourse, setLessonPickerCourse] = useState<PublicCourse | null>(null);
   const discoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const savedCourseId = window.localStorage.getItem("selectedCourseId");
-    if (savedCourseId) {
-      setSelectedCourseId(savedCourseId);
-    }
-
     fetch("/api/courses", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { data: [] }))
       .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
@@ -54,6 +56,37 @@ export function LibraryScreen({
   function selectCourse(courseId: string) {
     setSelectedCourseId(courseId);
     window.localStorage.setItem("selectedCourseId", courseId);
+  }
+
+  function isLessonCourse(course: PublicCourse) {
+    const haystack = [course.slug, course.title, course.level, ...(course.tags || [])].join(" ").toLowerCase();
+    return (course.level === "n5" || course.level === "n4") && haystack.includes("minna");
+  }
+
+  function getLessonNumbers(course: PublicCourse) {
+    const start = course.level === "n4" ? 26 : 1;
+    return Array.from({ length: 25 }, (_, index) => start + index);
+  }
+
+  function openCourseStudy(course: PublicCourse) {
+    selectCourse(course.id);
+
+    if (isLessonCourse(course)) {
+      setLessonPickerCourse(course);
+      return;
+    }
+
+    onStudy("flashcard", course.id);
+  }
+
+  function startLesson(lesson: string) {
+    if (!lessonPickerCourse) {
+      return;
+    }
+
+    selectCourse(lessonPickerCourse.id);
+    setLessonPickerCourse(null);
+    onStudy("flashcard", lessonPickerCourse.id, lesson);
   }
 
   return (
@@ -140,17 +173,14 @@ export function LibraryScreen({
                         className={`h-11 rounded-2xl px-4 font-black transition-all duration-300 ${
                           isSelected ? "bg-teal-700 text-white" : "bg-slate-950 text-white hover:-translate-y-0.5 hover:bg-rose-700"
                         }`}
-                        onClick={() => selectCourse(course.id)}
+                        onClick={() => openCourseStudy(course)}
                         type="button"
                       >
                         {isSelected ? "Đang học" : "Chọn khóa học"}
                       </button>
                       <button
                         className="h-11 rounded-2xl border border-teal-200 bg-teal-50 px-4 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-100"
-                        onClick={() => {
-                          selectCourse(course.id);
-                          onStudy("flashcard", course.id);
-                        }}
+                        onClick={() => openCourseStudy(course)}
                         type="button"
                       >
                         Học ngay
@@ -190,7 +220,7 @@ export function LibraryScreen({
         </div>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {decks.map((deck, index) => (
+          {decks.map((deck) => (
             <DeckCard
               deck={deck}
               key={deck.title}
@@ -209,6 +239,54 @@ export function LibraryScreen({
       </section>
 
       <DailyPanel />
+      {lessonPickerCourse && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/20">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">Từ vựng {lessonPickerCourse.level.toUpperCase()}</p>
+                <h3 className="mt-2 text-2xl font-black text-slate-950">Chọn bài để bắt đầu</h3>
+                <p className="mt-2 text-sm font-semibold text-slate-500">{lessonPickerCourse.title}</p>
+              </div>
+              <button
+                className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                onClick={() => setLessonPickerCourse(null)}
+                type="button"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <button
+              className="mt-5 flex w-full items-center justify-between rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-left font-black text-teal-800 transition hover:-translate-y-0.5 hover:bg-teal-100"
+              onClick={() => startLesson("all")}
+              type="button"
+            >
+              <span className="inline-flex items-center gap-3">
+                <FiBookOpen /> Học tất cả bài {getLessonNumbers(lessonPickerCourse)[0]}-{getLessonNumbers(lessonPickerCourse).at(-1)}
+              </span>
+              <span>{lessonPickerCourse.stats?.vocabularyCount || 0} từ</span>
+            </button>
+
+            <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-7">
+              {getLessonNumbers(lessonPickerCourse).map((lessonNumber) => {
+                const lesson = String(lessonNumber);
+
+                return (
+                  <button
+                    className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+                    key={lesson}
+                    onClick={() => startLesson(lesson)}
+                    type="button"
+                  >
+                    Bài {lesson}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

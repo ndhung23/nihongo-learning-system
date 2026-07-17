@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
+import { VocabularyModel } from "@/models/Vocabulary";
 
 const levels = ["kana", "n5", "n4", "n3", "n2", "n1", "it", "custom"] as const;
 const sourceTypes = ["system", "user", "ai"] as const;
@@ -29,6 +30,65 @@ const UpdateCourseSchema = z.object({
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+export async function GET(_request: NextRequest, context: RouteContext) {
+  try {
+    await requirePermission("admin:course:read");
+    await connectMongoDB();
+
+    const { id } = await context.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "ID khóa học không hợp lệ." }, { status: 400 });
+    }
+
+    const course = await DeckModel.findById(id).populate("ownerId", "username email displayName").lean();
+
+    if (!course) {
+      return NextResponse.json({ message: "Không tìm thấy khóa học." }, { status: 404 });
+    }
+
+    const [lessonStats, recentVocabulary] = await Promise.all([
+      VocabularyModel.aggregate([
+        { $match: { deckId: new Types.ObjectId(id) } },
+        {
+          $group: {
+            _id: "$lesson",
+            count: { $sum: 1 },
+            published: { $sum: { $cond: ["$isPublished", 1, 0] } },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      VocabularyModel.find({ deckId: id })
+        .select("term kana romaji meaningVi lesson level isPublished examples")
+        .sort({ lesson: 1, createdAt: -1 })
+        .limit(24)
+        .lean(),
+    ]);
+
+    return NextResponse.json({
+      data: {
+        course,
+        lessonStats: lessonStats.map((entry) => ({
+          lesson: entry._id || "Chưa gán",
+          count: entry.count,
+          published: entry.published,
+        })),
+        recentVocabulary,
+      },
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { message: error.message, code: error.code },
+        { status: error.code === "UNAUTHORIZED" ? 401 : 403 },
+      );
+    }
+
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể tải chi tiết khóa học." }, { status: 500 });
+  }
+}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {

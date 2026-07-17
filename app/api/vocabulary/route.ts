@@ -24,6 +24,9 @@ const CreateVocabularySchema = z.object({
   synonyms: z.array(z.string()).default([]),
   collocations: z.array(z.string()).default([]),
   wordFamily: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  lesson: z.number().int().min(1).max(99).optional(),
+  sourceUrl: z.string().optional(),
   audioUrl: z.string().optional(),
   imageUrl: z.string().optional(),
   source: z.enum(["system", "user", "ai"]).default("user"),
@@ -36,12 +39,20 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const deckId = searchParams.get("deckId");
+  const lesson = searchParams.get("lesson");
   const limit = Math.min(Number(searchParams.get("limit") || 50), 1500);
 
   const filter: Record<string, unknown> = {};
 
   if (deckId) {
     filter.deckId = deckId;
+  }
+
+  if (lesson && lesson !== "all") {
+    const lessonNumber = Number(lesson);
+    if (Number.isInteger(lessonNumber) && lessonNumber > 0) {
+      filter.lesson = lessonNumber;
+    }
   }
 
   if (q) {

@@ -19,6 +19,9 @@ const VocabularySchema = new Schema(
     synonyms: { type: [String], default: [] },
     collocations: { type: [String], default: [] },
     wordFamily: { type: [String], default: [] },
+    tags: { type: [String], default: [] },
+    lesson: { type: Number, min: 1, max: 99, index: true },
+    sourceUrl: { type: String },
     audioUrl: { type: String },
     imageUrl: { type: String },
     source: { type: String, enum: ["system", "user", "ai"], default: "user" },
@@ -30,5 +33,6 @@ const VocabularySchema = new Schema(
 
 VocabularySchema.index({ term: "text", kana: "text", romaji: "text", meaningVi: "text" });
 VocabularySchema.index({ deckId: 1, term: 1 }, { unique: true, sparse: true });
+VocabularySchema.index({ deckId: 1, lesson: 1 });
 
 export const VocabularyModel = models.Vocabulary || model("Vocabulary", VocabularySchema);

@@ -20,6 +20,7 @@ export const permissions = [
   "admin:user:write",
   "admin:course:read",
   "admin:course:write",
+  "admin:feedback:read",
   "admin:stats:read",
 ] as const;
 

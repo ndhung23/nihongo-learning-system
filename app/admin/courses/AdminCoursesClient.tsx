@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiEdit3, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiArchive, FiEdit3, FiEye, FiEyeOff, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 
 type Course = {
   _id: string;
@@ -55,6 +55,21 @@ type CourseFormState = {
   priceAmount: string;
   priceCurrency: string;
   tags: string;
+};
+
+type CourseDetail = {
+  course: Course;
+  lessonStats: Array<{ lesson: number | string; count: number; published: number }>;
+  recentVocabulary: Array<{
+    _id: string;
+    term: string;
+    kana?: string;
+    romaji?: string;
+    meaningVi: string;
+    lesson?: number;
+    isPublished?: boolean;
+    examples?: Array<{ ja?: string; vi?: string }>;
+  }>;
 };
 
 const emptyForm: CourseFormState = {
@@ -113,6 +128,8 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
   const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CourseFormState>(emptyForm);
+  const [detail, setDetail] = useState<CourseDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -230,6 +247,45 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
     router.refresh();
   }
 
+  async function openDetail(course: Course) {
+    setDetailLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/courses/${course._id}`, { cache: "no-store" });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.message || "Không thể tải chi tiết khóa học.");
+        return;
+      }
+
+      setDetail(result.data);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function quickStatus(course: Course, status: Course["status"], visibility = course.visibility) {
+    const response = await fetch(`/api/admin/courses/${course._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, visibility }),
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(result.message || "Không thể đổi trạng thái khóa học.");
+      return;
+    }
+
+    if (detail?.course._id === course._id) {
+      setDetail({ ...detail, course: { ...detail.course, status, visibility } });
+    }
+
+    router.refresh();
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -300,6 +356,9 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
               <p className="mt-1">{course.stats?.learnerCount || 0} học viên</p>
             </div>
             <div className="flex gap-2 lg:justify-end">
+              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700" onClick={() => openDetail(course)} title="Chi tiết" type="button">
+                <FiEye />
+              </button>
               <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
                 <FiEdit3 />
               </button>
@@ -375,6 +434,125 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
           </form>
         </div>
       )}
+
+      {detail && (
+        <CourseDetailDialog
+          detail={detail}
+          loading={detailLoading}
+          onArchive={() => quickStatus(detail.course, "archived")}
+          onClose={() => setDetail(null)}
+          onEdit={() => {
+            openEdit(detail.course);
+            setDetail(null);
+          }}
+          onHide={() => quickStatus(detail.course, "hidden", "private")}
+          onPublish={() => quickStatus(detail.course, "published", "public")}
+        />
+      )}
+    </div>
+  );
+}
+
+function CourseDetailDialog({
+  detail,
+  loading,
+  onArchive,
+  onClose,
+  onEdit,
+  onHide,
+  onPublish,
+}: Readonly<{
+  detail: CourseDetail;
+  loading: boolean;
+  onArchive: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onHide: () => void;
+  onPublish: () => void;
+}>) {
+  const course = detail.course;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-auto rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/20">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">Chi tiết khóa học</p>
+            <h2 className="mt-2 text-3xl font-black text-slate-950">{course.title}</h2>
+            <p className="mt-2 text-sm font-bold text-slate-500">/{course.slug}</p>
+          </div>
+          <button className="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950" onClick={onClose} type="button">
+            <FiX />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <DetailMetric label="Cấp độ" value={course.level.toUpperCase()} />
+          <DetailMetric label="Trạng thái" value={statusLabel(course.status)} />
+          <DetailMetric label="Từ vựng" value={String(course.stats?.vocabularyCount || 0)} />
+          <DetailMetric label="Học viên" value={String(course.stats?.learnerCount || 0)} />
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button className="inline-flex h-11 items-center gap-2 rounded-2xl bg-rose-600 px-4 font-black text-white transition hover:bg-rose-700" onClick={onPublish} type="button">
+            <FiUploadCloud /> Publish public
+          </button>
+          <button className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 font-black text-slate-700 transition hover:bg-slate-50" onClick={onHide} type="button">
+            <FiEyeOff /> Ẩn khóa
+          </button>
+          <button className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 font-black text-slate-700 transition hover:bg-slate-50" onClick={onArchive} type="button">
+            <FiArchive /> Lưu trữ
+          </button>
+          <button className="inline-flex h-11 items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-4 font-black text-teal-800 transition hover:bg-teal-100" onClick={onEdit} type="button">
+            <FiEdit3 /> Sửa thông tin
+          </button>
+        </div>
+
+        <section className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-[1.5rem] border border-slate-200 p-4">
+            <p className="text-sm font-black uppercase tracking-widest text-teal-700">Thống kê theo bài</p>
+            <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
+              {detail.lessonStats.map((lesson) => (
+                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold" key={String(lesson.lesson)}>
+                  <span>Bài {lesson.lesson}</span>
+                  <span>{lesson.count} từ · {lesson.published} public</span>
+                </div>
+              ))}
+              {detail.lessonStats.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">Chưa có từ vựng trong khóa này.</p>}
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-slate-200 p-4">
+            <p className="text-sm font-black uppercase tracking-widest text-rose-600">Từ vựng mẫu</p>
+            <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
+              {detail.recentVocabulary.map((word) => (
+                <article className="rounded-2xl bg-slate-50 p-4" key={word._id}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-950">{word.term}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">{[word.kana, word.romaji].filter(Boolean).join(" / ")}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-teal-700">Bài {word.lesson || "?"}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-slate-700">{word.meaningVi}</p>
+                  {word.examples?.[0]?.ja && <p className="mt-2 text-sm font-semibold text-slate-500">{word.examples[0].ja}</p>}
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {loading && <p className="mt-4 text-sm font-bold text-slate-500">Đang tải...</p>}
+      </div>
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
   );
 }

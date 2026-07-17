@@ -3,12 +3,15 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  FiBell,
   FiChevronDown,
   FiLogIn,
   FiLogOut,
+  FiMail,
+  FiMoon,
   FiSearch,
+  FiSend,
   FiShield,
+  FiSun,
   FiUser,
   FiX,
 } from "react-icons/fi";
@@ -25,14 +28,27 @@ type CurrentUser = {
   permissions?: string[];
 };
 
-export function Topbar() {
+const supportEmail = "nhatngu430@gmail.com";
+const supportQrUrl = "/support-qr.png";
+
+export function Topbar({
+  theme,
+  onToggleTheme,
+}: Readonly<{
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+}>) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [feedbackError, setFeedbackError] = useState("");
 
   const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -83,22 +99,67 @@ export function Topbar() {
     setMenuOpen(false);
   }
 
+  async function handleFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFeedbackStatus("sending");
+    setFeedbackError("");
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: feedbackText,
+          page: window.location.pathname,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Không thể gửi góp ý.");
+      }
+
+      setFeedbackText("");
+      setFeedbackStatus("sent");
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Không thể gửi góp ý.");
+      setFeedbackStatus("error");
+    }
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/88">
         <div className="mx-auto flex h-20 max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-10">
-          <label className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-300 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 md:flex">
+          <label className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-300 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex">
             <FiSearch className="text-slate-400 transition group-focus-within:text-teal-600" />
             <input className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-slate-400" placeholder="Tìm bộ từ, kanji, ngữ pháp..." />
           </label>
 
           <div className="ml-auto flex items-center gap-2">
-            <button className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10" type="button">
+            <button className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="button">
               VI <FiChevronDown className="ml-1 inline" />
             </button>
-            <button className="relative grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10" type="button">
-              <FiBell />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500" />
+            <button
+              aria-label={theme === "dark" ? "Đổi sang giao diện sáng" : "Đổi sang giao diện tối"}
+              className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-amber-600 hover:shadow-lg hover:shadow-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              onClick={onToggleTheme}
+              type="button"
+            >
+              {theme === "dark" ? <FiSun /> : <FiMoon />}
+            </button>
+            <button
+              aria-label="Gửi góp ý"
+              className="relative grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              onClick={() => {
+                setFeedbackOpen(true);
+                setFeedbackStatus("idle");
+                setFeedbackError("");
+              }}
+              type="button"
+            >
+              <FiMail />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-teal-500" />
             </button>
 
             {user ? (
@@ -157,6 +218,58 @@ export function Topbar() {
           </div>
         </div>
       </header>
+
+      {feedbackOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <form className="w-full max-w-3xl rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/20 dark:bg-slate-900" onSubmit={handleFeedback}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">Ủng hộ & góp ý</p>
+                <h2 className="mt-2 text-3xl font-black">Giúp web tốt hơn</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Nếu thấy web hữu ích, mình rất mong nhận được sự ủng hộ để duy trì web. Mọi góp ý cải thiện tính năng, giao diện hoặc nội dung học đều sẽ được gửi cho admin.
+                </p>
+              </div>
+              <button className="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => setFeedbackOpen(false)} type="button">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-5 md:grid-cols-[220px_1fr]">
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-center dark:border-slate-700 dark:bg-slate-950">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt="QR ủng hộ duy trì web" className="mx-auto h-[180px] w-[180px] rounded-2xl bg-white p-3 object-contain" src={supportQrUrl} />
+                <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-teal-700">Ủng hộ duy trì web</p>
+                <p className="mt-2 break-words text-xs font-bold text-slate-500 dark:text-slate-400">{supportEmail}</p>
+              </div>
+              <div>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">Bạn muốn góp ý cải thiện gì?</span>
+                  <textarea
+                    className="min-h-[180px] w-full rounded-2xl border border-slate-200 bg-white p-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-950"
+                    onChange={(event) => {
+                      setFeedbackText(event.target.value);
+                      setFeedbackStatus("idle");
+                      setFeedbackError("");
+                    }}
+                    placeholder="Mọi người muốn web cải thiện điều gì? Ví dụ: giao diện, bài học, flashcard, lỗi gặp phải..."
+                    value={feedbackText}
+                  />
+                </label>
+                {feedbackStatus === "sent" && <p className="mt-3 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">Đã gửi góp ý. Cảm ơn bạn đã giúp web tốt hơn!</p>}
+                {feedbackError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{feedbackError}</p>}
+                <button
+                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={feedbackStatus === "sending"}
+                  type="submit"
+                >
+                  <FiSend /> {feedbackStatus === "sending" ? "Đang gửi..." : "Gửi góp ý"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loginOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
