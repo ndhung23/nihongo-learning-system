@@ -144,6 +144,27 @@ export function StudyClient({ initialDeckId, initialMode }: Readonly<{ initialDe
     router.replace(`/flashcards/study?mode=${nextMode}${deckId ? `&deckId=${deckId}` : ""}`, { scroll: false });
   }
 
+  function speakJapanese(text = currentWord.term) {
+    if (!("speechSynthesis" in window)) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 0.86;
+    utterance.pitch = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    const japaneseVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("ja"));
+
+    if (japaneseVoice) {
+      utterance.voice = japaneseVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
+
   return (
     <StudyScreen
       answerState={answerState}
@@ -169,6 +190,7 @@ export function StudyClient({ initialDeckId, initialMode }: Readonly<{ initialDe
       onModeChange={changeMode}
       onNext={nextWord}
       onOpenVocabulary={() => setVocabularyOpen(true)}
+      onSpeak={speakJapanese}
       onSkipWord={nextWord}
       onTypingAnswerChange={(value) => {
         setTypingAnswer(value);

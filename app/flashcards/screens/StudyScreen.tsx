@@ -1,7 +1,20 @@
-import { FiArrowLeft, FiBookOpen, FiCheck, FiLink, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
+"use client";
+
+import { useState } from "react";
+import { FiArrowLeft, FiBookOpen, FiCheck, FiGlobe, FiLink, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
 import { modes } from "../data";
 import type { AnswerState, StudyMode, Word } from "../types";
 import { MetricCard } from "../components/Cards";
+
+type GradeResult = {
+  score: number;
+  isNatural: boolean;
+  correctedSentence: string;
+  naturalSentence: string;
+  feedbackVi: string;
+  grammarNotes: string[];
+  vocabularyHints: string[];
+};
 
 export function StudyScreen({
   answerState,
@@ -25,6 +38,7 @@ export function StudyScreen({
   onModeChange,
   onNext,
   onOpenVocabulary,
+  onSpeak,
   onSkipWord,
   onTypingAnswerChange,
   onTypingSubmit,
@@ -56,6 +70,7 @@ export function StudyScreen({
   onModeChange: (mode: StudyMode) => void;
   onNext: () => void;
   onOpenVocabulary: () => void;
+  onSpeak: (text?: string) => void;
   onSkipWord: () => void;
   onTypingAnswerChange: (value: string) => void;
   onTypingSubmit: () => void;
@@ -133,20 +148,22 @@ export function StudyScreen({
             currentWord={currentWord}
             onChoose={onChoose}
             onNext={onContinueMeaning}
+            onSpeak={onSpeak}
             selectedAnswer={selectedAnswer}
           />
         )}
-        {mode === "flashcard" && <FlashcardExercise currentWord={currentWord} flipped={flipped} onFlip={onFlip} onKnown={onSkipWord} onNext={onContinueFlashcard} />}
+        {mode === "flashcard" && <FlashcardExercise currentWord={currentWord} flipped={flipped} onFlip={onFlip} onKnown={onSkipWord} onNext={onContinueFlashcard} onSpeak={onSpeak} />}
         {mode === "typing" && (
           <TypingExercise
             answer={typingAnswer}
             currentWord={currentWord}
             onAnswerChange={onTypingAnswerChange}
             onNext={onTypingSubmit}
+            onSpeak={onSpeak}
             state={typingState}
           />
         )}
-        {mode === "example" && <ExampleExercise currentWord={currentWord} onNext={onNext} />}
+        {mode === "example" && <ExampleExercise currentWord={currentWord} onNext={onNext} onSpeak={onSpeak} />}
       </section>
       {vocabularyOpen && (
         <VocabularyDialog
@@ -168,6 +185,7 @@ function MeaningExercise({
   currentWord,
   onChoose,
   onNext,
+  onSpeak,
   selectedAnswer,
 }: Readonly<{
   answerState: AnswerState;
@@ -175,6 +193,7 @@ function MeaningExercise({
   currentWord: Word;
   onChoose: (answer: string) => void;
   onNext: () => void;
+  onSpeak: (text?: string) => void;
   selectedAnswer: string;
 }>) {
   return (
@@ -189,7 +208,14 @@ function MeaningExercise({
           <h2 className="mt-5 text-4xl font-black tracking-tight">
             {currentWord.term}
             <span className="ml-2 text-base font-bold text-slate-500">({currentWord.type})</span>
-            <FiVolume2 className="ml-3 inline text-teal-700" />
+            <button
+              aria-label="Ph\u00e1t \u00e2m ti\u1ebfng Nh\u1eadt"
+              className="ml-3 inline-grid h-11 w-11 place-items-center rounded-full bg-white/80 text-teal-700 transition hover:-translate-y-0.5 hover:bg-white"
+              onClick={() => onSpeak()}
+              type="button"
+            >
+              <FiVolume2 />
+            </button>
           </h2>
           <p className="mt-3 font-medium text-slate-500">{currentWord.kana} / {currentWord.romaji}</p>
         </div>
@@ -210,7 +236,7 @@ function MeaningExercise({
           ))}
         </div>
       ) : (
-        <ResultPanel currentWord={currentWord} isCorrect={answerState === "correct"} onNext={onNext} selectedAnswer={selectedAnswer} />
+        <ResultPanel currentWord={currentWord} isCorrect={answerState === "correct"} onNext={onNext} onSpeak={onSpeak} selectedAnswer={selectedAnswer} />
       )}
     </div>
   );
@@ -288,11 +314,13 @@ function ResultPanel({
   currentWord,
   isCorrect,
   onNext,
+  onSpeak,
   selectedAnswer,
 }: Readonly<{
   currentWord: Word;
   isCorrect: boolean;
   onNext: () => void;
+  onSpeak: (text?: string) => void;
   selectedAnswer: string;
 }>) {
   return (
@@ -308,11 +336,19 @@ function ResultPanel({
       </div>
       <div className="pt-5">
         {!isCorrect && <p className="mb-2 text-sm font-bold text-rose-700">Bạn đã chọn: {selectedAnswer}</p>}
-        <h3 className="text-3xl font-black">{currentWord.term}</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-3xl font-black">{currentWord.term}</h3>
+          <SoundButton onSpeak={() => onSpeak()} />
+        </div>
         <p className="mt-1 text-xl font-bold">{currentWord.meaning}</p>
         <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="font-semibold italic">{currentWord.example} <FiVolume2 className="ml-2 inline text-teal-700" /></p>
-          <p className="mt-2 text-sm text-slate-500">{currentWord.exampleVi}</p>
+          <p className="font-semibold italic">
+            {currentWord.example}
+            <button aria-label="Ph\u00e1t \u00e2m c\u00e2u m\u1eabu" className="ml-2 inline-grid h-8 w-8 place-items-center rounded-full text-teal-700 transition hover:bg-teal-50" onClick={() => onSpeak(currentWord.example)} type="button">
+              <FiVolume2 />
+            </button>
+          </p>
+          <ExampleTranslation currentWord={currentWord} />
         </div>
         <DeepLearnActions />
       </div>
@@ -326,12 +362,14 @@ function FlashcardExercise({
   onFlip,
   onKnown,
   onNext,
+  onSpeak,
 }: Readonly<{
   currentWord: Word;
   flipped: boolean;
   onFlip: () => void;
   onKnown: () => void;
   onNext: () => void;
+  onSpeak: (text?: string) => void;
 }>) {
   return (
     <div>
@@ -372,9 +410,14 @@ function FlashcardExercise({
         <button className="rounded-2xl border border-slate-200 bg-white px-6 py-3 font-black text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700" onClick={onKnown} type="button">
           {"\u0110\u00e3 thu\u1ed9c"}
         </button>
-        <button className="rounded-2xl bg-indigo-600 px-7 py-3 font-black text-white shadow-lg shadow-indigo-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700" onClick={onNext} type="button">
-          {"Ti\u1ebfp t\u1ee5c"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button className="inline-flex items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-100" onClick={() => onSpeak()} type="button">
+            <FiVolume2 /> {"Nghe"}
+          </button>
+          <button className="rounded-2xl bg-indigo-600 px-7 py-3 font-black text-white shadow-lg shadow-indigo-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700" onClick={onNext} type="button">
+            {"Ti\u1ebfp t\u1ee5c"}
+          </button>
+        </div>
       </div>
       <DeepLearnActions />
     </div>
@@ -386,12 +429,14 @@ function TypingExercise({
   currentWord,
   onAnswerChange,
   onNext,
+  onSpeak,
   state,
 }: Readonly<{
   answer: string;
   currentWord: Word;
   onAnswerChange: (value: string) => void;
   onNext: () => void;
+  onSpeak: (text?: string) => void;
   state: AnswerState;
 }>) {
   return (
@@ -399,6 +444,11 @@ function TypingExercise({
       <p className="text-center text-sm font-black uppercase tracking-[0.24em] text-teal-700">{"G\u00f5 t\u1eeb ti\u1ebfng Nh\u1eadt"}</p>
       <h2 className="mt-5 text-center text-4xl font-black">{currentWord.meaning}</h2>
       <p className="mt-3 text-center text-slate-500">{"C\u00f3 th\u1ec3 nh\u1eadp Kanji, Kana ho\u1eb7c Romaji."}</p>
+      <div className="mt-5 flex justify-center">
+        <button className="inline-flex items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-100" onClick={() => onSpeak()} type="button">
+          <FiVolume2 /> {"Nghe l\u1ea1i t\u1eeb"}
+        </button>
+      </div>
       <input
         className={`mt-8 h-16 w-full rounded-2xl border px-5 text-center text-xl font-bold outline-none transition-all duration-300 focus:bg-white focus:shadow-xl ${
           state === "wrong"
@@ -426,22 +476,92 @@ function TypingExercise({
   );
 }
 
-function ExampleExercise({ currentWord, onNext }: Readonly<{ currentWord: Word; onNext: () => void }>) {
+function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWord: Word; onNext: () => void; onSpeak: (text?: string) => void }>) {
+  const [sentence, setSentence] = useState("");
+  const [grade, setGrade] = useState<GradeResult | null>(null);
+  const [grading, setGrading] = useState(false);
+  const [gradeError, setGradeError] = useState("");
+
+  async function gradeSentence() {
+    const trimmedSentence = sentence.trim();
+
+    if (!trimmedSentence) {
+      setGradeError("H\u00e3y vi\u1ebft m\u1ed9t c\u00e2u ti\u1ebfng Nh\u1eadt tr\u01b0\u1edbc \u0111\u00e3.");
+      setGrade(null);
+      return;
+    }
+
+    setGrading(true);
+    setGradeError("");
+    setGrade(null);
+
+    try {
+      const response = await fetch("/api/flashcards/grade-sentence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sentence: trimmedSentence,
+          word: {
+            term: currentWord.term,
+            kana: currentWord.kana,
+            romaji: currentWord.romaji,
+            meaning: currentWord.meaning,
+            example: currentWord.example,
+            exampleVi: currentWord.exampleVi,
+          },
+        }),
+      });
+      const payload = (await response.json()) as { data?: GradeResult; message?: string };
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.message || "AI ch\u01b0a ch\u1ea5m \u0111\u01b0\u1ee3c c\u00e2u n\u00e0y.");
+      }
+
+      setGrade(payload.data);
+    } catch (error) {
+      setGradeError(error instanceof Error ? error.message : "AI ch\u01b0a ch\u1ea5m \u0111\u01b0\u1ee3c c\u00e2u n\u00e0y.");
+    } finally {
+      setGrading(false);
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-[2rem] border border-teal-200 bg-white shadow-2xl shadow-teal-500/8">
       <div className="bg-teal-50 p-8 text-center">
         <p className="text-sm font-black uppercase tracking-[0.24em] text-teal-700">{"\u0110\u1eb7t c\u00e2u v\u1edbi t\u1eeb n\u00e0y"}</p>
-        <h2 className="mt-4 text-4xl font-black">{currentWord.term}</h2>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+          <h2 className="text-4xl font-black">{currentWord.term}</h2>
+          <SoundButton onSpeak={() => onSpeak()} />
+        </div>
         <p className="mt-2 text-lg font-bold text-rose-700">{currentWord.meaning} / {currentWord.kana}</p>
       </div>
       <div className="border-t border-teal-100 p-6">
         <p className="mb-4 text-sm font-black text-teal-700">{"G\u1ee3i \u00fd m\u1eabu"}</p>
-        <p className="rounded-2xl bg-slate-50 p-4 text-lg font-semibold">{currentWord.example}</p>
-        <textarea className="mt-5 min-h-32 w-full rounded-2xl border border-slate-200 bg-white p-4 outline-none transition-all duration-300 focus:border-teal-400 focus:shadow-xl focus:shadow-teal-500/10" placeholder={"T\u1ef1 \u0111\u1eb7t m\u1ed9t c\u00e2u ti\u1ebfng Nh\u1eadt..."} />
+        <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-lg font-semibold">
+          <p className="min-w-0 flex-1">{currentWord.example}</p>
+          <SoundButton onSpeak={() => onSpeak(currentWord.example)} />
+        </div>
+        <ExampleTranslation currentWord={currentWord} />
+        <textarea
+          className="mt-5 min-h-32 w-full rounded-2xl border border-slate-200 bg-white p-4 outline-none transition-all duration-300 focus:border-teal-400 focus:shadow-xl focus:shadow-teal-500/10"
+          onChange={(event) => {
+            setSentence(event.target.value);
+            setGrade(null);
+            setGradeError("");
+          }}
+          placeholder={"T\u1ef1 \u0111\u1eb7t m\u1ed9t c\u00e2u ti\u1ebfng Nh\u1eadt..."}
+          value={sentence}
+        />
+        {gradeError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{gradeError}</p>}
+        {grade && <GradeFeedback grade={grade} />}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <button className="rounded-2xl bg-teal-100 px-6 py-4 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-200" type="button">
-            {"\u0043h\u1ea5m b\u1eb1ng AI"}
-          
+          <button
+            className="rounded-2xl bg-teal-100 px-6 py-4 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={grading}
+            onClick={gradeSentence}
+            type="button"
+          >
+            {grading ? "\u0110ang ch\u1ea5m..." : "\u0043h\u1ea5m b\u1eb1ng AI"}
           </button>
           <button className="rounded-2xl bg-rose-600 px-6 py-4 font-black text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-700" onClick={onNext} type="button">
             {"Qua t\u1eeb ti\u1ebfp theo"}
@@ -451,6 +571,112 @@ function ExampleExercise({ currentWord, onNext }: Readonly<{ currentWord: Word; 
       </div>
     </div>
   );
+}
+
+function SoundButton({ onSpeak }: Readonly<{ onSpeak: () => void }>) {
+  return (
+    <button
+      aria-label="Ph\u00e1t \u00e2m ti\u1ebfng Nh\u1eadt"
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-teal-200 bg-teal-50 text-teal-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-100"
+      onClick={onSpeak}
+      type="button"
+    >
+      <FiVolume2 />
+    </button>
+  );
+}
+
+function ExampleTranslation({ currentWord }: Readonly<{ currentWord: Word }>) {
+  const [open, setOpen] = useState(false);
+  const reading = getExampleReading(currentWord);
+
+  return (
+    <div className="mt-3">
+      <button
+        className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-black text-indigo-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-100"
+        onClick={() => setOpen((value) => !value)}
+        type="button"
+      >
+        <FiGlobe />
+        {open ? "\u1ea8n d\u1ecbch" : "D\u1ecbch"}
+      </button>
+
+      {open && (
+        <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"B\u1ea3n d\u1ecbch"}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{currentWord.exampleVi}</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Phi\u00ean \u00e2m"}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{reading}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GradeFeedback({ grade }: Readonly<{ grade: GradeResult }>) {
+  return (
+    <div className="mt-4 rounded-2xl border border-teal-200 bg-teal-50/70 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">{"AI nh\u1eadn x\u00e9t"}</p>
+          <p className="mt-1 text-sm font-bold text-slate-600">{grade.feedbackVi}</p>
+        </div>
+        <span className="rounded-2xl bg-white px-4 py-2 text-xl font-black text-teal-700">{grade.score}/100</span>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <FeedbackBox label="C\u00e2u \u0111\u00e3 s\u1eeda" value={grade.correctedSentence} />
+        <FeedbackBox label="T\u1ef1 nhi\u00ean h\u01a1n" value={grade.naturalSentence} />
+      </div>
+
+      {(grade.grammarNotes.length > 0 || grade.vocabularyHints.length > 0) && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <FeedbackList items={grade.grammarNotes} title="Ng\u1eef ph\u00e1p" />
+          <FeedbackList items={grade.vocabularyHints} title="G\u1ee3i \u00fd t\u1eeb v\u1ef1ng" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeedbackBox({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="rounded-2xl bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-2 text-base font-black text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function FeedbackList({ items, title }: Readonly<{ items: string[]; title: string }>) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{title}</p>
+      <ul className="mt-2 space-y-2 text-sm font-bold text-slate-700">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function getExampleReading(word: Word) {
+  const kana = word.kana || word.term;
+  const romaji = word.romaji;
+
+  if (word.example.includes(word.term)) {
+    const kanaSentence = word.example.replace(word.term, kana).replace(/\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002/g, "\u3092\u304b\u304f\u306b\u3093\u3057\u307e\u3059\u3002");
+    const romajiSentence = romaji ? `${romaji} o kakunin shimasu.` : "";
+
+    return [kanaSentence, romajiSentence].filter(Boolean).join(" / ");
+  }
+
+  return [kana, romaji].filter(Boolean).join(" / ");
 }
 
 function DeepLearnActions() {
