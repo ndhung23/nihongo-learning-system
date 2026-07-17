@@ -65,10 +65,10 @@ export const decks: Deck[] = [
 ];
 
 export const modes: StudyModeItem[] = [
-  { id: "meaning", title: "Chọn nghĩa", subtitle: "Nhật sang Việt", icon: FiTarget },
-  { id: "flashcard", title: "Flashcard", subtitle: "Lật thẻ nhớ", icon: FiLayers },
-  { id: "typing", title: "Gõ từ", subtitle: "Việt sang Nhật", icon: FiEdit3 },
-  { id: "example", title: "Đặt câu", subtitle: "Tự viết ví dụ", icon: FiFeather },
+  { id: "flashcard", title: "Flashcard", subtitle: "L\u1eadt th\u1ebb nh\u1edb", icon: FiLayers },
+  { id: "meaning", title: "Ch\u1ecdn ngh\u0129a", subtitle: "Nh\u1eadt sang Vi\u1ec7t", icon: FiTarget },
+  { id: "typing", title: "G\u00f5 t\u1eeb", subtitle: "Vi\u1ec7t sang Nh\u1eadt", icon: FiEdit3 },
+  { id: "example", title: "\u0110\u1eb7t c\u00e2u", subtitle: "T\u1ef1 vi\u1ebft v\u00ed d\u1ee5", icon: FiFeather },
 ];
 
 export const navItems: Array<{ screen: Screen; label: string; icon: typeof FiBookOpen }> = [

@@ -12,6 +12,7 @@ import {
   FiUser,
   FiX,
 } from "react-icons/fi";
+import { FcGoogle } from "react-icons/fc";
 
 type CurrentUser = {
   userId?: string;
@@ -198,11 +199,27 @@ export function Topbar() {
             >
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
-            <div className="mt-4 flex justify-between text-sm font-bold">
-              <Link className="text-teal-700 hover:text-teal-900" href="/register" onClick={() => setLoginOpen(false)}>
+            <button
+              className="mt-3 flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              disabled
+              title={"Google OAuth s\u1ebd \u0111\u01b0\u1ee3c n\u1ed1i sau"}
+              type="button"
+            >
+              <FcGoogle className="h-5 w-5" /> {"\u0110\u0103ng nh\u1eadp b\u1eb1ng Google"}
+            </button>
+            <div className="mt-4 grid grid-cols-1 gap-3 text-sm font-black sm:grid-cols-2">
+              <Link
+                className="flex h-11 items-center justify-center rounded-2xl border border-teal-200 bg-teal-50 px-4 text-center text-teal-800 transition hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-100 hover:text-teal-900"
+                href="/register"
+                onClick={() => setLoginOpen(false)}
+              >
                 Tạo tài khoản
               </Link>
-              <Link className="text-slate-500 hover:text-rose-700" href="/forgot-password" onClick={() => setLoginOpen(false)}>
+              <Link
+                className="flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-center text-rose-700 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800"
+                href="/forgot-password"
+                onClick={() => setLoginOpen(false)}
+              >
                 Quên mật khẩu?
               </Link>
             </div>

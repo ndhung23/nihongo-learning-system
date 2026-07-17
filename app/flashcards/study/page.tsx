@@ -6,10 +6,10 @@ const validModes: StudyMode[] = ["meaning", "flashcard", "typing", "example"];
 export default async function StudyPage({
   searchParams,
 }: Readonly<{
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ deckId?: string; mode?: string }>;
 }>) {
-  const { mode } = await searchParams;
-  const initialMode = validModes.includes(mode as StudyMode) ? (mode as StudyMode) : "meaning";
+  const { deckId, mode } = await searchParams;
+  const initialMode = validModes.includes(mode as StudyMode) ? (mode as StudyMode) : "flashcard";
 
-  return <StudyClient initialMode={initialMode} />;
+  return <StudyClient initialDeckId={deckId} initialMode={initialMode} />;
 }

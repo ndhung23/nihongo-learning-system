@@ -54,11 +54,17 @@ export function LoginForm() {
       <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70" disabled title="Google OAuth sẽ được nối sau" type="button">
         <FcGoogle className="h-5 w-5" /> Đăng nhập bằng Google
       </button>
-      <div className="flex justify-between text-sm font-bold">
-        <Link className="text-teal-700 hover:text-teal-900" href="/register">
+      <div className="grid grid-cols-1 gap-3 text-sm font-black sm:grid-cols-2">
+        <Link
+          className="flex h-11 items-center justify-center rounded-2xl border border-teal-200 bg-teal-50 px-4 text-center text-teal-800 transition hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-100 hover:text-teal-900"
+          href="/register"
+        >
           Tạo tài khoản
         </Link>
-        <Link className="text-slate-500 hover:text-rose-700" href="/forgot-password">
+        <Link
+          className="flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-center text-rose-700 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800"
+          href="/forgot-password"
+        >
           Quên mật khẩu?
         </Link>
       </div>

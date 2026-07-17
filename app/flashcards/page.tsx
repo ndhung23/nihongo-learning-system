@@ -7,8 +7,14 @@ import type { StudyMode } from "./types";
 export default function FlashcardsPage() {
   const router = useRouter();
 
-  function openStudy(mode: StudyMode = "meaning") {
-    router.push(`/flashcards/study?mode=${mode}`);
+  function openStudy(mode: StudyMode = "flashcard", deckId?: string) {
+    const params = new URLSearchParams({ mode });
+
+    if (deckId) {
+      params.set("deckId", deckId);
+    }
+
+    router.push(`/flashcards/study?${params.toString()}`);
   }
 
   return (

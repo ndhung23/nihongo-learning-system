@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const deckId = searchParams.get("deckId");
-  const limit = Math.min(Number(searchParams.get("limit") || 50), 100);
+  const limit = Math.min(Number(searchParams.get("limit") || 50), 1500);
 
   const filter: Record<string, unknown> = {};
 
