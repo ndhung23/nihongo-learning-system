@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   FiChevronDown,
   FiLogIn,
@@ -38,6 +39,7 @@ export function Topbar({
   theme: "light" | "dark";
   onToggleTheme: () => void;
 }>) {
+  const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -49,6 +51,7 @@ export function Topbar({
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -127,14 +130,42 @@ export function Topbar({
     }
   }
 
+  function handleCourseSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    const params = new URLSearchParams();
+
+    params.set("type", "flashcard");
+
+    if (query) {
+      params.set("q", query);
+    }
+
+    router.push(`/flashcards/discover?${params.toString()}`);
+  }
+
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/88">
         <div className="mx-auto flex h-20 max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-10">
-          <label className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-300 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex">
+          <form
+            className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-300 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
+            onSubmit={handleCourseSearch}
+          >
             <FiSearch className="text-slate-400 transition group-focus-within:text-teal-600" />
-            <input className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-slate-400" placeholder="Tìm bộ từ, kanji, ngữ pháp..." />
-          </label>
+            <input
+              className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-slate-400"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Tìm tên khóa học..."
+              value={searchQuery}
+            />
+          </form>
+
+          <nav className="hidden items-center gap-1 xl:flex">
+            <HeaderLink href="/flashcards/discover" label="Khám phá" />
+            <HeaderLink href="/flashcards/bookmarks" label="Bookmark của tôi" />
+            <HeaderLink href="/flashcards/my-vocabulary" label="Từ vựng riêng tôi" />
+          </nav>
 
           <div className="ml-auto flex items-center gap-2">
             <button className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="button">
@@ -340,6 +371,17 @@ export function Topbar({
         </div>
       )}
     </>
+  );
+}
+
+function HeaderLink({ href, label }: Readonly<{ href: string; label: string }>) {
+  return (
+    <Link
+      className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-black text-slate-600 transition hover:bg-white hover:text-teal-700 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-teal-300"
+      href={href}
+    >
+      {label}
+    </Link>
   );
 }
 

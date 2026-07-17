@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FiArrowLeft, FiBookOpen, FiCheck, FiGlobe, FiLink, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiBookOpen, FiBookmark, FiCheck, FiGlobe, FiLink, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
 import { modes } from "../data";
 import type { AnswerState, StudyMode, Word } from "../types";
 import { MetricCard } from "../components/Cards";
+import { getWordBookmarkKey } from "../bookmarkStorage";
 
 type GradeResult = {
   score: number;
@@ -21,11 +22,13 @@ export function StudyScreen({
   answers,
   currentWord,
   flipped,
+  isLoading,
   mode,
   stats,
   title,
   vocabularyOpen,
   vocabularyQuery,
+  bookmarkedKeys,
   words,
   typingAnswer,
   typingState,
@@ -42,6 +45,7 @@ export function StudyScreen({
   onSkipWord,
   onTypingAnswerChange,
   onTypingSubmit,
+  onToggleBookmark,
   onVocabularyQueryChange,
   selectedAnswer,
 }: Readonly<{
@@ -49,6 +53,7 @@ export function StudyScreen({
   answers: string[];
   currentWord: Word;
   flipped: boolean;
+  isLoading: boolean;
   mode: StudyMode;
   stats: {
     newWords: number;
@@ -58,6 +63,7 @@ export function StudyScreen({
   title: string;
   vocabularyOpen: boolean;
   vocabularyQuery: string;
+  bookmarkedKeys: string[];
   words: Word[];
   typingAnswer: string;
   typingState: AnswerState;
@@ -74,6 +80,7 @@ export function StudyScreen({
   onSkipWord: () => void;
   onTypingAnswerChange: (value: string) => void;
   onTypingSubmit: () => void;
+  onToggleBookmark: (word: Word) => void;
   onVocabularyQueryChange: (value: string) => void;
   selectedAnswer: string;
 }>) {
@@ -86,6 +93,14 @@ export function StudyScreen({
 
     return [word.term, word.kana, word.romaji, word.meaning, word.type].some((value) => value.toLowerCase().includes(query));
   });
+
+  if (isLoading) {
+    return <StudyLoadingScreen title={title} onBack={onBack} />;
+  }
+
+  if (words.length === 0) {
+    return <EmptyStudyScreen title={title} onBack={onBack} />;
+  }
 
   return (
     <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[260px_1fr] lg:px-10">
@@ -141,6 +156,14 @@ export function StudyScreen({
           <MetricCard label="Cần ôn" value={String(stats.review)} tone="bg-amber-50 text-amber-700" />
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Từ đang học</p>
+            <p className="mt-1 font-black text-slate-950">{currentWord.term} <span className="text-sm text-slate-500">/ {currentWord.meaning}</span></p>
+          </div>
+          <BookmarkButton active={bookmarkedKeys.includes(getWordBookmarkKey(currentWord))} onClick={() => onToggleBookmark(currentWord)} />
+        </div>
+
         {mode === "meaning" && (
           <MeaningExercise
             answerState={answerState}
@@ -168,13 +191,64 @@ export function StudyScreen({
       {vocabularyOpen && (
         <VocabularyDialog
           filteredWords={filteredWords}
+          bookmarkedKeys={bookmarkedKeys}
           onClose={onCloseVocabulary}
           onQueryChange={onVocabularyQueryChange}
+          onToggleBookmark={onToggleBookmark}
           query={vocabularyQuery}
           title={title}
           total={words.length}
         />
       )}
+    </div>
+  );
+}
+
+function StudyLoadingScreen({ onBack, title }: Readonly<{ onBack: () => void; title: string }>) {
+  return (
+    <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[260px_1fr] lg:px-10">
+      <aside className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/[0.04]">
+        <button className="mb-5 flex h-12 items-center gap-3 rounded-2xl px-2 text-left font-black text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50" onClick={onBack} type="button">
+          <span className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200">
+            <FiArrowLeft />
+          </span>
+          {title}
+        </button>
+        <div className="space-y-2">
+          {modes.map((item) => (
+            <div className="h-[66px] animate-pulse rounded-2xl bg-slate-100" key={item.id} />
+          ))}
+        </div>
+      </aside>
+      <section>
+        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+          <div className="h-[92px] animate-pulse rounded-[1.5rem] bg-indigo-50" />
+          <div className="h-[92px] animate-pulse rounded-[1.5rem] bg-teal-50" />
+          <div className="h-[92px] animate-pulse rounded-[1.5rem] bg-amber-50" />
+        </div>
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-2xl shadow-slate-900/[0.05]">
+          <div className="mx-auto h-4 w-36 animate-pulse rounded-full bg-teal-100" />
+          <div className="mx-auto mt-12 h-12 w-72 max-w-full animate-pulse rounded-full bg-slate-100" />
+          <p className="mt-8 font-black text-slate-500">Đang tải đúng khóa học...</p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function EmptyStudyScreen({ onBack, title }: Readonly<{ onBack: () => void; title: string }>) {
+  return (
+    <div className="mx-auto max-w-[900px] px-4 py-10 sm:px-6 lg:px-10">
+      <button className="mb-6 flex items-center gap-2 rounded-full px-2 py-1 text-sm font-bold text-slate-500 transition hover:text-rose-600" onClick={onBack} type="button">
+        <FiArrowLeft /> Quay lại
+      </button>
+      <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center shadow-xl shadow-slate-900/[0.04]">
+        <FiBookOpen className="mx-auto h-10 w-10 text-teal-600" />
+        <h1 className="mt-4 text-3xl font-black text-slate-950">{title}</h1>
+        <p className="mx-auto mt-3 max-w-xl text-sm font-bold leading-6 text-slate-500">
+          Khóa học này chưa có từ vựng hoặc dữ liệu chưa tải được. Vào admin để kiểm tra danh sách từ của khóa học.
+        </p>
+      </div>
     </div>
   );
 }
@@ -243,16 +317,20 @@ function MeaningExercise({
 }
 
 function VocabularyDialog({
+  bookmarkedKeys,
   filteredWords,
   onClose,
   onQueryChange,
+  onToggleBookmark,
   query,
   title,
   total,
 }: Readonly<{
+  bookmarkedKeys: string[];
   filteredWords: Word[];
   onClose: () => void;
   onQueryChange: (value: string) => void;
+  onToggleBookmark: (word: Word) => void;
   query: string;
   title: string;
   total: number;
@@ -293,7 +371,21 @@ function VocabularyDialog({
                       {[word.kana, word.romaji].filter(Boolean).join(" / ") || "IT"}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">{word.type}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      aria-label={bookmarkedKeys.includes(getWordBookmarkKey(word)) ? "Bỏ bookmark từ này" : "Bookmark từ này"}
+                      className={`grid h-9 w-9 place-items-center rounded-full border transition ${
+                        bookmarkedKeys.includes(getWordBookmarkKey(word))
+                          ? "border-rose-200 bg-rose-50 text-rose-600"
+                          : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-600"
+                      }`}
+                      onClick={() => onToggleBookmark(word)}
+                      type="button"
+                    >
+                      <FiBookmark className={bookmarkedKeys.includes(getWordBookmarkKey(word)) ? "fill-current" : ""} />
+                    </button>
+                    <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">{word.type}</span>
+                  </div>
                 </div>
                 <p className="mt-3 text-sm font-bold text-teal-800">{word.meaning}</p>
               </article>
@@ -307,6 +399,23 @@ function VocabularyDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+function BookmarkButton({ active, onClick }: Readonly<{ active: boolean; onClick: () => void }>) {
+  return (
+    <button
+      className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 font-black transition-all duration-300 hover:-translate-y-0.5 ${
+        active
+          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <FiBookmark className={active ? "fill-current" : ""} />
+      {active ? "Đã bookmark" : "Bookmark từ"}
+    </button>
   );
 }
 
