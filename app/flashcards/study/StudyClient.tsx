@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { words } from "../data";
 import { StudyScreen } from "../screens/StudyScreen";
@@ -41,6 +41,7 @@ export function StudyClient({ initialDeckId, initialMode }: Readonly<{ initialDe
   const [typingState, setTypingState] = useState<AnswerState>("idle");
   const [vocabularyOpen, setVocabularyOpen] = useState(false);
   const [vocabularyQuery, setVocabularyQuery] = useState("");
+  const loadedDeckId = useRef("");
 
   useEffect(() => {
     const savedDeckId = window.localStorage.getItem("selectedCourseId");
@@ -50,8 +51,16 @@ export function StudyClient({ initialDeckId, initialMode }: Readonly<{ initialDe
       return;
     }
 
+    if (loadedDeckId.current === nextDeckId) {
+      return;
+    }
+
+    loadedDeckId.current = nextDeckId;
     setDeckId(nextDeckId);
-    router.replace(`/flashcards/study?mode=${initialMode}&deckId=${nextDeckId}`, { scroll: false });
+
+    if (!initialDeckId) {
+      router.replace(`/flashcards/study?mode=${initialMode}&deckId=${nextDeckId}`, { scroll: false });
+    }
 
     Promise.all([
       fetch(`/api/vocabulary?deckId=${nextDeckId}&limit=1500`, { cache: "no-store" }).then((response) => (response.ok ? response.json() : { data: [] })),
@@ -76,7 +85,7 @@ export function StudyClient({ initialDeckId, initialMode }: Readonly<{ initialDe
       .catch(() => {
         setStudyWords(words);
       });
-  }, [initialDeckId, initialMode, router]);
+  }, [initialDeckId, router]);
 
   const currentWord = studyWords[wordIndex] || words[0];
   const answers = useMemo(
