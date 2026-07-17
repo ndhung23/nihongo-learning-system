@@ -7,6 +7,8 @@ export type StudyMode = "meaning" | "flashcard" | "typing" | "example";
 export type AnswerState = "idle" | "correct" | "wrong";
 
 export type Word = {
+  id?: string;
+  deckId?: string;
   term: string;
   kana: string;
   romaji: string;

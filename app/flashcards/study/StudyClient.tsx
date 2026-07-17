@@ -15,6 +15,8 @@ type Course = {
 };
 
 type VocabularyItem = {
+  _id?: string;
+  deckId?: string;
   term: string;
   kana?: string;
   romaji?: string;
@@ -356,6 +358,8 @@ function toStudyWord(item: VocabularyItem, vocabulary: VocabularyItem[], index: 
   const exampleVi = item.examples?.find((entry) => entry.vi)?.vi || grammarExample.vi;
 
   return {
+    id: item._id,
+    deckId: item.deckId,
     term: item.term,
     kana,
     romaji,
@@ -370,62 +374,90 @@ function toStudyWord(item: VocabularyItem, vocabulary: VocabularyItem[], index: 
 
 function buildGrammarExample(term: string, meaning: string, level?: VocabularyItem["level"], lesson?: number) {
   const lessonNumber = lesson || 1;
+  const quotedTerm = `\u300c${term}\u300d`;
 
   if (level === "n4") {
-    if (lessonNumber >= 45) {
-      return {
-        ja: `${term}について調べてみたら、思ったより役に立ちました。`,
-        vi: `Sau khi thử tìm hiểu về ${meaning}, nó hữu ích hơn tôi nghĩ.`,
-      };
-    }
+    const n4Examples = [
+      {
+        minLesson: 45,
+        ja: `${quotedTerm}\u306b\u3064\u3044\u3066\u8abf\u3079\u3066\u307f\u305f\u3089\u3001\u601d\u3063\u305f\u3088\u308a\u899a\u3048\u3084\u3059\u304b\u3063\u305f\u3067\u3059\u3002`,
+        vi: `Sau khi thử tìm hiểu về "${meaning}", nó dễ nhớ hơn tôi nghĩ. (N4: について, てみたら, より)`,
+      },
+      {
+        minLesson: 42,
+        ja: `${quotedTerm}\u3092\u4f7f\u3044\u3053\u306a\u305b\u308b\u3088\u3046\u306b\u3001\u4f8b\u6587\u3092\u4f5c\u3063\u3066\u304a\u304d\u307e\u3059\u3002`,
+        vi: `Để có thể dùng tốt "${meaning}", tôi sẽ chuẩn bị sẵn câu ví dụ. (N4: ように, ておきます)`,
+      },
+      {
+        minLesson: 38,
+        ja: `${quotedTerm}\u306e\u4f7f\u3044\u65b9\u3092\u5fd8\u308c\u306a\u3044\u3088\u3046\u306b\u3001\u30ce\u30fc\u30c8\u306b\u66f8\u3044\u3066\u304a\u304d\u307e\u3059\u3002`,
+        vi: `Để không quên cách dùng "${meaning}", tôi ghi sẵn vào vở. (N4: ように, ておきます)`,
+      },
+      {
+        minLesson: 34,
+        ja: `${quotedTerm}\u306f\u4f1a\u8a71\u3067\u3088\u304f\u4f7f\u308f\u308c\u308b\u306e\u3067\u3001\u4f8b\u6587\u3067\u78ba\u304b\u3081\u3066\u304b\u3089\u899a\u3048\u307e\u3059\u3002`,
+        vi: `Vì "${meaning}" thường được dùng trong hội thoại, tôi kiểm tra bằng câu ví dụ rồi mới học. (N4: 受身, ので, てから)`,
+      },
+      {
+        minLesson: 30,
+        ja: `${quotedTerm}\u3092\u4f7f\u3048\u3070\u3001\u8a00\u3044\u305f\u3044\u3053\u3068\u304c\u3082\u3063\u3068\u81ea\u7136\u306b\u4f1d\u308f\u308a\u307e\u3059\u3002`,
+        vi: `Nếu dùng "${meaning}", điều muốn nói sẽ được truyền đạt tự nhiên hơn. (N4: ば, たいこと)`,
+      },
+      {
+        minLesson: 26,
+        ja: `${quotedTerm}\u3092\u4f7f\u3063\u305f\u3093\u3067\u3059\u304c\u3001\u3053\u306e\u6587\u306f\u81ea\u7136\u3067\u3059\u304b\u3002`,
+        vi: `Tôi đã dùng "${meaning}", câu này có tự nhiên không? (N4: んですが)`,
+      },
+    ];
 
-    if (lessonNumber >= 38) {
-      return {
-        ja: `${term}を忘れないように、ノートに書いておきます。`,
-        vi: `Để không quên ${meaning}, tôi sẽ ghi sẵn vào vở.`,
-      };
-    }
-
-    if (lessonNumber >= 32) {
-      return {
-        ja: `${term}を使えば、もっと自然に説明できると思います。`,
-        vi: `Nếu dùng ${meaning}, tôi nghĩ có thể giải thích tự nhiên hơn.`,
-      };
-    }
-
-    return {
-      ja: `${term}を使えるように、例文を作って練習しています。`,
-      vi: `Tôi đang luyện đặt câu để có thể dùng được ${meaning}.`,
-    };
+    return pickGrammarExample(n4Examples, lessonNumber);
   }
 
   if (level === "n5") {
-    if (lessonNumber >= 20) {
-      return {
-        ja: `${term}は大切だと思いますから、毎日少しずつ覚えています。`,
-        vi: `Vì tôi nghĩ ${meaning} quan trọng nên mỗi ngày tôi ghi nhớ từng chút một.`,
-      };
-    }
+    const n5Examples = [
+      {
+        minLesson: 21,
+        ja: `${quotedTerm}\u306f\u5927\u5207\u3060\u3068\u601d\u3044\u307e\u3059\u304b\u3089\u3001\u6bce\u65e5\u5c11\u3057\u305a\u3064\u899a\u3048\u3066\u3044\u307e\u3059\u3002`,
+        vi: `Vì tôi nghĩ "${meaning}" quan trọng nên mỗi ngày tôi học từng chút một. (N5: と思います, から, ています)`,
+      },
+      {
+        minLesson: 18,
+        ja: `${quotedTerm}\u3092\u4f7f\u3046\u3053\u3068\u304c\u3067\u304d\u308b\u3088\u3046\u306b\u3001\u4f8b\u6587\u3092\u4f55\u56de\u3082\u8aad\u307f\u307e\u3059\u3002`,
+        vi: `Để có thể dùng "${meaning}", tôi đọc câu ví dụ nhiều lần. (N5: ことができます, ように)`,
+      },
+      {
+        minLesson: 15,
+        ja: `${quotedTerm}\u3092\u898b\u3066\u304b\u3089\u3001\u8f9e\u66f8\u3067\u610f\u5473\u3092\u8abf\u3079\u3066\u3082\u3044\u3044\u3067\u3059\u304b\u3002`,
+        vi: `Sau khi nhìn thấy "${meaning}", tôi tra nghĩa bằng từ điển được không? (N5: てから, てもいいですか)`,
+      },
+      {
+        minLesson: 10,
+        ja: `${quotedTerm}\u306f\u6559\u79d1\u66f8\u306e\u4e2d\u306b\u3042\u308a\u307e\u3059\u304c\u3001\u307e\u3060\u3088\u304f\u308f\u304b\u308a\u307e\u305b\u3093\u3002`,
+        vi: `"${meaning}" có trong sách giáo khoa nhưng tôi vẫn chưa hiểu rõ. (N5: にあります, が, まだ)`,
+      },
+      {
+        minLesson: 6,
+        ja: `${quotedTerm}\u3092\u4f7f\u3063\u3066\u3001\u65e5\u672c\u8a9e\u306e\u77ed\u3044\u6587\u3092\u4f5c\u308a\u307e\u3059\u3002`,
+        vi: `Tôi dùng "${meaning}" để đặt một câu tiếng Nhật ngắn. (N5: を, て形)`,
+      },
+      {
+        minLesson: 1,
+        ja: `${quotedTerm}\u306f\u65e5\u672c\u8a9e\u306e\u8a00\u8449\u3067\u3059\u3002\u30d9\u30c8\u30ca\u30e0\u8a9e\u3067\u300c${meaning}\u300d\u3067\u3059\u3002`,
+        vi: `"${term}" là một từ tiếng Nhật. Trong tiếng Việt là "${meaning}". (N5: は, です, で)`,
+      },
+    ];
 
-    if (lessonNumber >= 14) {
-      return {
-        ja: `${term}を見てから、先生に意味を聞きました。`,
-        vi: `Sau khi nhìn thấy ${meaning}, tôi đã hỏi giáo viên về ý nghĩa.`,
-      };
-    }
-
-    if (lessonNumber >= 8) {
-      return {
-        ja: `${term}は便利ですから、よく使います。`,
-        vi: `Vì ${meaning} tiện/lợi ích nên tôi thường dùng.`,
-      };
-    }
+    return pickGrammarExample(n5Examples, lessonNumber);
   }
 
   return {
-    ja: `${term}を使って、短い文を作ります。`,
-    vi: `Tôi dùng ${meaning} để đặt một câu ngắn.`,
+    ja: `${quotedTerm}\u3092\u4f7f\u3063\u3066\u3001\u77ed\u3044\u6587\u3092\u4f5c\u308a\u307e\u3059\u3002`,
+    vi: `Tôi dùng "${meaning}" để đặt một câu ngắn.`,
   };
+}
+
+function pickGrammarExample<T extends { minLesson: number; ja: string; vi: string }>(examples: T[], lessonNumber: number) {
+  return examples.find((example) => lessonNumber >= example.minLesson) || examples[examples.length - 1];
 }
 
 function kanaToRomaji(value: string) {

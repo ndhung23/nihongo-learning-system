@@ -72,6 +72,29 @@ type CourseDetail = {
   }>;
 };
 
+type VocabularyFormState = {
+  id?: string;
+  term: string;
+  kana: string;
+  romaji: string;
+  meaningVi: string;
+  partOfSpeech: string;
+  lesson: string;
+  isPublished: boolean;
+  examplesText: string;
+};
+
+const emptyVocabularyForm: VocabularyFormState = {
+  term: "",
+  kana: "",
+  romaji: "",
+  meaningVi: "",
+  partOfSpeech: "",
+  lesson: "",
+  isPublished: true,
+  examplesText: "",
+};
+
 const emptyForm: CourseFormState = {
   title: "",
   slug: "",
@@ -471,6 +494,109 @@ function CourseDetailDialog({
   onPublish: () => void;
 }>) {
   const course = detail.course;
+  const [vocabulary, setVocabulary] = useState(detail.recentVocabulary);
+  const [vocabularyForm, setVocabularyForm] = useState<VocabularyFormState>(emptyVocabularyForm);
+  const [importText, setImportText] = useState("");
+  const [vocabularyError, setVocabularyError] = useState("");
+  const [vocabularySaving, setVocabularySaving] = useState(false);
+
+  function editVocabulary(word: CourseDetail["recentVocabulary"][number]) {
+    setVocabularyForm({
+      id: word._id,
+      term: word.term,
+      kana: word.kana || "",
+      romaji: word.romaji || "",
+      meaningVi: word.meaningVi,
+      partOfSpeech: "",
+      lesson: word.lesson ? String(word.lesson) : "",
+      isPublished: Boolean(word.isPublished),
+      examplesText: (word.examples || []).map((example) => [example.ja, example.vi].filter(Boolean).join(" | ")).join("\n"),
+    });
+    setVocabularyError("");
+  }
+
+  async function saveVocabulary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setVocabularySaving(true);
+    setVocabularyError("");
+
+    try {
+      const payload = buildVocabularyPayload(vocabularyForm);
+      const isEdit = Boolean(vocabularyForm.id);
+      const response = await fetch(
+        isEdit ? `/api/admin/courses/${course._id}/vocabulary/${vocabularyForm.id}` : `/api/admin/courses/${course._id}/vocabulary`,
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const result = await response.json();
+
+      if (!response.ok) {
+        setVocabularyError(result.message || "Không thể lưu từ vựng.");
+        return;
+      }
+
+      setVocabulary((current) => {
+        if (isEdit) {
+          return current.map((word) => (word._id === result.data._id ? result.data : word));
+        }
+
+        return [result.data, ...current].slice(0, 80);
+      });
+      setVocabularyForm(emptyVocabularyForm);
+    } finally {
+      setVocabularySaving(false);
+    }
+  }
+
+  async function deleteVocabulary(wordId: string) {
+    if (!confirm("Xóa từ vựng này?")) {
+      return;
+    }
+
+    const response = await fetch(`/api/admin/courses/${course._id}/vocabulary/${wordId}`, { method: "DELETE" });
+    const result = await response.json();
+
+    if (!response.ok) {
+      setVocabularyError(result.message || "Không thể xóa từ vựng.");
+      return;
+    }
+
+    setVocabulary((current) => current.filter((word) => word._id !== wordId));
+  }
+
+  async function importVocabulary() {
+    setVocabularySaving(true);
+    setVocabularyError("");
+
+    try {
+      const response = await fetch(`/api/admin/courses/${course._id}/vocabulary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importText, level: course.level === "it" ? "custom" : course.level, isPublished: true }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setVocabularyError(result.message || "Không thể import từ vựng.");
+        return;
+      }
+
+      setImportText("");
+      const refresh = await fetch(`/api/admin/courses/${course._id}/vocabulary?limit=80`, { cache: "no-store" });
+      const refreshResult = await refresh.json();
+
+      if (refresh.ok) {
+        setVocabulary(refreshResult.data || []);
+      }
+
+      setVocabularyError(`Đã import ${result.data.imported} dòng.`);
+    } finally {
+      setVocabularySaving(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
@@ -523,9 +649,56 @@ function CourseDetailDialog({
           </div>
 
           <div className="rounded-[1.5rem] border border-slate-200 p-4">
-            <p className="text-sm font-black uppercase tracking-widest text-rose-600">Từ vựng mẫu</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-black uppercase tracking-widest text-rose-600">CRUD từ vựng</p>
+              <button className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700" onClick={() => setVocabularyForm(emptyVocabularyForm)} type="button">
+                Tạo mới
+              </button>
+            </div>
+
+            <form className="mt-4 grid gap-3" onSubmit={saveVocabulary}>
+              <div className="grid gap-3 md:grid-cols-2">
+                <MiniInput label="Hán/Kanji" onChange={(value) => setVocabularyForm({ ...vocabularyForm, term: value })} value={vocabularyForm.term} />
+                <MiniInput label="Kana" onChange={(value) => setVocabularyForm({ ...vocabularyForm, kana: value })} value={vocabularyForm.kana} />
+                <MiniInput label="Romaji" onChange={(value) => setVocabularyForm({ ...vocabularyForm, romaji: value })} value={vocabularyForm.romaji} />
+                <MiniInput label="Tiếng Việt" onChange={(value) => setVocabularyForm({ ...vocabularyForm, meaningVi: value })} value={vocabularyForm.meaningVi} />
+                <MiniInput label="Bài" onChange={(value) => setVocabularyForm({ ...vocabularyForm, lesson: value })} type="number" value={vocabularyForm.lesson} />
+                <label className="flex items-center gap-2 pt-6 text-sm font-black text-slate-700">
+                  <input checked={vocabularyForm.isPublished} onChange={(event) => setVocabularyForm({ ...vocabularyForm, isPublished: event.target.checked })} type="checkbox" />
+                  Public
+                </label>
+              </div>
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-500">Ví dụ, mỗi dòng: câu Nhật | nghĩa Việt</span>
+                <textarea
+                  className="min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none transition focus:border-teal-400"
+                  onChange={(event) => setVocabularyForm({ ...vocabularyForm, examplesText: event.target.value })}
+                  placeholder="何でも食べます | Tôi ăn gì cũng được"
+                  value={vocabularyForm.examplesText}
+                />
+              </label>
+              <button className="h-11 rounded-2xl bg-teal-700 font-black text-white transition hover:bg-teal-800 disabled:opacity-60" disabled={vocabularySaving} type="submit">
+                {vocabularySaving ? "Đang lưu..." : vocabularyForm.id ? "Lưu từ vựng" : "Thêm từ vào khóa"}
+              </button>
+            </form>
+
+            <div className="mt-5 rounded-2xl bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Import text</p>
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-rose-400"
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="何でも,なんでも,nandemo,cái gì cũng,何でも食べます"
+                value={importText}
+              />
+              <button className="mt-2 h-10 w-full rounded-xl bg-rose-600 text-sm font-black text-white transition hover:bg-rose-700 disabled:opacity-60" disabled={vocabularySaving || !importText.trim()} onClick={importVocabulary} type="button">
+                Import vào khóa học
+              </button>
+            </div>
+
+            {vocabularyError && <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">{vocabularyError}</p>}
+
             <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
-              {detail.recentVocabulary.map((word) => (
+              {vocabulary.map((word) => (
                 <article className="rounded-2xl bg-slate-50 p-4" key={word._id}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -536,6 +709,14 @@ function CourseDetailDialog({
                   </div>
                   <p className="mt-2 text-sm font-bold text-slate-700">{word.meaningVi}</p>
                   {word.examples?.[0]?.ja && <p className="mt-2 text-sm font-semibold text-slate-500">{word.examples[0].ja}</p>}
+                  <div className="mt-3 flex gap-2">
+                    <button className="rounded-xl bg-white px-3 py-2 text-xs font-black text-teal-700 transition hover:bg-teal-50" onClick={() => editVocabulary(word)} type="button">
+                      Sửa
+                    </button>
+                    <button className="rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50" onClick={() => deleteVocabulary(word._id)} type="button">
+                      Xóa
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -554,6 +735,46 @@ function DetailMetric({ label, value }: Readonly<{ label: string; value: string 
       <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
       <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
+  );
+}
+
+function buildVocabularyPayload(form: VocabularyFormState) {
+  return {
+    term: form.term,
+    kana: form.kana || undefined,
+    romaji: form.romaji || undefined,
+    meaningVi: form.meaningVi,
+    partOfSpeech: form.partOfSpeech || undefined,
+    lesson: form.lesson ? Number(form.lesson) : undefined,
+    isPublished: form.isPublished,
+    examples: form.examplesText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [ja, vi] = line.includes("|") ? line.split("|") : line.split(",");
+        return { ja: ja?.trim() || "", vi: vi?.trim() || undefined };
+      })
+      .filter((example) => example.ja),
+  };
+}
+
+function MiniInput({
+  label,
+  onChange,
+  type = "text",
+  value,
+}: Readonly<{
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}>) {
+  return (
+    <label>
+      <span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-500">{label}</span>
+      <input className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-teal-400" onChange={(event) => onChange(event.target.value)} type={type} value={value} />
+    </label>
   );
 }
 

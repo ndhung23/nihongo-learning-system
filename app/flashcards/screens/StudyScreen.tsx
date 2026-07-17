@@ -163,7 +163,7 @@ export function StudyScreen({
             state={typingState}
           />
         )}
-        {mode === "example" && <ExampleExercise currentWord={currentWord} onNext={onNext} onSpeak={onSpeak} />}
+        {mode === "example" && <ExampleExercise currentWord={currentWord} key={currentWord.id || currentWord.term} onNext={onNext} onSpeak={onSpeak} />}
       </section>
       {vocabularyOpen && (
         <VocabularyDialog
@@ -478,6 +478,12 @@ function TypingExercise({
 
 function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWord: Word; onNext: () => void; onSpeak: (text?: string) => void }>) {
   const [sentence, setSentence] = useState("");
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+  const [suggestedJa, setSuggestedJa] = useState(currentWord.example);
+  const [suggestedVi, setSuggestedVi] = useState(currentWord.exampleVi);
+  const [suggestionNote, setSuggestionNote] = useState("");
+  const [suggestionStatus, setSuggestionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [suggestionError, setSuggestionError] = useState("");
   const [grade, setGrade] = useState<GradeResult | null>(null);
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState("");
@@ -525,6 +531,41 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
     }
   }
 
+  async function submitExampleSuggestion() {
+    if (!currentWord.id) {
+      setSuggestionError("Từ này chưa có ID trong dữ liệu nên chưa gửi góp ý được.");
+      setSuggestionStatus("error");
+      return;
+    }
+
+    setSuggestionStatus("sending");
+    setSuggestionError("");
+
+    try {
+      const response = await fetch("/api/example-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vocabularyId: currentWord.id,
+          suggestedJa,
+          suggestedVi,
+          note: suggestionNote,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Không thể gửi góp ý mẫu câu.");
+      }
+
+      setSuggestionStatus("sent");
+      setSuggestionNote("");
+    } catch (error) {
+      setSuggestionError(error instanceof Error ? error.message : "Không thể gửi góp ý mẫu câu.");
+      setSuggestionStatus("error");
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-[2rem] border border-teal-200 bg-white shadow-2xl shadow-teal-500/8">
       <div className="bg-teal-50 p-8 text-center">
@@ -541,6 +582,42 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
           <p className="min-w-0 flex-1">{currentWord.example}</p>
           <SoundButton onSpeak={() => onSpeak(currentWord.example)} />
         </div>
+        <button
+          className="mt-3 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-black text-amber-800 transition hover:-translate-y-0.5 hover:bg-amber-100"
+          onClick={() => {
+            setSuggestionOpen((value) => !value);
+            setSuggestionStatus("idle");
+            setSuggestionError("");
+          }}
+          type="button"
+        >
+          Góp ý mẫu câu này
+        </button>
+        {suggestionOpen && (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-widest text-amber-700">Câu Nhật đề xuất</span>
+                <textarea className="min-h-24 w-full rounded-2xl border border-amber-200 bg-white p-3 text-sm font-bold outline-none focus:border-amber-400" onChange={(event) => setSuggestedJa(event.target.value)} value={suggestedJa} />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-black uppercase tracking-widest text-amber-700">Nghĩa tiếng Việt</span>
+                <textarea className="min-h-24 w-full rounded-2xl border border-amber-200 bg-white p-3 text-sm font-bold outline-none focus:border-amber-400" onChange={(event) => setSuggestedVi(event.target.value)} value={suggestedVi} />
+              </label>
+            </div>
+            <input
+              className="mt-3 h-11 w-full rounded-2xl border border-amber-200 bg-white px-4 text-sm font-bold outline-none focus:border-amber-400"
+              onChange={(event) => setSuggestionNote(event.target.value)}
+              placeholder="Ghi chú thêm cho admin, ví dụ: câu này tự nhiên hơn vì..."
+              value={suggestionNote}
+            />
+            {suggestionStatus === "sent" && <p className="mt-3 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">Đã gửi góp ý mẫu câu. Admin sẽ xem và chọn nếu phù hợp.</p>}
+            {suggestionError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{suggestionError}</p>}
+            <button className="mt-3 h-11 rounded-2xl bg-amber-500 px-5 font-black text-white transition hover:bg-amber-600 disabled:opacity-60" disabled={suggestionStatus === "sending"} onClick={submitExampleSuggestion} type="button">
+              {suggestionStatus === "sending" ? "Đang gửi..." : "Gửi cho admin duyệt"}
+            </button>
+          </div>
+        )}
         <ExampleTranslation currentWord={currentWord} />
         <textarea
           className="mt-5 min-h-32 w-full rounded-2xl border border-slate-200 bg-white p-4 outline-none transition-all duration-300 focus:border-teal-400 focus:shadow-xl focus:shadow-teal-500/10"
