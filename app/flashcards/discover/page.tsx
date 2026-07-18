@@ -8,7 +8,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function DiscoverPage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
   const params = await searchParams;
-  const type = firstParam(params.type) || "flashcard";
+  const type = firstParam(params.type) || "all";
   const q = firstParam(params.q).trim();
   const level = normalizeLevel(firstParam(params.level));
   const sort = normalizeSort(firstParam(params.sort));
@@ -26,7 +26,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
     filter.tags = "roadmap";
   } else if (type === "test") {
     filter.tags = "Test";
-  } else {
+  } else if (type === "flashcard") {
     filter.tags = { $nin: ["roadmap", "Test"] };
   }
 
@@ -66,6 +66,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <DiscoverFilter href={buildDiscoverHref({ type: "all", q, level, sort })} active={type === "all"} label="All" />
           <DiscoverFilter href={buildDiscoverHref({ type: "flashcard", q, level, sort })} active={type === "flashcard"} label="Khóa học flashcard" />
           <DiscoverFilter href={buildDiscoverHref({ type: "roadmap", q, level, sort })} active={type === "roadmap"} label="Khóa học lộ trình" />
           <DiscoverFilter href={buildDiscoverHref({ type: "test", q, level, sort })} active={type === "test"} label="Đề thi" />
@@ -76,7 +77,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         initialLevel={level}
         initialQuery={q}
         initialSort={sort}
-        type={type === "roadmap" || type === "test" ? type : "flashcard"}
+        type={["flashcard", "roadmap", "test"].includes(type) ? type : "all"}
       />
 
       <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">

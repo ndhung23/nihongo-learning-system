@@ -6,6 +6,7 @@ import { words } from "../data";
 import { getWordBookmarkKey, readVocabularyBookmarks, toVocabularyBookmark, writeVocabularyBookmarks } from "../bookmarkStorage";
 import { StudyScreen } from "../screens/StudyScreen";
 import type { AnswerState, StudyMode, Word } from "../types";
+import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 
 type Course = {
   id: string;
@@ -41,8 +42,9 @@ type VocabularyItem = {
 
 type DailyState = {
   date: string;
-  totalXp: number;
-  dailyXp: number;
+  tickets: number;
+  coins: number;
+  aiCredits: number;
   streak: number;
   checkedIn: boolean;
   sessions: number;
@@ -51,8 +53,6 @@ type DailyState = {
   claimedQuests: string[];
 };
 
-const dailyStorageKey = "nihongo-daily-progress";
-
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -60,8 +60,9 @@ function todayKey() {
 function readDailyState(): DailyState {
   const fallback: DailyState = {
     date: todayKey(),
-    totalXp: 0,
-    dailyXp: 0,
+    tickets: 0,
+    coins: 0,
+    aiCredits: 0,
     streak: 0,
     checkedIn: false,
     sessions: 0,
@@ -69,41 +70,49 @@ function readDailyState(): DailyState {
     newWords: 0,
     claimedQuests: [],
   };
-  const raw = window.localStorage.getItem(dailyStorageKey);
+  const raw = window.localStorage.getItem(getKnownDailyProgressStorageKey());
 
   if (!raw) {
     return fallback;
   }
 
   try {
-    const parsed = JSON.parse(raw) as DailyState;
+    const parsed = JSON.parse(raw) as Partial<DailyState>;
+    const balances = {
+      tickets: Number(parsed.tickets) || 0,
+      coins: Number(parsed.coins) || 0,
+      aiCredits: Number(parsed.aiCredits) || 0,
+      streak: Number(parsed.streak) || 0,
+    };
 
     if (parsed.date !== todayKey()) {
       return {
         ...fallback,
-        totalXp: parsed.totalXp || 0,
-        streak: parsed.streak || 0,
+        ...balances,
       };
     }
 
-    return { ...fallback, ...parsed };
+    return {
+      ...fallback,
+      ...parsed,
+      ...balances,
+      claimedQuests: Array.isArray(parsed.claimedQuests) ? parsed.claimedQuests : [],
+    };
   } catch {
     return fallback;
   }
 }
 
-function addDailyProgress(progress: Partial<Pick<DailyState, "sessions" | "correctAnswers" | "newWords">> & { xp?: number }) {
+function addDailyProgress(progress: Partial<Pick<DailyState, "sessions" | "correctAnswers" | "newWords">>) {
   const current = readDailyState();
   const nextState: DailyState = {
     ...current,
     sessions: current.sessions + (progress.sessions || 0),
     correctAnswers: current.correctAnswers + (progress.correctAnswers || 0),
     newWords: current.newWords + (progress.newWords || 0),
-    dailyXp: current.dailyXp + (progress.xp || 0),
-    totalXp: current.totalXp + (progress.xp || 0),
   };
 
-  window.localStorage.setItem(dailyStorageKey, JSON.stringify(nextState));
+  window.localStorage.setItem(getKnownDailyProgressStorageKey(), JSON.stringify(nextState));
   window.dispatchEvent(new CustomEvent("nihongo-daily-progress-updated"));
 }
 
@@ -147,6 +156,10 @@ export function StudyClient({
     }
 
     loadedDeckId.current = loadKey;
+    fetch(`/api/courses/${nextDeckId}/learn`, {
+      method: "POST",
+      keepalive: true,
+    }).catch(() => undefined);
     setDeckId(nextDeckId);
     setLesson(nextLesson);
     setIsCourseLoading(true);
@@ -239,12 +252,12 @@ export function StudyClient({
   }
 
   function finishWord() {
-    addDailyProgress({ sessions: 1, newWords: 1, xp: 10 });
+    addDailyProgress({ sessions: 1, newWords: 1 });
     nextWord();
   }
 
   function markKnown() {
-    addDailyProgress({ newWords: 1, xp: 5 });
+    addDailyProgress({ newWords: 1 });
     nextWord();
   }
 
@@ -254,7 +267,7 @@ export function StudyClient({
     setAnswerState(isCorrect ? "correct" : "wrong");
 
     if (isCorrect && answerState === "idle") {
-      addDailyProgress({ correctAnswers: 1, xp: 2 });
+      addDailyProgress({ correctAnswers: 1 });
     }
   }
 
@@ -275,7 +288,7 @@ export function StudyClient({
     setTypingState(isCorrect ? "correct" : "wrong");
 
     if (isCorrect) {
-      addDailyProgress({ correctAnswers: 1, xp: 2 });
+      addDailyProgress({ correctAnswers: 1 });
       setMode("example");
       setTypingAnswer("");
       setAnswerState("idle");
@@ -309,6 +322,13 @@ export function StudyClient({
     }
 
     window.speechSynthesis.speak(utterance);
+  }
+
+  function flipCard() {
+    if (!flipped) {
+      speakJapanese();
+    }
+    setFlipped((value) => !value);
   }
 
   function toggleBookmark(word: Word) {
@@ -346,7 +366,7 @@ export function StudyClient({
       onCloseVocabulary={() => setVocabularyOpen(false)}
       onContinueFlashcard={continueFlashcard}
       onContinueMeaning={continueMeaning}
-      onFlip={() => setFlipped((value) => !value)}
+      onFlip={flipCard}
       onModeChange={changeMode}
       onNext={finishWord}
       onOpenVocabulary={() => setVocabularyOpen(true)}

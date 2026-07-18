@@ -24,7 +24,7 @@ const DeckSchema = new Schema(
     },
     stats: {
       vocabularyCount: { type: Number, default: 0 },
-      learnerCount: { type: Number, default: 0 },
+      learnerCount: { type: Number, default: 900 },
       ratingAverage: { type: Number, default: 0 },
       ratingCount: { type: Number, default: 0 },
     },

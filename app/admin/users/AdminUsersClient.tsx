@@ -17,6 +17,8 @@ type AdminUser = {
     phone?: string;
   };
   createdAt?: string;
+  aiCredits?: number;
+  pendingGachaTickets?: number;
 };
 
 type Meta = {
@@ -36,6 +38,8 @@ type UserFormState = {
   gender: "male" | "female" | "other" | "unknown";
   role: Role;
   status: "active" | "inactive" | "banned" | "pending_verify";
+  addAiCredits: string;
+  addGachaTickets: string;
 };
 
 const emptyForm: UserFormState = {
@@ -47,6 +51,8 @@ const emptyForm: UserFormState = {
   gender: "unknown",
   role: "user",
   status: "active",
+  addAiCredits: "0",
+  addGachaTickets: "0",
 };
 
 const roleOptions: Array<{ label: string; value: Role | "all" }> = [
@@ -128,6 +134,8 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
       gender: user.profile?.gender || "unknown",
       role: user.roles[0] || "user",
       status: user.status,
+      addAiCredits: "0",
+      addGachaTickets: "0",
     });
     setError("");
     setFormOpen(true);
@@ -147,6 +155,15 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
         gender: form.gender,
         roles: [form.role],
         status: form.status,
+        ...(isEdit
+          ? {
+              addAiCredits: Number(form.addAiCredits) || 0,
+              addGachaTickets: Number(form.addGachaTickets) || 0,
+            }
+          : {
+              aiCredits: Number(form.addAiCredits) || 0,
+              gachaTickets: Number(form.addGachaTickets) || 0,
+            }),
       };
 
       if (!isEdit) {
@@ -355,6 +372,20 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
                   ))}
                 </select>
               </label>
+              <AdminInput
+                label={form.id ? "Thêm lượt AI" : "Lượt AI ban đầu"}
+                min="0"
+                onChange={(value) => setForm({ ...form, addAiCredits: value })}
+                type="number"
+                value={form.addAiCredits}
+              />
+              <AdminInput
+                label={form.id ? "Thêm vé Gacha" : "Vé Gacha ban đầu"}
+                min="0"
+                onChange={(value) => setForm({ ...form, addGachaTickets: value })}
+                type="number"
+                value={form.addGachaTickets}
+              />
             </div>
 
             {error && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
@@ -377,12 +408,14 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
 function AdminInput({
   disabled,
   label,
+  min,
   onChange,
   type = "text",
   value,
 }: Readonly<{
   disabled?: boolean;
   label: string;
+  min?: string;
   onChange: (value: string) => void;
   type?: string;
   value: string;
@@ -390,7 +423,7 @@ function AdminInput({
   return (
     <label>
       <span className="mb-2 block text-sm font-black text-slate-700">{label}</span>
-      <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 disabled:bg-slate-100 disabled:text-slate-400" disabled={disabled} onChange={(event) => onChange(event.target.value)} type={type} value={value} />
+      <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 disabled:bg-slate-100 disabled:text-slate-400" disabled={disabled} min={min} onChange={(event) => onChange(event.target.value)} type={type} value={value} />
     </label>
   );
 }

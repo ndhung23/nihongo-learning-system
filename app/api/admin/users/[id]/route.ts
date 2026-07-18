@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { roles } from "@/lib/auth/permissions";
@@ -14,6 +15,8 @@ const UpdateUserSchema = z.object({
   gender: z.enum(["male", "female", "other", "unknown"]).optional(),
   roles: z.array(z.enum(roles)).optional(),
   status: z.enum(["active", "inactive", "banned", "pending_verify"]).optional(),
+  addAiCredits: z.coerce.number().int().min(0).optional(),
+  addGachaTickets: z.coerce.number().int().min(0).optional(),
 });
 
 export async function PATCH(
@@ -44,7 +47,21 @@ export async function PATCH(
       return NextResponse.json({ message: "Không tìm thấy người dùng." }, { status: 404 });
     }
 
-    return NextResponse.json({ data: user });
+    const increments: Record<string, number> = {};
+    if (payload.addAiCredits) increments.aiCredits = payload.addAiCredits;
+    if (payload.addGachaTickets) increments.pendingGachaTickets = payload.addGachaTickets;
+    if (Object.keys(increments).length > 0) {
+      await UserModel.collection.updateOne(
+        { _id: new Types.ObjectId(id) },
+        { $inc: increments },
+      );
+    }
+
+    const updatedUser = await UserModel.collection.findOne(
+      { _id: new Types.ObjectId(id) },
+      { projection: { passwordHash: 0, passwordReset: 0 } },
+    );
+    return NextResponse.json({ data: updatedUser });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json(

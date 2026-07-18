@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiBookOpen, FiCheckCircle, FiFolder, FiPlus, FiTarget, FiX } from "react-icons/fi";
-import { decks } from "../data";
+import { FiAward, FiBookOpen, FiCheckCircle, FiChevronLeft, FiChevronRight, FiCpu, FiFolder, FiPlus, FiTarget, FiUsers, FiX } from "react-icons/fi";
 import type { StudyMode } from "../types";
-import { ActionCard, DeckCard, MetricCard } from "../components/Cards";
-import { DailyPanel } from "../components/DailyPanel";
+import { ActionCard } from "../components/Cards";
+import { GachaDailyPanel } from "../components/GachaDailyPanel";
 
 type PublicCourse = {
   id: string;
@@ -39,6 +38,8 @@ export function LibraryScreen({
   onTest: (level?: string, number?: number) => void;
 }>) {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
+  const [learningCourses, setLearningCourses] = useState<PublicCourse[]>([]);
+  const [coursePage, setCoursePage] = useState(1);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [lessonPickerCourse, setLessonPickerCourse] = useState<PublicCourse | null>(null);
   const discoverRef = useRef<HTMLDivElement | null>(null);
@@ -46,10 +47,27 @@ export function LibraryScreen({
   useEffect(() => {
     setSelectedCourseId(window.localStorage.getItem("selectedCourseId"));
 
-    fetch("/api/courses", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : { data: [] }))
-      .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
-      .catch(() => setCourses([]));
+    Promise.all([
+      fetch("/api/courses?sort=newest&limit=80", { cache: "no-store" }).then(
+        (response) => (response.ok ? response.json() : { data: [] }),
+      ),
+      fetch("/api/courses/learning", { cache: "no-store" }).then((response) =>
+        response.ok ? response.json() : { data: [] },
+      ),
+    ])
+      .then(
+        ([coursesPayload, learningPayload]: [
+          { data?: PublicCourse[] },
+          { data?: PublicCourse[] },
+        ]) => {
+          setCourses(coursesPayload.data || []);
+          setLearningCourses(learningPayload.data || []);
+        },
+      )
+      .catch(() => {
+        setCourses([]);
+        setLearningCourses([]);
+      });
   }, []);
 
   function scrollToDiscover() {
@@ -77,6 +95,10 @@ export function LibraryScreen({
 
   function openCourseStudy(course: PublicCourse) {
     selectCourse(course.id);
+    setLearningCourses((current) => [
+      course,
+      ...current.filter((item) => item.id !== course.id),
+    ]);
 
     if (isTestCourse(course)) {
       onTest(course.jlptTest?.level, course.jlptTest?.number);
@@ -101,33 +123,53 @@ export function LibraryScreen({
     onStudy("flashcard", lessonPickerCourse.id, lesson);
   }
 
+  const coursePageSize = 6;
+  const courseTotalPages = Math.max(
+    Math.ceil(courses.length / coursePageSize),
+    1,
+  );
+  const visibleCoursePage = Math.min(coursePage, courseTotalPages);
+  const paginatedCourses = courses.slice(
+    (visibleCoursePage - 1) * coursePageSize,
+    visibleCoursePage * coursePageSize,
+  );
+
   return (
     <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_340px] lg:px-10">
       <section className="min-w-0">
         <div className="rounded-[2rem] border border-slate-200 bg-white/88 p-6 shadow-2xl shadow-slate-900/[0.05] backdrop-blur">
           <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Luyện tiếng Nhật mỗi ngày</p>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Bắt đầu hành trình tiếng Nhật</p>
               <h1 className="mt-4 max-w-2xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl">
-                Xây tủ từ vựng của riêng bạn.
+                Học đúng cách. Tiến bộ mỗi ngày.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
-                Học bằng flashcard, chọn nghĩa, gõ từ và tự đặt câu. Mỗi thẻ có kana, romaji, ví dụ và trạng thái ôn tập.
+                Từ người mới bắt đầu đến mục tiêu JLPT: học từ vựng bằng flashcard, luyện đề N5–N1, nhận giải thích từ AI và duy trì động lực với nhiệm vụ Gacha.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
-                <button className="rounded-2xl bg-rose-600 px-5 py-3 font-black text-white shadow-xl shadow-rose-600/20 transition-all duration-300 hover:-translate-y-1 hover:bg-rose-700" onClick={() => onStudy("flashcard")} type="button">
-                  Bắt đầu luyện
+                <button className="rounded-2xl bg-rose-600 px-5 py-3 font-black text-white shadow-xl shadow-rose-600/20 transition-all duration-300 hover:-translate-y-1 hover:bg-rose-700" onClick={scrollToDiscover} type="button">
+                  Khám phá khóa học
                 </button>
-                <button className="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-black text-slate-700 transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:text-teal-700 hover:shadow-xl hover:shadow-teal-500/10" onClick={onAdd} type="button">
-                  Thêm từ mới
+                <button className="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-black text-slate-700 transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:text-teal-700 hover:shadow-xl hover:shadow-teal-500/10" onClick={() => onStudy("flashcard")} type="button">
+                  Học thử ngay
                 </button>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <MetricCard label="Tổng từ" value="914" tone="bg-rose-50 text-rose-700" />
-              <MetricCard label="Cần học" value="913" tone="bg-teal-50 text-teal-700" />
-              <MetricCard label="Cần ôn" value="1" tone="bg-amber-50 text-amber-700" />
+              <div className="flex items-center gap-4 rounded-2xl bg-rose-50 p-4 text-rose-700">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-xl"><FiBookOpen /></span>
+                <div><p className="font-black">Flashcard thông minh</p><p className="mt-1 text-xs font-semibold text-slate-500">Lật thẻ, chọn nghĩa, gõ từ và đặt câu.</p></div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl bg-teal-50 p-4 text-teal-700">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-xl"><FiAward /></span>
+                <div><p className="font-black">Luyện thi JLPT N5–N1</p><p className="mt-1 text-xs font-semibold text-slate-500">Đề minh họa với đáp án và hai phần thi.</p></div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl bg-amber-50 p-4 text-amber-700">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-xl"><FiCpu /></span>
+                <div><p className="font-black">AI hỗ trợ học sâu</p><p className="mt-1 text-xs font-semibold text-slate-500">Ví dụ, từ đồng nghĩa, trái nghĩa và góp ý câu.</p></div>
+              </div>
             </div>
           </div>
         </div>
@@ -151,9 +193,12 @@ export function LibraryScreen({
             )}
           </div>
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div
+            className="mt-6 grid gap-5 lg:grid-cols-2"
+            data-testid="library-course-grid"
+          >
             {courses.length > 0 ? (
-              courses.map((course) => {
+              paginatedCourses.map((course) => {
                 const isSelected = selectedCourseId === course.id;
 
                 return (
@@ -169,7 +214,7 @@ export function LibraryScreen({
                         <h3 className="mt-2 text-xl font-black text-slate-950">{course.title}</h3>
                       </div>
                       <span className="shrink-0 rounded-2xl bg-rose-50 px-3 py-2 text-center text-sm font-black text-rose-700">
-                        {course.stats?.vocabularyCount || 0} {isTestCourse(course) ? "đề" : "từ"}
+                        {course.stats?.vocabularyCount || 0} {isTestCourse(course) ? "câu" : "từ"}
                       </span>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
@@ -180,6 +225,10 @@ export function LibraryScreen({
                         </span>
                       ))}
                     </div>
+                    <p className="mt-4 inline-flex items-center gap-2 text-sm font-black text-slate-500">
+                      <FiUsers className="text-teal-700" />
+                      {course.stats?.learnerCount || 900} học viên
+                    </p>
                     <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
                       <button
                         className={`h-11 rounded-2xl px-4 font-black transition-all duration-300 ${
@@ -207,6 +256,52 @@ export function LibraryScreen({
               </div>
             )}
           </div>
+          {courseTotalPages > 1 && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <button
+                className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                disabled={visibleCoursePage === 1}
+                onClick={() =>
+                  setCoursePage((current) => Math.max(current - 1, 1))
+                }
+                type="button"
+              >
+                <FiChevronLeft /> Trước
+              </button>
+              {Array.from({ length: courseTotalPages }, (_, index) => {
+                const pageNumber = index + 1;
+                return (
+                  <button
+                    aria-current={
+                      pageNumber === visibleCoursePage ? "page" : undefined
+                    }
+                    className={`grid h-10 min-w-10 place-items-center rounded-xl px-3 text-sm font-black ${
+                      pageNumber === visibleCoursePage
+                        ? "bg-slate-950 text-white"
+                        : "border border-slate-200 bg-white text-slate-600"
+                    }`}
+                    key={pageNumber}
+                    onClick={() => setCoursePage(pageNumber)}
+                    type="button"
+                  >
+                    {pageNumber}
+                  </button>
+                );
+              })}
+              <button
+                className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                disabled={visibleCoursePage === courseTotalPages}
+                onClick={() =>
+                  setCoursePage((current) =>
+                    Math.min(current + 1, courseTotalPages),
+                  )
+                }
+                type="button"
+              >
+                Sau <FiChevronRight />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
@@ -214,32 +309,67 @@ export function LibraryScreen({
             <p className="text-xs font-black uppercase tracking-[0.28em] text-teal-700">Tủ sách cá nhân</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Bộ từ đang học</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {["Cá nhân", "JLPT", "Kanji", "Ngữ pháp", "Cộng đồng"].map((tab, index) => (
-              <button
-                className={`rounded-full border px-4 py-2 text-sm font-bold transition-all duration-300 ${
-                  index === 0
-                    ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/10"
-                    : "border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-rose-300 hover:text-rose-700"
-                }`}
-                key={tab}
-                type="button"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+          <span className="rounded-full bg-teal-50 px-4 py-2 text-sm font-black text-teal-800">
+            {learningCourses.length} khóa đang học
+          </span>
         </div>
 
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {decks.map((deck) => (
-            <DeckCard
-              deck={deck}
-              key={deck.title}
-              onManage={onManage}
-              onStudy={() => onStudy("flashcard")}
-            />
+        <div
+          className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+          data-testid="learning-course-grid"
+        >
+          {learningCourses.map((course) => (
+            <article
+              className="group overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/[0.05] transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl"
+              key={course.id}
+            >
+              <div className="h-2 bg-gradient-to-r from-teal-500 to-sky-500" />
+              <div className="p-5">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-50 text-3xl text-slate-800 transition group-hover:bg-slate-950 group-hover:text-white">
+                  <FiBookOpen />
+                </span>
+                <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-teal-700">
+                  {course.level}
+                </p>
+                <h3 className="mt-2 text-lg font-black text-slate-950">
+                  {course.title}
+                </h3>
+                <p className="mt-3 text-sm font-semibold text-slate-500">
+                  {course.stats?.vocabularyCount || 0}{" "}
+                  {isTestCourse(course) ? "câu hỏi" : "từ vựng"} ·{" "}
+                  {course.stats?.learnerCount || 0} học viên
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(course.tags || []).slice(0, 4).map((tag) => (
+                    <span
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
+                      key={tag}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="mt-6 h-11 w-full rounded-2xl bg-slate-950 font-black text-white transition hover:bg-teal-700"
+                  onClick={() => openCourseStudy(course)}
+                  type="button"
+                >
+                  {isTestCourse(course) ? "Tiếp tục làm bài" : "Tiếp tục học"}
+                </button>
+              </div>
+            </article>
           ))}
+          {learningCourses.length === 0 && (
+            <div className="min-h-72 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/70 p-6 text-center">
+              <FiBookOpen className="mx-auto mt-14 text-4xl text-slate-400" />
+              <p className="mt-5 font-black text-slate-800">
+                Bạn chưa học khóa nào
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Bấm học một khóa ở phần Khám phá để khóa xuất hiện tại đây.
+              </p>
+            </div>
+          )}
           <button className="group min-h-72 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/70 p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-teal-400 hover:bg-white hover:shadow-2xl hover:shadow-teal-500/10" onClick={onAdd} type="button">
             <span className="mx-auto mt-16 grid h-16 w-16 place-items-center rounded-2xl bg-teal-50 text-3xl text-teal-700 transition-all duration-300 group-hover:scale-110 group-hover:bg-teal-600 group-hover:text-white">
               <FiPlus />
@@ -250,7 +380,7 @@ export function LibraryScreen({
         </div>
       </section>
 
-      <DailyPanel />
+      <GachaDailyPanel />
       {lessonPickerCourse && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/20">

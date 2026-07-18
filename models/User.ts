@@ -28,6 +28,8 @@ const UserSchema = new Schema(
       lastStudiedAt: { type: Date },
     },
     vipUntil: { type: Date },
+    aiCredits: { type: Number, default: 1, min: 0 },
+    pendingGachaTickets: { type: Number, default: 0, min: 0 },
     passwordReset: {
       tokenHash: { type: String },
       expiresAt: { type: Date },

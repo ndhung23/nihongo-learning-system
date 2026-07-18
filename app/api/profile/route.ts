@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getPermissionsForRoles, isRole } from "@/lib/auth/permissions";
@@ -129,6 +130,35 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể cập nhật hồ sơ." }, { status: 500 });
+  }
+}
+
+export async function POST() {
+  try {
+    const session = await requireAuth();
+    await connectMongoDB();
+
+    const user = await UserModel.collection.findOneAndUpdate(
+      { _id: new Types.ObjectId(session.userId) },
+      { $set: { pendingGachaTickets: 0 } },
+      { returnDocument: "before", projection: { pendingGachaTickets: 1 } },
+    );
+
+    if (!user) {
+      return NextResponse.json({ message: "Không tìm thấy tài khoản." }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      claimedGachaTickets: Math.max(Number(user.pendingGachaTickets) || 0, 0),
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ message: error.message, code: error.code }, { status: 401 });
+    }
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "Không thể nhận vé Gacha." },
+      { status: 500 },
+    );
   }
 }
 

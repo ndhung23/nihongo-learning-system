@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   FiChevronDown,
   FiLogIn,
@@ -17,6 +17,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
+import { announceDailyProgressOwner } from "./dailyProgressStorage";
 
 type CurrentUser = {
   userId?: string;
@@ -27,6 +28,7 @@ type CurrentUser = {
   avatarUrl?: string;
   roles: string[];
   permissions?: string[];
+  aiCredits?: number;
 };
 
 const supportEmail = "nhatngu430@gmail.com";
@@ -58,11 +60,13 @@ export function Topbar({
 
     if (!response.ok) {
       setUser(null);
+      announceDailyProgressOwner(null);
       return;
     }
 
     const payload = (await response.json()) as { user: CurrentUser };
     setUser(payload.user);
+    announceDailyProgressOwner(payload.user.userId || payload.user.id, payload.user.aiCredits);
   }, []);
 
   useEffect(() => {
@@ -89,6 +93,7 @@ export function Topbar({
       }
 
       setUser(payload.user);
+      announceDailyProgressOwner(payload.user.userId || payload.user.id, payload.user.aiCredits);
       setLoginOpen(false);
       setMenuOpen(false);
     } finally {
@@ -99,6 +104,7 @@ export function Topbar({
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
+    announceDailyProgressOwner(null);
     setMenuOpen(false);
   }
 
@@ -135,7 +141,7 @@ export function Topbar({
     const query = searchQuery.trim();
     const params = new URLSearchParams();
 
-    params.set("type", "flashcard");
+    params.set("type", "all");
 
     if (query) {
       params.set("q", query);
@@ -162,6 +168,7 @@ export function Topbar({
           </form>
 
           <nav className="hidden items-center gap-1 xl:flex">
+            <HeaderLink exact href="/flashcards" label="Trang chủ" />
             <HeaderLink href="/flashcards/discover" label="Khám phá" />
             <HeaderLink href="/flashcards/bookmarks" label="Bookmark của tôi" />
             <HeaderLink href="/flashcards/my-vocabulary" label="Từ vựng riêng tôi" />
@@ -374,10 +381,22 @@ export function Topbar({
   );
 }
 
-function HeaderLink({ href, label }: Readonly<{ href: string; label: string }>) {
+function HeaderLink({
+  exact = false,
+  href,
+  label,
+}: Readonly<{ exact?: boolean; href: string; label: string }>) {
+  const pathname = usePathname();
+  const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <Link
-      className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-black text-slate-600 transition hover:bg-white hover:text-teal-700 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-teal-300"
+      aria-current={active ? "page" : undefined}
+      className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-black transition ${
+        active
+          ? "bg-slate-950 text-white shadow-md shadow-slate-950/15 dark:bg-teal-400 dark:text-slate-950"
+          : "text-slate-600 hover:bg-white hover:text-teal-700 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-teal-300"
+      }`}
       href={href}
     >
       {label}

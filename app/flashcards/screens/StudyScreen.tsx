@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FiArrowLeft, FiBookOpen, FiBookmark, FiCheck, FiGlobe, FiLink, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiArrowLeft, FiBookOpen, FiBookmark, FiCheck, FiGlobe, FiLink, FiLoader, FiRotateCcw, FiSearch, FiVolume2, FiX } from "react-icons/fi";
 import { modes } from "../data";
 import type { AnswerState, StudyMode, Word } from "../types";
 import { MetricCard } from "../components/Cards";
+import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 import { getWordBookmarkKey } from "../bookmarkStorage";
 
 type GradeResult = {
@@ -156,6 +157,7 @@ export function StudyScreen({
           <MetricCard label="Cần ôn" value={String(stats.review)} tone="bg-amber-50 text-amber-700" />
         </div>
 
+        {mode !== "typing" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Từ đang học</p>
@@ -163,6 +165,8 @@ export function StudyScreen({
           </div>
           <BookmarkButton active={bookmarkedKeys.includes(getWordBookmarkKey(currentWord))} onClick={() => onToggleBookmark(currentWord)} />
         </div>
+
+        )}
 
         {mode === "meaning" && (
           <MeaningExercise
@@ -388,16 +392,6 @@ function VocabularyDialog({
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-bold text-teal-800">{word.meaning}</p>
-                {word.sourceUrl && (
-                  <a
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-teal-700"
-                    href={word.sourceUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    <FiLink /> Mở đề gốc
-                  </a>
-                )}
               </article>
             ))}
           </div>
@@ -469,7 +463,7 @@ function ResultPanel({
           </p>
           <ExampleTranslation currentWord={currentWord} />
         </div>
-        <DeepLearnActions />
+        <DeepLearnActions currentWord={currentWord} />
       </div>
     </div>
   );
@@ -538,7 +532,7 @@ function FlashcardExercise({
           </button>
         </div>
       </div>
-      <DeepLearnActions />
+      <DeepLearnActions currentWord={currentWord} />
     </div>
   );
 }
@@ -881,16 +875,169 @@ function getExampleReading(word: Word) {
   return [kana, romaji].filter(Boolean).join(" / ");
 }
 
-function DeepLearnActions() {
+type DeepLearnKind = "synonyms" | "antonyms" | "examples";
+
+type DeepLearnItem = {
+  japanese: string;
+  kana: string;
+  meaning: string;
+  note: string;
+};
+
+const deepLearnLabels: Record<DeepLearnKind, string> = {
+  synonyms: "Từ đồng nghĩa",
+  antonyms: "Từ trái nghĩa",
+  examples: "Ví dụ",
+};
+
+function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
+  const [activeKind, setActiveKind] = useState<DeepLearnKind | null>(null);
+  const [items, setItems] = useState<DeepLearnItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function openDeepLearn(kind: DeepLearnKind) {
+    setActiveKind(kind);
+    setItems([]);
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/flashcards/grade-sentence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "deep-learn",
+          kind,
+          word: {
+            term: currentWord.term,
+            kana: currentWord.kana,
+            romaji: currentWord.romaji,
+            meaning: currentWord.meaning,
+          },
+        }),
+      });
+      const payload = (await response.json()) as {
+        data?: { items?: DeepLearnItem[] };
+        message?: string;
+        remainingAiCredits?: number;
+      };
+
+      if (!response.ok) throw new Error(payload.message || "AI chưa thể tạo nội dung lúc này.");
+      setItems(payload.data?.items || []);
+      if (typeof payload.remainingAiCredits === "number") {
+        const storageKey = getKnownDailyProgressStorageKey();
+        const current = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as Record<string, unknown>;
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({ ...current, aiCredits: payload.remainingAiCredits }),
+        );
+        window.dispatchEvent(new CustomEvent("nihongo-daily-progress-updated"));
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Không thể kết nối AI.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-      <span className="font-bold text-slate-600">{"H\u1ecdc s\u00e2u h\u01a1n"}</span>
-      {["T\u1eeb li\u00ean quan", "Collocation", "Word family"].map((item) => (
-        <button className="rounded-full border border-amber-300 bg-amber-50 px-5 py-2 font-bold text-amber-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-amber-100" key={item} type="button">
-          <FiLink className="mr-2 inline" />
-          {item}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <span className="font-bold text-slate-600">Học sâu hơn với AI</span>
+        {(Object.entries(deepLearnLabels) as Array<[DeepLearnKind, string]>).map(([kind, label]) => (
+          <button
+            className="rounded-full border border-amber-300 bg-amber-50 px-5 py-2 font-bold text-amber-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-amber-100"
+            key={kind}
+            onClick={() => void openDeepLearn(kind)}
+            type="button"
+          >
+            <FiLink className="mr-2 inline" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeKind && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          onClick={() => setActiveKind(null)}
+          role="dialog"
+        >
+          <div
+            className="flex h-[min(520px,calc(100vh-2rem))] w-[min(520px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.75rem] bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+              <div className="flex items-start gap-3">
+                <div>
+                  <h3 className="text-xl font-black text-slate-950">{deepLearnLabels[activeKind]}</h3>
+                  <p className="mt-1 font-bold text-indigo-600">{currentWord.term}</p>
+                </div>
+                <div className="group relative">
+                  <span
+                    aria-label="Thông tin về nội dung AI"
+                    className="grid h-8 w-8 cursor-help place-items-center rounded-full border border-amber-300 bg-amber-50 text-amber-600"
+                    tabIndex={0}
+                  >
+                    <FiAlertCircle />
+                  </span>
+                  <div className="pointer-events-none absolute left-1/2 top-10 z-20 w-64 -translate-x-1/2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold leading-5 text-white opacity-0 shadow-xl transition group-hover:opacity-100 group-focus-within:opacity-100">
+                    Nội dung do AI tạo có thể có sai sót. Hãy kiểm tra lại.
+                  </div>
+                </div>
+              </div>
+              <button
+                aria-label="Đóng"
+                className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"
+                onClick={() => setActiveKind(null)}
+                type="button"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              {loading && (
+                <div className="grid min-h-40 place-items-center text-center">
+                  <div>
+                    <FiLoader className="mx-auto h-8 w-8 animate-spin text-teal-600" />
+                    <p className="mt-3 font-bold text-slate-500">AI đang tạo nội dung...</p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-700">
+                  {error}
+                </div>
+              )}
+
+              {!loading && !error && items.length === 0 && (
+                <p className="rounded-2xl bg-slate-50 p-4 text-center font-bold text-slate-500">
+                  Không tìm thấy nội dung phù hợp cho từ này.
+                </p>
+              )}
+
+              {!loading && items.length > 0 && (
+                <div className="divide-y divide-slate-100">
+                  {items.map((item, index) => (
+                    <div className="py-4 first:pt-0 last:pb-0" key={`${item.japanese}-${index}`}>
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <p className="text-lg font-black text-slate-950">{item.japanese}</p>
+                        {item.kana && <p className="text-sm font-bold text-indigo-500">{item.kana}</p>}
+                      </div>
+                      <p className="mt-1 font-semibold text-teal-800">{item.meaning}</p>
+                      {item.note && <p className="mt-1 text-sm leading-6 text-slate-500">{item.note}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

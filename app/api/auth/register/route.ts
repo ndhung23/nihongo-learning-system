@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
           displayName: user.displayName,
           roles,
           permissions: getPermissionsForRoles([...roles]),
+          aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
         },
       },
       { status: 201 },

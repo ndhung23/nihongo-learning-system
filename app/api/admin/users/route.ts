@@ -15,6 +15,8 @@ const CreateUserSchema = z.object({
   gender: z.enum(["male", "female", "other", "unknown"]).default("unknown"),
   roles: z.array(z.enum(roles)).default(["user"]),
   status: z.enum(["active", "inactive", "banned", "pending_verify"]).default("active"),
+  aiCredits: z.coerce.number().int().min(0).default(1),
+  gachaTickets: z.coerce.number().int().min(0).default(0),
 });
 
 export async function GET(request: NextRequest) {
@@ -109,13 +111,27 @@ export async function POST(request: NextRequest) {
       displayName: payload.displayName || username,
       roles: payload.roles,
       status: payload.status,
+      aiCredits: payload.aiCredits,
+      pendingGachaTickets: payload.gachaTickets,
       profile: {
         gender: payload.gender,
         phone: payload.phone,
       },
     });
+    await UserModel.collection.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          aiCredits: payload.aiCredits,
+          pendingGachaTickets: payload.gachaTickets,
+        },
+      },
+    );
 
-    const safeUser = await UserModel.findById(user._id).select("-passwordHash -passwordReset").lean();
+    const safeUser = await UserModel.collection.findOne(
+      { _id: user._id },
+      { projection: { passwordHash: 0, passwordReset: 0 } },
+    );
 
     return NextResponse.json({ data: safeUser }, { status: 201 });
   } catch (error) {

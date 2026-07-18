@@ -70,14 +70,11 @@ try {
             visibility: "public",
             status: "published",
             price: { amount: 0, currency: "VND" },
-            stats: {
-              vocabularyCount:
-                Number(test.questionCount) ||
-                vocabularyCount + grammarReadingCount,
-              learnerCount: 0,
-              ratingAverage: 0,
-              ratingCount: 0,
-            },
+            "stats.vocabularyCount":
+              Number(test.questionCount) ||
+              vocabularyCount + grammarReadingCount,
+            "stats.ratingAverage": 0,
+            "stats.ratingCount": 0,
             tags: [
               "JLPT",
               level,
@@ -89,7 +86,10 @@ try {
             jlptTest: { level, number, testId: test._id },
             updatedAt: now,
           },
-          $setOnInsert: { createdAt: now },
+          $setOnInsert: {
+            createdAt: now,
+            "stats.learnerCount": 900,
+          },
         },
         upsert: true,
       },

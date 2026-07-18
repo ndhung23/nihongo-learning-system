@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { CourseLearnerModel } from "@/models/CourseLearner";
@@ -52,16 +53,15 @@ export async function POST(
       { upsert: true },
     );
 
-    if (result.upsertedCount > 0) {
-      await DeckModel.updateOne(
-        { _id: deckId },
-        { $inc: { "stats.learnerCount": 1 } },
-      );
-    }
+    await DeckModel.updateOne(
+      { _id: deckId },
+      { $inc: { "stats.learnerCount": 1 } },
+    );
 
     const deck = await DeckModel.findById(deckId)
       .select({ "stats.learnerCount": 1 })
       .lean();
+    revalidateTag("courses", { expire: 0 });
 
     return NextResponse.json({
       ok: true,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FiArrowLeft,
   FiBookOpen,
@@ -55,10 +55,14 @@ export function JlptTestClient({
   const [submitting, setSubmitting] = useState(false);
   const [checkingAnswer, setCheckingAnswer] = useState(false);
   const [message, setMessage] = useState("");
+  const learningVisitRecorded = useRef(false);
 
   const title = `Đề thi ${level} minh họa số ${testNumber}`;
 
   useEffect(() => {
+    if (learningVisitRecorded.current) return;
+    learningVisitRecorded.current = true;
+
     fetch(`/api/courses/${courseId}/learn`, { method: "POST" }).catch(
       () => undefined,
     );

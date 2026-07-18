@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         avatarUrl: user.avatarUrl,
         roles,
         permissions: getPermissionsForRoles(roles),
+        aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
       },
     });
 

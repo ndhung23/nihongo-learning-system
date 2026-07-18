@@ -65,6 +65,8 @@ export default async function AdminUsersPage({ searchParams }: Readonly<{ search
         displayName: user.displayName,
         roles: user.roles,
         status: user.status,
+        aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
+        pendingGachaTickets: typeof user.pendingGachaTickets === "number" ? user.pendingGachaTickets : 0,
         profile: {
           gender: user.profile?.gender,
           phone: user.profile?.phone,
