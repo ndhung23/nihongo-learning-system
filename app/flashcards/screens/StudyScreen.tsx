@@ -892,9 +892,34 @@ const deepLearnLabels: Record<DeepLearnKind, string> = {
 
 function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
   const [activeKind, setActiveKind] = useState<DeepLearnKind | null>(null);
+  const [pendingKind, setPendingKind] = useState<DeepLearnKind | null>(null);
+  const [hideCostWarning, setHideCostWarning] = useState(false);
   const [items, setItems] = useState<DeepLearnItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function requestDeepLearn(kind: DeepLearnKind) {
+    const warningKey = `${getKnownDailyProgressStorageKey()}:ai-cost-warning-dismissed`;
+    if (window.localStorage.getItem(warningKey) === "true") {
+      void openDeepLearn(kind);
+      return;
+    }
+    setHideCostWarning(false);
+    setPendingKind(kind);
+  }
+
+  function confirmDeepLearn() {
+    if (!pendingKind) return;
+    if (hideCostWarning) {
+      window.localStorage.setItem(
+        `${getKnownDailyProgressStorageKey()}:ai-cost-warning-dismissed`,
+        "true",
+      );
+    }
+    const kind = pendingKind;
+    setPendingKind(null);
+    void openDeepLearn(kind);
+  }
 
   async function openDeepLearn(kind: DeepLearnKind) {
     setActiveKind(kind);
@@ -949,7 +974,7 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
           <button
             className="rounded-full border border-amber-300 bg-amber-50 px-5 py-2 font-bold text-amber-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-amber-100"
             key={kind}
-            onClick={() => void openDeepLearn(kind)}
+            onClick={() => requestDeepLearn(kind)}
             type="button"
           >
             <FiLink className="mr-2 inline" />
@@ -957,6 +982,53 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
           </button>
         ))}
       </div>
+
+      {pendingKind && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          onClick={() => setPendingKind(null)}
+          role="dialog"
+        >
+          <div
+            className="w-full max-w-md rounded-[1.75rem] bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-amber-100 text-3xl text-amber-600">
+              <FiAlertCircle />
+            </div>
+            <h3 className="mt-5 text-center text-2xl font-black text-slate-950">Sử dụng 1 lượt AI?</h3>
+            <p className="mt-3 text-center leading-7 text-slate-600">
+              Tính năng <strong>{deepLearnLabels[pendingKind]}</strong> sẽ tiêu tốn <strong>1 lượt AI</strong> nếu nội dung chưa có trong dữ liệu đã lưu. Kết quả có sẵn được xem lại miễn phí.
+            </p>
+            <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700">
+              <input
+                checked={hideCostWarning}
+                className="h-5 w-5 accent-teal-600"
+                onChange={(event) => setHideCostWarning(event.target.checked)}
+                type="checkbox"
+              />
+              Không hiển thị lại cảnh báo này
+            </label>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                className="h-12 rounded-2xl border border-slate-200 font-black text-slate-600 hover:bg-slate-50"
+                onClick={() => setPendingKind(null)}
+                type="button"
+              >
+                Hủy
+              </button>
+              <button
+                className="h-12 rounded-2xl bg-teal-600 font-black text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
+                onClick={confirmDeepLearn}
+                type="button"
+              >
+                Đồng ý sử dụng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeKind && (
         <div

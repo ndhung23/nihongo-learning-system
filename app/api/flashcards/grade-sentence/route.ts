@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Types } from "mongoose";
 import { z } from "zod";
 import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
+import { AiLearningCacheModel } from "@/models/AiLearningCache";
 import { UserModel } from "@/models/User";
 
 const GradeSentenceSchema = z.object({
@@ -54,12 +56,6 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.APIKEYGEMINI || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json({ message: "Ch\u01b0a c\u1ea5u h\u00ecnh Gemini API key." }, { status: 500 });
-    }
-
     const body: unknown = await request.json();
     const deepLearnRequest = DeepLearnRequestSchema.safeParse(body);
     let prompt: string;
@@ -71,15 +67,38 @@ export async function POST(request: NextRequest) {
     }
 
     await connectMongoDB();
-    await UserModel.updateOne(
-      { _id: session.userId, aiCredits: { $exists: false } },
+    const userObjectId = new Types.ObjectId(session.userId);
+
+    if (deepLearnRequest.success) {
+      const cacheKey = buildCacheKey(
+        deepLearnRequest.data.kind,
+        deepLearnRequest.data.word.term,
+        deepLearnRequest.data.word.meaning,
+      );
+      const cached = await AiLearningCacheModel.findOne({ cacheKey }).lean();
+      if (cached) {
+        const account = await UserModel.collection.findOne(
+          { _id: userObjectId },
+          { projection: { aiCredits: 1 } },
+        );
+        return NextResponse.json({
+          data: DeepLearnResponseSchema.parse(cached.result),
+          cached: true,
+          provider: cached.provider,
+          remainingAiCredits: Number(account?.aiCredits) || 0,
+        });
+      }
+    }
+
+    await UserModel.collection.updateOne(
+      { _id: userObjectId, aiCredits: { $exists: false } },
       { $set: { aiCredits: 1 } },
     );
-    const account = await UserModel.findOneAndUpdate(
-      { _id: session.userId, aiCredits: { $gt: 0 } },
+    const account = await UserModel.collection.findOneAndUpdate(
+      { _id: userObjectId, aiCredits: { $gt: 0 } },
       { $inc: { aiCredits: -1 } },
-      { new: true },
-    ).select("aiCredits");
+      { returnDocument: "after", projection: { aiCredits: 1 } },
+    );
 
     if (!account) {
       return NextResponse.json(
@@ -89,48 +108,41 @@ export async function POST(request: NextRequest) {
     }
     debitedUserId = session.userId;
 
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.25,
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{
-              text: prompt,
-            }],
+    const generated = await generateAiJson(
+      prompt,
+      deepLearnRequest.success ? DeepLearnResponseSchema : GeminiResponseSchema,
+    );
+    const parsed = generated.data;
+
+    if (deepLearnRequest.success) {
+      const cacheKey = buildCacheKey(
+        deepLearnRequest.data.kind,
+        deepLearnRequest.data.word.term,
+        deepLearnRequest.data.word.meaning,
+      );
+      await AiLearningCacheModel.findOneAndUpdate(
+        { cacheKey },
+        {
+          $setOnInsert: {
+            cacheKey,
+            term: deepLearnRequest.data.word.term,
+            kind: deepLearnRequest.data.kind,
+            result: parsed,
+            provider: generated.provider,
+            model: generated.model,
           },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const details = await response.text();
-      await refundAiCredit(debitedUserId);
-      debitedUserId = null;
-      return NextResponse.json({ message: "Gemini ch\u01b0a ch\u1ea5m \u0111\u01b0\u1ee3c c\u00e2u n\u00e0y.", details }, { status: 502 });
+        },
+        { upsert: true },
+      );
     }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (typeof text !== "string") {
-      await refundAiCredit(debitedUserId);
-      debitedUserId = null;
-      return NextResponse.json({ message: "Gemini tr\u1ea3 v\u1ec1 ph\u1ea3n h\u1ed3i kh\u00f4ng h\u1ee3p l\u1ec7." }, { status: 502 });
-    }
-
-    const parsed = deepLearnRequest.success
-      ? DeepLearnResponseSchema.parse(JSON.parse(text))
-      : GeminiResponseSchema.parse(JSON.parse(text));
 
     debitedUserId = null;
-    return NextResponse.json({ data: parsed, remainingAiCredits: account.aiCredits });
+    return NextResponse.json({
+      data: parsed,
+      cached: false,
+      provider: generated.provider,
+      remainingAiCredits: account.aiCredits,
+    });
   } catch (error) {
     if (debitedUserId) {
       await refundAiCredit(debitedUserId);
@@ -148,7 +160,141 @@ export async function POST(request: NextRequest) {
 }
 
 async function refundAiCredit(userId: string) {
-  await UserModel.updateOne({ _id: userId }, { $inc: { aiCredits: 1 } });
+  await UserModel.collection.updateOne(
+    { _id: new Types.ObjectId(userId) },
+    { $inc: { aiCredits: 1 } },
+  );
+}
+
+function buildCacheKey(kind: string, term: string, meaning?: string) {
+  return [kind, term, meaning || ""]
+    .map((value) => value.trim().toLocaleLowerCase("ja"))
+    .join("::");
+}
+
+async function generateAiJson(prompt: string, schema: z.ZodType<unknown>) {
+  const errors: string[] = [];
+  const geminiKeys = uniqueKeys([
+    process.env.GEMINI_API_KEY,
+    process.env.APIKEYGEMINI,
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  ]);
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+  for (const apiKey of geminiKeys) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.25,
+            },
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+          }),
+          signal: AbortSignal.timeout(30_000),
+        },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (typeof text !== "string") throw new Error("Phản hồi không có nội dung");
+      return {
+        data: schema.parse(JSON.parse(text)),
+        provider: "gemini",
+        model: geminiModel,
+      };
+    } catch (error) {
+      errors.push(`Gemini: ${error instanceof Error ? error.message : "lỗi"}`);
+    }
+  }
+
+  const openAiKeys = uniqueKeys([
+    process.env.OPENAI_API_KEY,
+    process.env.keychatgpt,
+    process.env.CHATGPT_API_KEY,
+  ]);
+  const openAiModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  for (const apiKey of openAiKeys) {
+    try {
+      const text = await callOpenAiCompatible(
+        "https://api.openai.com/v1/chat/completions",
+        apiKey,
+        openAiModel,
+        prompt,
+      );
+      return {
+        data: schema.parse(JSON.parse(text)),
+        provider: "openai",
+        model: openAiModel,
+      };
+    } catch (error) {
+      errors.push(`OpenAI: ${error instanceof Error ? error.message : "lỗi"}`);
+    }
+  }
+
+  const deepSeekKeys = uniqueKeys([
+    process.env.DEEPSEEK_API_KEY,
+    process.env.DEEPSEEK_KEY,
+  ]);
+  const deepSeekModel = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  for (const apiKey of deepSeekKeys) {
+    try {
+      const text = await callOpenAiCompatible(
+        "https://api.deepseek.com/chat/completions",
+        apiKey,
+        deepSeekModel,
+        prompt,
+      );
+      return {
+        data: schema.parse(JSON.parse(text)),
+        provider: "deepseek",
+        model: deepSeekModel,
+      };
+    } catch (error) {
+      errors.push(`DeepSeek: ${error instanceof Error ? error.message : "lỗi"}`);
+    }
+  }
+
+  throw new Error(
+    errors.length > 0
+      ? `Các nhà cung cấp AI đều tạm thời không phản hồi (${errors.join("; ")}).`
+      : "Chưa cấu hình API key cho Gemini, OpenAI hoặc DeepSeek.",
+  );
+}
+
+async function callOpenAiCompatible(
+  endpoint: string,
+  apiKey: string,
+  model: string,
+  prompt: string,
+) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.25,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (typeof text !== "string") throw new Error("Phản hồi không có nội dung");
+  return text;
+}
+
+function uniqueKeys(keys: Array<string | undefined>) {
+  return Array.from(new Set(keys.filter((key): key is string => Boolean(key?.trim()))));
 }
 
 function buildDeepLearnPrompt(
