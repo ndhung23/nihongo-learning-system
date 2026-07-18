@@ -78,7 +78,7 @@ function saveDailyState(nextState: DailyState) {
 }
 
 export function DailyPanel() {
-  const [dailyState, setDailyState] = useState<DailyState>(() => readDailyState());
+  const [dailyState, setDailyState] = useState<DailyState>(createDailyState);
   const dailyXp = dailyState.dailyXp;
   const progress = Math.min((dailyXp / dailyGoal) * 100, 100);
   const level = Math.floor(Math.sqrt(dailyState.totalXp / 80)) + 1;
@@ -98,6 +98,7 @@ export function DailyPanel() {
       setDailyState(readDailyState());
     }
 
+    syncProgress();
     window.addEventListener("storage", syncProgress);
     window.addEventListener("nihongo-daily-progress-updated", syncProgress);
 

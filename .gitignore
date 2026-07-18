@@ -33,6 +33,18 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Private JLPT exam sources and answer keys
+#
+# These files contain licensed/source material or correct answers. Keep them out
+# of public Git history. Production must load this data from a private database
+# or another private deployment secret, never from a Client Component.
+/scripts/dethi/
+/scripts/build-n1-n2-master-data.mjs
+/scripts/build-n3-n4-master-data.mjs
+/scripts/build-n5-master-data.mjs
+/scripts/build-n5-illustrative-test.mjs
+/scripts/fill-jlpt-correct-indexes.mjs
+
 # vercel
 .vercel
 

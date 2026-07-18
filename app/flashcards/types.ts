@@ -18,6 +18,7 @@ export type Word = {
   example: string;
   exampleVi: string;
   tags: string[];
+  sourceUrl?: string;
 };
 
 export type Deck = {

@@ -20,29 +20,32 @@ type PublicCourse = {
     ratingCount?: number;
   };
   tags?: string[];
+  type?: string;
+  jlptTest?: {
+    level?: string;
+    number?: number;
+  };
 };
 
 export function LibraryScreen({
   onAdd,
   onManage,
   onStudy,
+  onTest,
 }: Readonly<{
   onAdd: () => void;
   onManage: () => void;
   onStudy: (mode?: StudyMode, deckId?: string, lesson?: string) => void;
+  onTest: (level?: string, number?: number) => void;
 }>) {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    return window.localStorage.getItem("selectedCourseId");
-  });
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [lessonPickerCourse, setLessonPickerCourse] = useState<PublicCourse | null>(null);
   const discoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setSelectedCourseId(window.localStorage.getItem("selectedCourseId"));
+
     fetch("/api/courses", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { data: [] }))
       .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
@@ -68,8 +71,17 @@ export function LibraryScreen({
     return Array.from({ length: 25 }, (_, index) => start + index);
   }
 
+  function isTestCourse(course: PublicCourse) {
+    return Boolean(course.jlptTest?.level && course.jlptTest.number) || course.type === "jlpt-test" || course.slug.startsWith("de-thi-") || course.slug === "n5-test-ngu-phap-tu-vung-doc-hieu" || (course.tags || []).some((tag) => tag.toLowerCase() === "test");
+  }
+
   function openCourseStudy(course: PublicCourse) {
     selectCourse(course.id);
+
+    if (isTestCourse(course)) {
+      onTest(course.jlptTest?.level, course.jlptTest?.number);
+      return;
+    }
 
     if (isLessonCourse(course)) {
       setLessonPickerCourse(course);
@@ -157,7 +169,7 @@ export function LibraryScreen({
                         <h3 className="mt-2 text-xl font-black text-slate-950">{course.title}</h3>
                       </div>
                       <span className="shrink-0 rounded-2xl bg-rose-50 px-3 py-2 text-center text-sm font-black text-rose-700">
-                        {course.stats?.vocabularyCount || 0} từ
+                        {course.stats?.vocabularyCount || 0} {isTestCourse(course) ? "đề" : "từ"}
                       </span>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
@@ -183,7 +195,7 @@ export function LibraryScreen({
                         onClick={() => openCourseStudy(course)}
                         type="button"
                       >
-                        Học ngay
+                        {isTestCourse(course) ? "Làm bài" : "Học ngay"}
                       </button>
                     </div>
                   </article>

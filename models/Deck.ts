@@ -29,11 +29,32 @@ const DeckSchema = new Schema(
       ratingCount: { type: Number, default: 0 },
     },
     tags: { type: [String], default: [] },
+    contentType: {
+      type: String,
+      enum: ["flashcard", "jlpt-test"],
+      default: "flashcard",
+      index: true,
+    },
+    jlptTest: {
+      level: {
+        type: String,
+        enum: ["N5", "N4", "N3", "N2", "N1"],
+      },
+      number: { type: Number, min: 1 },
+      testId: { type: Schema.Types.ObjectId, ref: "JlptTest" },
+    },
   },
   { timestamps: true },
 );
 
 DeckSchema.index({ title: "text", description: "text", tags: "text" });
 DeckSchema.index({ level: 1, status: 1, visibility: 1, sourceType: 1 });
+DeckSchema.index(
+  { "jlptTest.level": 1, "jlptTest.number": 1 },
+  {
+    unique: true,
+    partialFilterExpression: { contentType: "jlpt-test" },
+  },
+);
 
 export const DeckModel = models.Deck || model("Deck", DeckSchema);

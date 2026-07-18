@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "db:import-jlpt-tests": "node scripts/import-jlpt-tests-to-mongodb.mjs",
+    "db:sync-jlpt-courses": "node scripts/sync-jlpt-test-courses.mjs",
+    "data:add-n5-highlights": "node scripts/add-n5-question-highlights.mjs",
+    "security:check-data": "node scripts/check-private-data.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -32,12 +32,18 @@ const getCachedCourses = unstable_cache(
       slug: course.slug,
       description: course.description,
       level: course.level,
-      type: course.tags?.includes("roadmap") ? "roadmap" : "flashcard",
+      type: course.contentType === "jlpt-test" ? "jlpt-test" : course.tags?.includes("roadmap") ? "roadmap" : "flashcard",
+      jlptTest: course.jlptTest
+        ? {
+            level: course.jlptTest.level,
+            number: course.jlptTest.number,
+          }
+        : undefined,
       stats: course.stats,
       tags: course.tags,
     }));
   },
-  ["public-courses"],
+  ["public-courses-v2"],
   { revalidate: 300, tags: ["courses"] },
 );
 

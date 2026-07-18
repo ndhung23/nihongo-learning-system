@@ -159,7 +159,7 @@ export function StudyScreen({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Từ đang học</p>
-            <p className="mt-1 font-black text-slate-950">{currentWord.term} <span className="text-sm text-slate-500">/ {currentWord.meaning}</span></p>
+            <p className="mt-1 font-black text-slate-950">{currentWord.term}</p>
           </div>
           <BookmarkButton active={bookmarkedKeys.includes(getWordBookmarkKey(currentWord))} onClick={() => onToggleBookmark(currentWord)} />
         </div>
@@ -388,6 +388,16 @@ function VocabularyDialog({
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-bold text-teal-800">{word.meaning}</p>
+                {word.sourceUrl && (
+                  <a
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-teal-700"
+                    href={word.sourceUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <FiLink /> Mở đề gốc
+                  </a>
+                )}
               </article>
             ))}
           </div>

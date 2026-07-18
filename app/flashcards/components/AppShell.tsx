@@ -5,13 +5,15 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
-    return window.localStorage.getItem("nihongo-theme") === "dark" ? "dark" : "light";
-  });
+  useEffect(() => {
+    setTheme(
+      window.localStorage.getItem("nihongo-theme") === "dark"
+        ? "dark"
+        : "light",
+    );
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");

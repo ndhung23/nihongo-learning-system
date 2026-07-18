@@ -10,6 +10,13 @@ import type { AnswerState, StudyMode, Word } from "../types";
 type Course = {
   id: string;
   title: string;
+  slug?: string;
+  type?: string;
+  tags?: string[];
+  jlptTest?: {
+    level?: string;
+    number?: number;
+  };
   stats?: {
     vocabularyCount?: number;
   };
@@ -25,6 +32,7 @@ type VocabularyItem = {
   partOfSpeech?: string;
   level?: "kana" | "n5" | "n4" | "n3" | "n2" | "n1" | "custom";
   lesson?: number;
+  sourceUrl?: string;
   examples?: Array<{
     ja?: string;
     vi?: string;
@@ -160,6 +168,17 @@ export function StudyClient({
         const meaningIndexes = new Map(meaningPool.map((meaning, index) => [meaning, index]));
         const mappedWords = vocabulary.map((item) => toStudyWord(item, meaningPool, meaningIndexes));
         const selectedCourse = (coursesPayload.data || []).find((course) => course.id === nextDeckId);
+
+        if (
+          selectedCourse?.type === "jlpt-test" &&
+          selectedCourse.jlptTest?.level &&
+          selectedCourse.jlptTest.number
+        ) {
+          router.replace(
+            `/flashcards/tests/${selectedCourse.jlptTest.level.toLowerCase()}/${selectedCourse.jlptTest.number}`,
+          );
+          return;
+        }
 
         if (selectedCourse) {
           setCourseTitle(nextLesson !== "all" ? `${selectedCourse.title} - Bài ${nextLesson}` : selectedCourse.title);
@@ -417,6 +436,7 @@ function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes
     example,
     exampleVi,
     tags: ["IT"],
+    sourceUrl: item.sourceUrl,
   };
 }
 

@@ -56,14 +56,14 @@ const getCachedVocabulary = unstable_cache(
     }
 
     const vocabulary = await VocabularyModel.find(filter)
-      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples")
+      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples sourceUrl")
       .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 })
       .limit(limit)
       .lean();
 
     return JSON.parse(JSON.stringify(vocabulary));
   },
-  ["public-vocabulary"],
+  ["public-vocabulary-v2"],
   { revalidate: 300, tags: ["vocabulary"] },
 );
 
