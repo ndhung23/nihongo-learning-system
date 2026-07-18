@@ -251,8 +251,8 @@ export function Topbar({
       </header>
 
       {feedbackOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <form className="w-full max-w-3xl rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-950/20 dark:bg-slate-900" onSubmit={handleFeedback}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-2 sm:p-4 backdrop-blur-sm">
+          <form className="w-full max-w-5xl rounded-[2rem] bg-white p-8 shadow-2xl shadow-slate-950/20 dark:bg-slate-900" onSubmit={handleFeedback}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">Ủng hộ & góp ý</p>
@@ -266,10 +266,10 @@ export function Topbar({
               </button>
             </div>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-[220px_1fr]">
+            <div className="mt-6 grid gap-5 md:grid-cols-[280px_1fr]">
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-center dark:border-slate-700 dark:bg-slate-950">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="QR ủng hộ duy trì web" className="mx-auto h-[180px] w-[180px] rounded-2xl bg-white p-3 object-contain" src={supportQrUrl} />
+                <img alt="QR ủng hộ duy trì web" className="mx-auto h-[240px] w-[240px] rounded-2xl bg-white p-3 object-contain" src={supportQrUrl} />
                 <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-teal-700">Ủng hộ duy trì web</p>
                 <p className="mt-2 break-words text-xs font-bold text-slate-500 dark:text-slate-400">{supportEmail}</p>
               </div>

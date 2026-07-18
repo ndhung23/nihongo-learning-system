@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { z } from "zod";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
@@ -33,38 +34,52 @@ const CreateVocabularySchema = z.object({
   isPublished: z.boolean().default(false),
 });
 
-export async function GET(request: NextRequest) {
-  await connectMongoDB();
+const getCachedVocabulary = unstable_cache(
+  async (q: string, deckId: string, lesson: string, limit: number) => {
+    await connectMongoDB();
 
+    const filter: Record<string, unknown> = {};
+
+    if (deckId) {
+      filter.deckId = deckId;
+    }
+
+    if (lesson && lesson !== "all") {
+      const lessonNumber = Number(lesson);
+      if (Number.isInteger(lessonNumber) && lessonNumber > 0) {
+        filter.lesson = lessonNumber;
+      }
+    }
+
+    if (q) {
+      filter.$text = { $search: q };
+    }
+
+    const vocabulary = await VocabularyModel.find(filter)
+      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples")
+      .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return JSON.parse(JSON.stringify(vocabulary));
+  },
+  ["public-vocabulary"],
+  { revalidate: 300, tags: ["vocabulary"] },
+);
+
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q");
-  const deckId = searchParams.get("deckId");
-  const lesson = searchParams.get("lesson");
+  const q = searchParams.get("q") || "";
+  const deckId = searchParams.get("deckId") || "";
+  const lesson = searchParams.get("lesson") || "";
   const limit = Math.min(Number(searchParams.get("limit") || 50), 1500);
 
-  const filter: Record<string, unknown> = {};
+  const vocabulary = await getCachedVocabulary(q, deckId, lesson, limit);
 
-  if (deckId) {
-    filter.deckId = deckId;
-  }
-
-  if (lesson && lesson !== "all") {
-    const lessonNumber = Number(lesson);
-    if (Number.isInteger(lessonNumber) && lessonNumber > 0) {
-      filter.lesson = lessonNumber;
-    }
-  }
-
-  if (q) {
-    filter.$text = { $search: q };
-  }
-
-  const vocabulary = await VocabularyModel.find(filter)
-    .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 })
-    .limit(limit)
-    .lean();
-
-  return NextResponse.json({ data: vocabulary });
+  return NextResponse.json(
+    { data: vocabulary },
+    { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } },
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -74,6 +89,7 @@ export async function POST(request: NextRequest) {
 
     const payload = CreateVocabularySchema.parse(await request.json());
     const vocabulary = await VocabularyModel.create(payload);
+    revalidateTag("vocabulary", "max");
 
     return NextResponse.json({ data: vocabulary }, { status: 201 });
   } catch (error) {

@@ -151,12 +151,14 @@ export function StudyClient({
     }
 
     Promise.all([
-      fetch(`/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`, { cache: "no-store" }).then((response) => (response.ok ? response.json() : { data: [] })),
-      fetch("/api/courses?limit=80", { cache: "no-store" }).then((response) => (response.ok ? response.json() : { data: [] })),
+      fetch(`/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`).then((response) => (response.ok ? response.json() : { data: [] })),
+      fetch("/api/courses?limit=80").then((response) => (response.ok ? response.json() : { data: [] })),
     ])
       .then(([vocabularyPayload, coursesPayload]: [{ data?: VocabularyItem[] }, { data?: Course[] }]) => {
         const vocabulary = vocabularyPayload.data || [];
-        const mappedWords = vocabulary.map((item, index) => toStudyWord(item, vocabulary, index));
+        const meaningPool = [...new Set(vocabulary.map((item) => item.meaningVi).filter(Boolean))];
+        const meaningIndexes = new Map(meaningPool.map((meaning, index) => [meaning, index]));
+        const mappedWords = vocabulary.map((item) => toStudyWord(item, meaningPool, meaningIndexes));
         const selectedCourse = (coursesPayload.data || []).find((course) => course.id === nextDeckId);
 
         if (selectedCourse) {
@@ -384,18 +386,21 @@ function toKatakana(value: string) {
   return value.replace(/[\u3041-\u3096]/g, (character) => String.fromCharCode(character.charCodeAt(0) + 0x60));
 }
 
-function toStudyWord(item: VocabularyItem, vocabulary: VocabularyItem[], index: number): Word {
+function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes: Map<string, number>): Word {
   const meaning = item.meaningVi || item.partOfSpeech || item.term;
   const kana = item.kana || "";
   const romaji = item.romaji || kanaToRomaji(kana);
-  const wrong = vocabulary
-    .filter((candidate) => candidate.meaningVi && candidate.meaningVi !== meaning)
-    .slice(index + 1, index + 4)
-    .map((candidate) => candidate.meaningVi);
-  const fallbackWrong = vocabulary
-    .filter((candidate) => candidate.meaningVi && candidate.meaningVi !== meaning)
-    .slice(0, 3)
-    .map((candidate) => candidate.meaningVi);
+  const wrong: string[] = [];
+  const startIndex = meaningIndexes.get(meaning) ?? 0;
+
+  for (let offset = 1; offset < meaningPool.length && wrong.length < 3; offset += 1) {
+    const candidate = meaningPool[(startIndex + offset) % meaningPool.length];
+
+    if (candidate !== meaning) {
+      wrong.push(candidate);
+    }
+  }
+
   const grammarExample = buildGrammarExample(item.term, meaning, item.level, item.lesson);
   const example = item.examples?.find((entry) => entry.ja)?.ja || grammarExample.ja;
   const exampleVi = item.examples?.find((entry) => entry.vi)?.vi || grammarExample.vi;
@@ -408,7 +413,7 @@ function toStudyWord(item: VocabularyItem, vocabulary: VocabularyItem[], index: 
     romaji,
     type: item.partOfSpeech || "IT",
     meaning,
-    wrong: [...new Set([...wrong, ...fallbackWrong])].slice(0, 3),
+    wrong,
     example,
     exampleVi,
     tags: ["IT"],
