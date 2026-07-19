@@ -341,7 +341,7 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
               <AdminInput label="Email" onChange={(value) => setForm({ ...form, email: value })} type="email" value={form.email} />
               <AdminInput label={form.id ? "Mật khẩu mới (bỏ trống nếu không đổi)" : "Mật khẩu"} onChange={(value) => setForm({ ...form, password: value })} type="password" value={form.password} />
               <AdminInput label="Tên hiển thị" onChange={(value) => setForm({ ...form, displayName: value })} value={form.displayName} />
-              <AdminInput label="Số điện thoại" onChange={(value) => setForm({ ...form, phone: value })} value={form.phone} />
+              <AdminInput label="Số điện thoại" onChange={(value) => setForm({ ...form, phone: value })} type="tel" value={form.phone} />
               <label>
                 <span className="mb-2 block text-sm font-black text-slate-700">Giới tính</span>
                 <select className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400" onChange={(event) => setForm({ ...form, gender: event.target.value as UserFormState["gender"] })} value={form.gender}>

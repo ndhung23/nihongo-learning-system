@@ -5,11 +5,12 @@ import { roles } from "@/lib/auth/permissions";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { UserModel } from "@/models/User";
+import { duplicateKeyMessage, isValidVietnamesePhone, normalizePhone, validationMessage } from "@/lib/auth/user-identity";
 
 const CreateUserSchema = z.object({
-  username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
-  email: z.string().email(),
-  password: z.string().min(1),
+  username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/, "Username chỉ được gồm chữ, số và dấu gạch dưới."),
+  email: z.string().trim().email("Email không đúng định dạng."),
+  password: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự.").max(128),
   displayName: z.string().optional(),
   phone: z.string().optional(),
   gender: z.enum(["male", "female", "other", "unknown"]).default("unknown"),
@@ -97,11 +98,18 @@ export async function POST(request: NextRequest) {
     const payload = CreateUserSchema.parse(await request.json());
     const username = payload.username.trim().toLowerCase();
     const email = payload.email.trim().toLowerCase();
-    const existed = await UserModel.exists({ $or: [{ username }, { email }] });
-
-    if (existed) {
-      return NextResponse.json({ message: "Username hoặc email đã tồn tại." }, { status: 409 });
+    const phone = normalizePhone(payload.phone);
+    if (!isValidVietnamesePhone(phone)) {
+      return NextResponse.json({ message: "Số điện thoại không hợp lệ." }, { status: 400 });
     }
+    const [usernameOwner, emailOwner, phoneOwner] = await Promise.all([
+      UserModel.exists({ username }),
+      UserModel.exists({ email }),
+      phone ? UserModel.exists({ "profile.phone": phone }) : null,
+    ]);
+    if (usernameOwner) return NextResponse.json({ message: "Username này đã được sử dụng." }, { status: 409 });
+    if (emailOwner) return NextResponse.json({ message: "Email này đã được sử dụng." }, { status: 409 });
+    if (phoneOwner) return NextResponse.json({ message: "Số điện thoại này đã được sử dụng." }, { status: 409 });
 
     const passwordHash = await bcrypt.hash(payload.password, 12);
     const user = await UserModel.create({
@@ -115,7 +123,7 @@ export async function POST(request: NextRequest) {
       pendingGachaTickets: payload.gachaTickets,
       profile: {
         gender: payload.gender,
-        phone: payload.phone,
+        phone,
       },
     });
     await UserModel.collection.updateOne(
@@ -143,8 +151,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Dữ liệu tạo người dùng không hợp lệ.", issues: error.issues }, { status: 400 });
+      return NextResponse.json({ message: validationMessage(error, "Dữ liệu tạo người dùng không hợp lệ."), issues: error.issues }, { status: 400 });
     }
+
+    const duplicateMessage = duplicateKeyMessage(error);
+    if (duplicateMessage) return NextResponse.json({ message: duplicateMessage }, { status: 409 });
 
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Không thể tạo người dùng." },

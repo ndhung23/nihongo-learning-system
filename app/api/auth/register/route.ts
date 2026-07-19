@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectMongoDB } from "@/lib/mongodb";
+import { duplicateKeyMessage, validationMessage } from "@/lib/auth/user-identity";
 import { getPermissionsForRoles } from "@/lib/auth/permissions";
 import { AUTH_COOKIE_NAME, signSessionToken } from "@/lib/auth/session";
 import { UserModel } from "@/models/User";
@@ -11,9 +12,9 @@ const RegisterSchema = z.object({
     .string()
     .min(3)
     .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/, "Username chỉ gồm chữ, số và dấu gạch dưới."),
-  email: z.string().email(),
-  password: z.string().min(1),
+    .regex(/^[a-zA-Z0-9_]+$/, "Username chỉ được gồm chữ, số và dấu gạch dưới; không nhập địa chỉ email."),
+  email: z.string().trim().email("Email không đúng định dạng."),
+  password: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự.").max(128),
 });
 
 export async function POST(request: NextRequest) {
@@ -24,13 +25,12 @@ export async function POST(request: NextRequest) {
     const username = payload.username.trim().toLowerCase();
     const email = payload.email.trim().toLowerCase();
 
-    const existed = await UserModel.exists({
-      $or: [{ username }, { email }],
-    });
-
-    if (existed) {
-      return NextResponse.json({ message: "Username hoặc email đã tồn tại." }, { status: 409 });
-    }
+    const [usernameOwner, emailOwner] = await Promise.all([
+      UserModel.exists({ username }),
+      UserModel.exists({ email }),
+    ]);
+    if (usernameOwner) return NextResponse.json({ message: "Username này đã được sử dụng." }, { status: 409 });
+    if (emailOwner) return NextResponse.json({ message: "Email này đã được sử dụng. Bạn có thể đăng nhập hoặc dùng Quên mật khẩu." }, { status: 409 });
 
     const passwordHash = await bcrypt.hash(payload.password, 12);
     const user = await UserModel.create({
@@ -76,7 +76,12 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Dữ liệu đăng ký không hợp lệ.", issues: error.issues }, { status: 400 });
+      return NextResponse.json({ message: validationMessage(error, "Dữ liệu đăng ký không hợp lệ."), issues: error.issues }, { status: 400 });
+    }
+
+    const duplicateMessage = duplicateKeyMessage(error);
+    if (duplicateMessage) {
+      return NextResponse.json({ message: duplicateMessage }, { status: 409 });
     }
 
     return NextResponse.json(

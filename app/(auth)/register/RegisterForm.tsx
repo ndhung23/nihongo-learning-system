@@ -41,15 +41,15 @@ export function RegisterForm() {
     <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
       <label className="block">
         <span className="mb-2 block text-sm font-black text-slate-700">Username</span>
-        <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" onChange={(event) => setUsername(event.target.value)} placeholder="vd: nihongo_user" value={username} />
+        <input autoComplete="username" className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" maxLength={32} minLength={3} onChange={(event) => setUsername(event.target.value)} pattern="[a-zA-Z0-9_]+" placeholder="vd: nihongo_user" required title="Chỉ dùng chữ, số và dấu gạch dưới; không nhập email." value={username} />
       </label>
       <label className="block">
         <span className="mb-2 block text-sm font-black text-slate-700">Email</span>
-        <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" type="email" value={email} />
+        <input autoComplete="email" className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required type="email" value={email} />
       </label>
       <label className="block">
         <span className="mb-2 block text-sm font-black text-slate-700">Mật khẩu</span>
-        <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" onChange={(event) => setPassword(event.target.value)} type="password" value={password} />
+        <input autoComplete="new-password" className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
       </label>
       {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
       <button className="h-12 w-full rounded-2xl bg-teal-700 font-black text-white shadow-xl shadow-teal-600/20 transition hover:-translate-y-0.5 hover:bg-teal-800 disabled:opacity-60" disabled={loading} type="submit">

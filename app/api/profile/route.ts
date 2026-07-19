@@ -6,6 +6,7 @@ import { getPermissionsForRoles, isRole } from "@/lib/auth/permissions";
 import { AUTH_COOKIE_NAME, AuthError, requireAuth, signSessionToken } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { UserModel } from "@/models/User";
+import { duplicateKeyMessage, isValidVietnamesePhone, normalizePhone, validationMessage } from "@/lib/auth/user-identity";
 
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(80),
@@ -55,10 +56,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     const email = payload.email.trim().toLowerCase();
-    const existedEmail = await UserModel.exists({ email, _id: { $ne: user._id } });
+    const phone = normalizePhone(payload.phone);
+    if (!isValidVietnamesePhone(phone)) {
+      return NextResponse.json({ message: "Số điện thoại không hợp lệ." }, { status: 400 });
+    }
+    const [existedEmail, existedPhone] = await Promise.all([
+      UserModel.exists({ email, _id: { $ne: user._id } }),
+      phone ? UserModel.exists({ "profile.phone": phone, _id: { $ne: user._id } }) : null,
+    ]);
 
     if (existedEmail) {
       return NextResponse.json({ message: "Email đã được tài khoản khác sử dụng." }, { status: 409 });
+    }
+    if (existedPhone) {
+      return NextResponse.json({ message: "Số điện thoại đã được tài khoản khác sử dụng." }, { status: 409 });
     }
 
     if (payload.newPassword) {
@@ -80,7 +91,7 @@ export async function PATCH(request: NextRequest) {
     user.avatarUrl = payload.avatarUrl?.trim() || undefined;
     user.profile = {
       ...user.profile,
-      phone: payload.phone?.trim() || "",
+      phone,
       gender: payload.gender,
       birthday: payload.birthday ? new Date(payload.birthday) : undefined,
     };
@@ -126,8 +137,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Dữ liệu hồ sơ không hợp lệ.", issues: error.issues }, { status: 400 });
+      return NextResponse.json({ message: validationMessage(error, "Dữ liệu hồ sơ không hợp lệ."), issues: error.issues }, { status: 400 });
     }
+
+    const duplicateMessage = duplicateKeyMessage(error);
+    if (duplicateMessage) return NextResponse.json({ message: duplicateMessage }, { status: 409 });
 
     return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể cập nhật hồ sơ." }, { status: 500 });
   }

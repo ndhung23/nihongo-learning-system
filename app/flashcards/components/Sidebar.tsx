@@ -63,12 +63,6 @@ export function Sidebar() {
         </p>
       </div>
 
-      <div className="mt-auto rounded-[1.5rem] bg-white/10 p-5 text-white opacity-0 shadow-2xl shadow-slate-950/18 transition duration-200 group-hover/sidebar:opacity-100">
-        <p className="text-sm font-black">Creator roadmap</p>
-        <p className="mt-2 text-sm leading-6 text-slate-300">
-          Sau khi ổn flashcard, mình sẽ nối khóa học, review và marketplace.
-        </p>
-      </div>
     </aside>
   );
 }

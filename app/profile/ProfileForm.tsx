@@ -89,7 +89,7 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
           <ProfileInput disabled label="Username" onChange={() => undefined} value={user.username} />
           <ProfileInput label="Email" onChange={(value) => setForm({ ...form, email: value })} type="email" value={form.email} />
           <ProfileInput label="Tên hiển thị" onChange={(value) => setForm({ ...form, displayName: value })} value={form.displayName} />
-          <ProfileInput label="Số điện thoại" onChange={(value) => setForm({ ...form, phone: value })} value={form.phone} />
+          <ProfileInput label="Số điện thoại" onChange={(value) => setForm({ ...form, phone: value })} type="tel" value={form.phone} />
           <label>
             <span className="mb-2 block text-sm font-black text-slate-700">Giới tính</span>
             <select className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400" onChange={(event) => setForm({ ...form, gender: event.target.value as ProfileFormState["gender"] })} value={form.gender}>
