@@ -50,6 +50,20 @@ const DeepLearnResponseSchema = z.object({
   ).max(6),
 });
 
+const VocabularySuggestionRequestSchema = z.object({
+  action: z.literal("vocabulary-suggest"),
+  term: z.string().trim().min(1).max(100),
+});
+
+const VocabularySuggestionResponseSchema = z.object({
+  kana: z.string(),
+  romaji: z.string(),
+  partOfSpeech: z.string(),
+  meaningVi: z.string(),
+  exampleJa: z.string(),
+  exampleVi: z.string(),
+});
+
 type AiProvider = "gemini" | "openai" | "deepseek";
 
 const keyCooldowns = new Map<string, number>();
@@ -76,9 +90,12 @@ export async function POST(request: NextRequest) {
 
     const body: unknown = await request.json();
     const deepLearnRequest = DeepLearnRequestSchema.safeParse(body);
+    const vocabularySuggestionRequest = VocabularySuggestionRequestSchema.safeParse(body);
     let prompt: string;
     if (deepLearnRequest.success) {
       prompt = buildDeepLearnPrompt(deepLearnRequest.data.kind, deepLearnRequest.data.word);
+    } else if (vocabularySuggestionRequest.success) {
+      prompt = buildVocabularySuggestionPrompt(vocabularySuggestionRequest.data.term);
     } else {
       const gradeRequest = GradeSentenceSchema.parse(body);
       prompt = buildPrompt(gradeRequest.sentence, gradeRequest.word);
@@ -128,7 +145,11 @@ export async function POST(request: NextRequest) {
 
     const generated = await generateAiJson(
       prompt,
-      deepLearnRequest.success ? DeepLearnResponseSchema : GeminiResponseSchema,
+      deepLearnRequest.success
+        ? DeepLearnResponseSchema
+        : vocabularySuggestionRequest.success
+          ? VocabularySuggestionResponseSchema
+          : GeminiResponseSchema,
     );
     const parsed = generated.data;
 
@@ -175,6 +196,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: error instanceof Error ? error.message : "Kh\u00f4ng th\u1ec3 ch\u1ea5m c\u00e2u." }, { status: 500 });
   }
+}
+
+function buildVocabularySuggestionPrompt(term: string) {
+  return `
+Bạn là trợ lý biên soạn từ vựng tiếng Nhật cho người Việt.
+Hãy phân tích chính xác từ/cụm từ tiếng Nhật: "${term}".
+Chỉ trả về JSON thuần, không markdown, theo đúng cấu trúc:
+{
+  "kana": "cách đọc kana tự nhiên",
+  "romaji": "romaji Hepburn",
+  "partOfSpeech": "từ loại ngắn gọn, ví dụ n, v, i-adj, na-adj, adv",
+  "meaningVi": "nghĩa tiếng Việt ngắn gọn và phổ biến nhất",
+  "exampleJa": "một câu ví dụ tiếng Nhật tự nhiên có chứa từ",
+  "exampleVi": "bản dịch tiếng Việt chính xác của câu ví dụ"
+}
+Không để trống trường nào. Nếu đầu vào đã là kana thì vẫn giữ cách đọc kana chính xác.
+`.trim();
 }
 
 async function refundAiCredit(userId: string) {

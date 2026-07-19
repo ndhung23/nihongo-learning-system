@@ -3,6 +3,7 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { FiAlertCircle, FiArrowLeft, FiBookmark, FiCheckCircle, FiUploadCloud, FiX, FiZap } from "react-icons/fi";
 import { FormField } from "../components/FormField";
+import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 
 type WordForm = {
   term: string;
@@ -140,6 +141,7 @@ export function AddWordScreen({
   const [importText, setImportText] = useState("");
   const [status, setStatus] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const parsedRows = useMemo(
     () => importText.split(/\r?\n/).map(parseImportLine).filter(Boolean) as ParsedImportRow[],
@@ -164,6 +166,54 @@ export function AddWordScreen({
     if (!response.ok) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       throw new Error(data?.message || "Không thể lưu từ vựng.");
+    }
+  };
+
+  const suggestWithAi = async () => {
+    const term = form.term.trim();
+
+    if (!term) {
+      setStatus({ tone: "error", message: "Hãy nhập từ tiếng Nhật trước khi dùng Gợi ý AI." });
+      return;
+    }
+
+    setIsSuggesting(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch("/api/flashcards/grade-sentence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "vocabulary-suggest", term }),
+      });
+      const payload = (await response.json()) as {
+        data?: Omit<WordForm, "term">;
+        message?: string;
+        remainingAiCredits?: number;
+      };
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.message || "Không thể tạo gợi ý từ vựng.");
+      }
+
+      setForm((current) => ({
+        ...current,
+        ...payload.data,
+        term: current.term,
+      }));
+
+      if (typeof payload.remainingAiCredits === "number") {
+        const storageKey = getKnownDailyProgressStorageKey();
+        const current = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as Record<string, unknown>;
+        window.localStorage.setItem(storageKey, JSON.stringify({ ...current, aiCredits: payload.remainingAiCredits }));
+        window.dispatchEvent(new CustomEvent("nihongo-daily-progress-updated"));
+      }
+
+      setStatus({ tone: "success", message: `AI đã điền thông tin. Còn ${payload.remainingAiCredits ?? 0} lượt AI.` });
+    } catch (error) {
+      setStatus({ tone: "error", message: error instanceof Error ? error.message : "Không thể tạo gợi ý từ vựng." });
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -263,8 +313,13 @@ export function AddWordScreen({
               placeholder="Nhập một từ tiếng Nhật..."
               value={form.term}
             />
-            <button className="rounded-2xl bg-teal-600 px-6 py-3 font-black text-white shadow-lg shadow-teal-600/15 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-700" type="button">
-              <FiZap className="mr-2 inline" /> Gợi ý AI
+            <button
+              className="rounded-2xl bg-teal-600 px-6 py-3 font-black text-white shadow-lg shadow-teal-600/15 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSuggesting}
+              onClick={suggestWithAi}
+              type="button"
+            >
+              <FiZap className="mr-2 inline" /> {isSuggesting ? "AI đang điền..." : "Gợi ý AI · 1 lượt"}
             </button>
           </div>
         </div>
