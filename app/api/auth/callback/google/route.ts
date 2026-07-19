@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import {
   exchangeGoogleCode,
+  GoogleOAuthError,
   GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_VERIFIER_COOKIE,
   isValidOAuthState,
@@ -98,8 +99,12 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     });
     return response;
-  } catch {
-    loginUrl.searchParams.set("error", "google_failed");
+  } catch (error) {
+    console.error("[Google OAuth callback]", error);
+    loginUrl.searchParams.set(
+      "error",
+      error instanceof GoogleOAuthError ? error.code : "google_failed",
+    );
     return clearOAuthCookies(NextResponse.redirect(loginUrl));
   }
 }

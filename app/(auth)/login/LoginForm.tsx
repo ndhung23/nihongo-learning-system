@@ -16,6 +16,8 @@ export function LoginForm() {
     const oauthError = new URLSearchParams(window.location.search).get("error");
     const messages: Record<string, string> = {
       google_config: "Đăng nhập Google chưa được cấu hình đầy đủ.",
+      google_token: "Google từ chối xác thực máy chủ. Vui lòng kiểm tra lại Client ID, Client Secret và URL callback.",
+      google_profile: "Không thể đọc thông tin tài khoản Google. Vui lòng thử lại.",
       google_state: "Phiên đăng nhập Google đã hết hạn. Vui lòng thử lại.",
       account_disabled: "Tài khoản này đang bị khóa hoặc chưa được kích hoạt.",
       google_failed: "Không thể đăng nhập bằng Google. Vui lòng thử lại.",

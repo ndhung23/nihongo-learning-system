@@ -17,6 +17,16 @@ const GoogleUserSchema = z.object({
   picture: z.string().url().optional(),
 });
 
+export class GoogleOAuthError extends Error {
+  constructor(
+    public code: "google_token" | "google_profile",
+    message: string,
+  ) {
+    super(message);
+    this.name = "GoogleOAuthError";
+  }
+}
+
 export function getGoogleConfig(origin: string) {
   const clientId = process.env.AUTH_GOOGLE_ID;
   const clientSecret = process.env.AUTH_GOOGLE_SECRET;
@@ -25,7 +35,11 @@ export function getGoogleConfig(origin: string) {
     throw new Error("Google OAuth chưa được cấu hình.");
   }
 
-  const appOrigin = (process.env.AUTH_URL || origin).replace(/\/+$/, "");
+  const appOrigin = (
+    process.env.AUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    origin
+  ).replace(/\/+$/, "");
   return {
     clientId,
     clientSecret,
@@ -84,7 +98,10 @@ export async function exchangeGoogleCode(
   });
 
   if (!tokenResponse.ok) {
-    throw new Error("Google từ chối mã đăng nhập.");
+    throw new GoogleOAuthError(
+      "google_token",
+      `Google từ chối mã đăng nhập (${tokenResponse.status}).`,
+    );
   }
   const token = GoogleTokenSchema.parse(await tokenResponse.json());
 
@@ -97,12 +114,18 @@ export async function exchangeGoogleCode(
     },
   );
   if (!userResponse.ok) {
-    throw new Error("Không thể đọc thông tin tài khoản Google.");
+    throw new GoogleOAuthError(
+      "google_profile",
+      `Không thể đọc thông tin tài khoản Google (${userResponse.status}).`,
+    );
   }
 
   const user = GoogleUserSchema.parse(await userResponse.json());
   if (!user.email_verified) {
-    throw new Error("Email Google chưa được xác minh.");
+    throw new GoogleOAuthError(
+      "google_profile",
+      "Email Google chưa được xác minh.",
+    );
   }
   return user;
 }
