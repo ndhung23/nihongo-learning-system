@@ -8,6 +8,7 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +18,10 @@ export function ResetPasswordForm() {
     event.preventDefault();
     setError("");
     setMessage("");
+    if (password !== passwordConfirmation) {
+      setError("Mật khẩu xác nhận không khớp.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -44,7 +49,11 @@ export function ResetPasswordForm() {
       {!token && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Thiếu token đặt lại mật khẩu.</p>}
       <label className="block">
         <span className="mb-2 block text-sm font-black text-slate-700">Mật khẩu mới</span>
-        <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" onChange={(event) => setPassword(event.target.value)} type="password" value={password} />
+        <input autoComplete="new-password" className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
+      </label>
+      <label className="block">
+        <span className="mb-2 block text-sm font-black text-slate-700">Xác nhận mật khẩu mới</span>
+        <input autoComplete="new-password" className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10" minLength={8} onChange={(event) => setPasswordConfirmation(event.target.value)} required type="password" value={passwordConfirmation} />
       </label>
       {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
       {message && <p className="rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">{message}</p>}

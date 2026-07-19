@@ -51,7 +51,7 @@ export function ForgotPasswordForm() {
         </Link>
       )}
       <button className="h-12 w-full rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:opacity-60" disabled={loading} type="submit">
-        {loading ? "Đang tạo..." : "Tạo link đặt lại"}
+        {loading ? "Đang gửi..." : "Gửi link đặt lại mật khẩu"}
       </button>
       <Link className="block text-center text-sm font-bold text-slate-500 hover:text-teal-700" href="/login">
         Quay lại đăng nhập

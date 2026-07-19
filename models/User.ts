@@ -38,6 +38,7 @@ const UserSchema = new Schema(
     passwordReset: {
       tokenHash: { type: String },
       expiresAt: { type: Date },
+      requestedAt: { type: Date },
       usedAt: { type: Date },
     },
   },

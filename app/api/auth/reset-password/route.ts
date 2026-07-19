@@ -7,7 +7,7 @@ import { UserModel } from "@/models/User";
 
 const ResetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(1),
+  password: z.string().min(8).max(128),
 });
 
 export async function POST(request: NextRequest) {
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       {
         "passwordReset.tokenHash": tokenHash,
         "passwordReset.expiresAt": { $gt: new Date() },
+        "passwordReset.usedAt": null,
       },
       {
         $set: {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
         $unset: {
           "passwordReset.tokenHash": "",
           "passwordReset.expiresAt": "",
+          "passwordReset.requestedAt": "",
         },
       },
       { new: true },
