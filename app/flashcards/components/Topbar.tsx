@@ -350,14 +350,12 @@ export function Topbar({
             >
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
-            <button
-              className="mt-3 flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
-              disabled
-              title={"Google OAuth s\u1ebd \u0111\u01b0\u1ee3c n\u1ed1i sau"}
-              type="button"
+            <a
+              className="mt-3 flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg"
+              href="/api/auth/google"
             >
               <FcGoogle className="h-5 w-5" /> {"\u0110\u0103ng nh\u1eadp b\u1eb1ng Google"}
-            </button>
+            </a>
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm font-black sm:grid-cols-2">
               <Link
                 className="flex h-11 items-center justify-center rounded-2xl border border-teal-200 bg-teal-50 px-4 text-center text-teal-800 transition hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-100 hover:text-teal-900"
