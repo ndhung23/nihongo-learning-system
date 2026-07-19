@@ -128,7 +128,13 @@ function toPayload(word: WordForm) {
   };
 }
 
-export function AddWordScreen({ onBack }: Readonly<{ onBack: () => void }>) {
+export function AddWordScreen({
+  onBack,
+  onSaved,
+}: Readonly<{
+  onBack: () => void;
+  onSaved?: () => void;
+}>) {
   const [form, setForm] = useState<WordForm>(emptyForm);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
@@ -188,6 +194,7 @@ export function AddWordScreen({ onBack }: Readonly<{ onBack: () => void }>) {
       });
       setForm(emptyForm);
       setImportText("");
+      onSaved?.();
     } catch (error) {
       setStatus({ tone: "error", message: error instanceof Error ? error.message : "Không thể lưu từ vựng." });
     } finally {

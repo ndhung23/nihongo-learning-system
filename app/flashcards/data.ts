@@ -5,6 +5,7 @@ import {
   FiGrid,
   FiLayers,
   FiPlus,
+  FiShoppingBag,
   FiTarget,
 } from "react-icons/fi";
 import type { Deck, Screen, StudyModeItem, Word } from "./types";
@@ -76,4 +77,5 @@ export const navItems: Array<{ screen: Screen; label: string; icon: typeof FiBoo
   { screen: "add", label: "Thêm từ", icon: FiPlus },
   { screen: "study", label: "Luyện tập", icon: FiTarget },
   { screen: "manage", label: "Danh sách", icon: FiGrid },
+  { screen: "shop", label: "Cửa hàng xu", icon: FiShoppingBag },
 ];

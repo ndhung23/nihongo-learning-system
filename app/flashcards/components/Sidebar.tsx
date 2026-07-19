@@ -9,6 +9,7 @@ const routeByScreen = {
   add: "/flashcards/add",
   study: "/flashcards/study",
   manage: "/flashcards/manage",
+  shop: "/flashcards/shop",
 } as const;
 
 export function Sidebar() {

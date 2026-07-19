@@ -294,10 +294,10 @@ export function GachaDailyPanel() {
           >
             {prizes.map((prize, index) => (
               <span
-                className="absolute left-1/2 top-1/2 w-[76px] -translate-x-1/2 text-center text-[11px] font-black leading-tight text-white drop-shadow-md"
+                className="absolute left-1/2 top-1/2 w-[72px] text-center text-[11px] font-black leading-[1.15] text-white drop-shadow-md"
                 key={index}
                 style={{
-                  transform: `translate(-50%, -50%) rotate(${index * 60 + 30}deg) translateY(-78px) rotate(-${index * 60 + 30}deg)`,
+                  transform: `translate(-50%, -50%) rotate(${index * 60 + 30}deg) translateY(-76px) rotate(-${index * 60 + 30}deg)`,
                 }}
               >
                 {prize.wheelLabel}

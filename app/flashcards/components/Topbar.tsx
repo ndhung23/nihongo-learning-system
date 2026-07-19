@@ -31,6 +31,11 @@ type CurrentUser = {
   aiCredits?: number;
 };
 
+type PublicFeedback = {
+  id: string;
+  message: string;
+};
+
 const supportEmail = "nhatngu430@gmail.com";
 const supportQrUrl = "/support-qr.png";
 
@@ -53,6 +58,8 @@ export function Topbar({
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackItems, setFeedbackItems] = useState<PublicFeedback[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const loadMe = useCallback(async () => {
@@ -74,6 +81,25 @@ export function Topbar({
     void loadMe();
   }, [loadMe]);
 
+  const loadFeedback = useCallback(async () => {
+    setFeedbackLoading(true);
+
+    try {
+      const response = await fetch("/api/feedback", { cache: "no-store" });
+      const payload = (await response.json()) as { data?: PublicFeedback[]; message?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Không thể tải feedback.");
+      }
+
+      setFeedbackItems(payload.data || []);
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Không thể tải feedback.");
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, []);
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -85,7 +111,7 @@ export function Topbar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ login, password }),
       });
-      const payload = await response.json();
+      const payload = (await response.json()) as { user: CurrentUser; message?: string };
 
       if (!response.ok) {
         setError(payload.message || "Không thể đăng nhập.");
@@ -122,7 +148,7 @@ export function Topbar({
           page: window.location.pathname,
         }),
       });
-      const payload = await response.json();
+      const payload = (await response.json()) as { data?: PublicFeedback; message?: string };
 
       if (!response.ok) {
         throw new Error(payload.message || "Không thể gửi góp ý.");
@@ -130,6 +156,9 @@ export function Topbar({
 
       setFeedbackText("");
       setFeedbackStatus("sent");
+      if (payload.data) {
+        setFeedbackItems((items) => [payload.data as PublicFeedback, ...items]);
+      }
     } catch (error) {
       setFeedbackError(error instanceof Error ? error.message : "Không thể gửi góp ý.");
       setFeedbackStatus("error");
@@ -193,6 +222,7 @@ export function Topbar({
                 setFeedbackOpen(true);
                 setFeedbackStatus("idle");
                 setFeedbackError("");
+                void loadFeedback();
               }}
               type="button"
             >
@@ -259,52 +289,90 @@ export function Topbar({
 
       {feedbackOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-2 sm:p-4 backdrop-blur-sm">
-          <form className="w-full max-w-5xl rounded-[2rem] bg-white p-8 shadow-2xl shadow-slate-950/20 dark:bg-slate-900" onSubmit={handleFeedback}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
+          <form
+            className="relative grid max-h-[calc(100vh-1rem)] w-full max-w-7xl overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-950/20 lg:grid-cols-[minmax(0,1fr)_340px] sm:max-h-[calc(100vh-2rem)] dark:bg-slate-900"
+            onSubmit={handleFeedback}
+          >
+            <button
+              aria-label="Đóng"
+              className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-950 lg:right-[356px] dark:bg-slate-900/90 dark:hover:bg-slate-800 dark:hover:text-white"
+              onClick={() => setFeedbackOpen(false)}
+              type="button"
+            >
+              <FiX />
+            </button>
+
+            <section className="overflow-y-auto p-5 sm:p-8">
+              <div className="pr-12">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">Ủng hộ & góp ý</p>
                 <h2 className="mt-2 text-3xl font-black">Giúp web tốt hơn</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Nếu thấy web hữu ích, mình rất mong nhận được sự ủng hộ để duy trì web. Mọi góp ý cải thiện tính năng, giao diện hoặc nội dung học đều sẽ được gửi cho admin.
+                  Nếu thấy web hữu ích, mình rất mong nhận được sự ủng hộ để duy trì web. Mọi góp ý cải thiện tính năng, giao diện hoặc nội dung học đều được hiển thị ẩn danh ở bên cạnh.
                 </p>
               </div>
-              <button className="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-slate-800 dark:hover:text-white" onClick={() => setFeedbackOpen(false)} type="button">
-                <FiX />
-              </button>
-            </div>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-[280px_1fr]">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-center dark:border-slate-700 dark:bg-slate-950">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="QR ủng hộ duy trì web" className="mx-auto h-[240px] w-[240px] rounded-2xl bg-white p-3 object-contain" src={supportQrUrl} />
-                <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-teal-700">Ủng hộ duy trì web</p>
-                <p className="mt-2 break-words text-xs font-bold text-slate-500 dark:text-slate-400">{supportEmail}</p>
+              <div className="mt-6 grid gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center dark:border-slate-700 dark:bg-slate-950">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="QR ủng hộ duy trì web" className="mx-auto aspect-square w-full max-w-[190px] rounded-2xl bg-white p-3 object-contain" src={supportQrUrl} />
+                  <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-teal-700">Ủng hộ duy trì web</p>
+                  <p className="mt-2 break-words text-xs font-bold text-slate-500 dark:text-slate-400">{supportEmail}</p>
+                </div>
+
+                <div>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">Nội dung feedback</span>
+                    <textarea
+                      className="min-h-[170px] w-full resize-none rounded-2xl border border-slate-200 bg-white p-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-950"
+                      maxLength={2000}
+                      onChange={(event) => {
+                        setFeedbackText(event.target.value);
+                        setFeedbackStatus("idle");
+                        setFeedbackError("");
+                      }}
+                      placeholder="Nhập feedback của bạn..."
+                      required
+                      value={feedbackText}
+                    />
+                  </label>
+                  {feedbackStatus === "sent" && <p className="mt-3 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">Đã gửi feedback. Cảm ơn bạn!</p>}
+                  {feedbackError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{feedbackError}</p>}
+                  <button
+                    className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={feedbackStatus === "sending" || feedbackText.trim().length < 5}
+                    type="submit"
+                  >
+                    <FiSend /> {feedbackStatus === "sending" ? "Đang gửi..." : "Gửi"}
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">Bạn muốn góp ý cải thiện gì?</span>
-                  <textarea
-                    className="min-h-[180px] w-full rounded-2xl border border-slate-200 bg-white p-4 font-semibold outline-none transition focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-950"
-                    onChange={(event) => {
-                      setFeedbackText(event.target.value);
-                      setFeedbackStatus("idle");
-                      setFeedbackError("");
-                    }}
-                    placeholder="Mọi người muốn web cải thiện điều gì? Ví dụ: giao diện, bài học, flashcard, lỗi gặp phải..."
-                    value={feedbackText}
-                  />
-                </label>
-                {feedbackStatus === "sent" && <p className="mt-3 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">Đã gửi góp ý. Cảm ơn bạn đã giúp web tốt hơn!</p>}
-                {feedbackError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{feedbackError}</p>}
-                <button
-                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={feedbackStatus === "sending"}
-                  type="submit"
-                >
-                  <FiSend /> {feedbackStatus === "sending" ? "Đang gửi..." : "Gửi góp ý"}
-                </button>
+            </section>
+
+            <aside className="flex min-h-[360px] flex-col border-t border-slate-200 bg-slate-50 lg:min-h-0 lg:border-l lg:border-t-0 dark:border-slate-700 dark:bg-slate-950">
+              <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+                <p className="font-black text-slate-900 dark:text-white">Feedback ({feedbackItems.length})</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">Tất cả feedback đều được ẩn danh</p>
               </div>
-            </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {feedbackLoading && <p className="py-8 text-center text-sm font-bold text-slate-400">Đang tải feedback...</p>}
+                {!feedbackLoading && feedbackItems.length === 0 && (
+                  <p className="py-8 text-center text-sm font-bold text-slate-400">Chưa có feedback nào.</p>
+                )}
+                <div className="grid gap-3">
+                  {feedbackItems.map((item) => (
+                    <article className="flex items-start gap-3" key={item.id}>
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                        <FiUser aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                        <p className="text-sm font-black text-slate-900 dark:text-white">Ẩn danh</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">{item.message}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </aside>
           </form>
         </div>
       )}

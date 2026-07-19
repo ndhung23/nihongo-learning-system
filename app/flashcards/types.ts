@@ -1,6 +1,6 @@
 import type { IconType } from "react-icons";
 
-export type Screen = "library" | "add" | "manage" | "study";
+export type Screen = "library" | "add" | "manage" | "shop" | "study";
 
 export type StudyMode = "meaning" | "flashcard" | "typing" | "example";
 

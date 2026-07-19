@@ -9,6 +9,30 @@ const FeedbackSchema = z.object({
   page: z.string().trim().max(300).optional(),
 });
 
+export async function GET() {
+  try {
+    await connectMongoDB();
+
+    const feedbackItems = await FeedbackModel.find({ status: { $ne: "archived" } })
+      .select({ message: 1, createdAt: 1 })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return NextResponse.json({
+      data: feedbackItems.map((item) => ({
+        id: String(item._id),
+        message: item.message,
+      })),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "Không thể tải feedback lúc này." },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = FeedbackSchema.parse(await request.json());
@@ -24,7 +48,15 @@ export async function POST(request: NextRequest) {
       page: payload.page,
     });
 
-    return NextResponse.json({ data: { id: feedback._id.toString() } }, { status: 201 });
+    return NextResponse.json(
+      {
+        data: {
+          id: feedback._id.toString(),
+          message: feedback.message,
+        },
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: "Nội dung góp ý cần từ 5 đến 2000 ký tự.", issues: error.issues }, { status: 400 });

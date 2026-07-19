@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag, unstable_cache } from "next/cache";
+import { Types } from "mongoose";
 import { z } from "zod";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
@@ -38,7 +39,7 @@ const getCachedVocabulary = unstable_cache(
   async (q: string, deckId: string, lesson: string, limit: number) => {
     await connectMongoDB();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { source: { $ne: "user" } };
 
     if (deckId) {
       filter.deckId = deckId;
@@ -69,6 +70,37 @@ const getCachedVocabulary = unstable_cache(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope");
+
+  if (scope === "mine") {
+    try {
+      const session = await requirePermission("flashcard:read");
+      await connectMongoDB();
+
+      const vocabulary = await VocabularyModel.find({
+        createdBy: session.userId,
+        source: "user",
+      })
+        .select("_id term kana romaji meaningVi partOfSpeech level examples createdAt")
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return NextResponse.json({ data: JSON.parse(JSON.stringify(vocabulary)) });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return NextResponse.json(
+          { message: error.message, code: error.code },
+          { status: error.code === "UNAUTHORIZED" ? 401 : 403 },
+        );
+      }
+
+      return NextResponse.json(
+        { message: error instanceof Error ? error.message : "Unable to load personal vocabulary." },
+        { status: 500 },
+      );
+    }
+  }
+
   const q = searchParams.get("q") || "";
   const deckId = searchParams.get("deckId") || "";
   const lesson = searchParams.get("lesson") || "";
@@ -84,11 +116,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission("flashcard:create");
+    const session = await requirePermission("flashcard:create");
     await connectMongoDB();
 
     const payload = CreateVocabularySchema.parse(await request.json());
-    const vocabulary = await VocabularyModel.create(payload);
+    const vocabulary = await VocabularyModel.create({
+      ...payload,
+      deckId: new Types.ObjectId(),
+      createdBy: session.userId,
+      source: "user",
+      isPublished: false,
+    });
     revalidateTag("vocabulary", "max");
 
     return NextResponse.json({ data: vocabulary }, { status: 201 });

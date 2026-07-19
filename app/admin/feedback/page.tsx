@@ -27,17 +27,23 @@ export default async function AdminFeedbackPage() {
         <div className="grid gap-3">
           {feedbackItems.map((item) => (
             <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4" key={String(item._id)}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+              <div className="grid gap-5 md:grid-cols-[minmax(180px,0.35fr)_minmax(0,1fr)] md:gap-6">
+                <div className="md:border-r md:border-slate-200 md:pr-6">
                   <p className="font-black text-slate-950">{item.name || "Khách"}</p>
                   <p className="mt-1 text-sm font-bold text-slate-500">{item.email || "Không có email"}</p>
+                  <span className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-teal-700">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Mới"}
+                  </span>
+                  {item.page && <p className="mt-3 break-all text-xs font-bold text-slate-400">Trang gửi: {item.page}</p>}
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-teal-700">
-                  {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Mới"}
-                </span>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Nội dung feedback</p>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-7 text-slate-700">
+                    {item.message}
+                  </p>
+                </div>
               </div>
-              <p className="mt-4 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-700">{item.message}</p>
-              {item.page && <p className="mt-3 text-xs font-bold text-slate-400">Trang gửi: {item.page}</p>}
             </article>
           ))}
         </div>

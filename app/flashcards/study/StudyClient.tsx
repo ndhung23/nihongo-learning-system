@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { words } from "../data";
-import { getWordBookmarkKey, readVocabularyBookmarks, toVocabularyBookmark, writeVocabularyBookmarks } from "../bookmarkStorage";
+import { getWordBookmarkKey, readVocabularyBookmarks, toVocabularyBookmark, writeVocabularyBookmarks, type VocabularyBookmark } from "../bookmarkStorage";
 import { StudyScreen } from "../screens/StudyScreen";
 import type { AnswerState, StudyMode, Word } from "../types";
 import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
@@ -120,14 +120,18 @@ export function StudyClient({
   initialDeckId,
   initialLesson,
   initialMode,
-}: Readonly<{ initialDeckId?: string; initialLesson?: string; initialMode: StudyMode }>) {
+  initialScope,
+}: Readonly<{ initialDeckId?: string; initialLesson?: string; initialMode: StudyMode; initialScope?: string }>) {
   const router = useRouter();
+  const isPersonalVocabulary = initialScope === "mine";
+  const isBookmarkVocabulary = initialScope === "bookmarks";
+  const studyScope = isPersonalVocabulary ? "mine" : isBookmarkVocabulary ? "bookmarks" : undefined;
   const [deckId, setDeckId] = useState(initialDeckId || "");
   const [lesson, setLesson] = useState(initialLesson || "all");
-  const [courseTitle, setCourseTitle] = useState(initialDeckId ? "Đang tải khóa học" : "JLPT N5");
+  const [courseTitle, setCourseTitle] = useState(isPersonalVocabulary ? "Từ vựng riêng tôi" : isBookmarkVocabulary ? "Bookmark của tôi" : initialDeckId ? "Đang tải khóa học" : "JLPT N5");
   const [courseTotal, setCourseTotal] = useState<number | null>(null);
-  const [studyWords, setStudyWords] = useState<Word[]>(initialDeckId ? [] : words);
-  const [isCourseLoading, setIsCourseLoading] = useState(Boolean(initialDeckId));
+  const [studyWords, setStudyWords] = useState<Word[]>(initialDeckId || studyScope ? [] : words);
+  const [isCourseLoading, setIsCourseLoading] = useState(Boolean(initialDeckId) || Boolean(studyScope));
   const [mode, setMode] = useState<StudyMode>(initialMode);
   const [wordIndex, setWordIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState("");
@@ -141,42 +145,88 @@ export function StudyClient({
   const loadedDeckId = useRef("");
 
   useEffect(() => {
-    const savedDeckId = window.localStorage.getItem("selectedCourseId");
-    const nextDeckId = initialDeckId || savedDeckId || "";
-    const nextLesson = initialLesson || "all";
+    if (isBookmarkVocabulary) {
+      const rawSelection = window.sessionStorage.getItem("nihongo-bookmark-study-selection");
+      let selectedBookmarks: VocabularyBookmark[] = [];
 
-    if (!nextDeckId) {
+      try {
+        selectedBookmarks = JSON.parse(rawSelection || "[]") as VocabularyBookmark[];
+      } catch {
+        selectedBookmarks = [];
+      }
+
+      void Promise.resolve().then(() => {
+        setCourseTitle("Bookmark của tôi");
+        setStudyWords(
+          shuffleWords(selectedBookmarks.map((bookmark) => ({
+            id: bookmark.id,
+            deckId: bookmark.deckId,
+            term: bookmark.term,
+            kana: bookmark.kana,
+            romaji: bookmark.romaji,
+            type: bookmark.type,
+            meaning: bookmark.meaning,
+            wrong: selectedBookmarks
+              .filter((candidate) => candidate.key !== bookmark.key && candidate.meaning !== bookmark.meaning)
+              .slice(0, 3)
+              .map((candidate) => candidate.meaning),
+            example: bookmark.example,
+            exampleVi: bookmark.exampleVi,
+            tags: ["bookmark"],
+          }))),
+        );
+        setCourseTotal(selectedBookmarks.length);
+        setWordIndex(0);
+        setIsCourseLoading(false);
+      });
       return;
     }
 
-    const loadKey = `${nextDeckId}:${nextLesson}`;
+    const savedDeckId = window.localStorage.getItem("selectedCourseId");
+    const nextDeckId = isPersonalVocabulary ? "" : initialDeckId || savedDeckId || "";
+    const nextLesson = initialLesson || "all";
+
+    if (!nextDeckId && !isPersonalVocabulary) {
+      return;
+    }
+
+    const loadKey = isPersonalVocabulary ? "mine" : `${nextDeckId}:${nextLesson}`;
 
     if (loadedDeckId.current === loadKey) {
       return;
     }
 
     loadedDeckId.current = loadKey;
-    fetch(`/api/courses/${nextDeckId}/learn`, {
-      method: "POST",
-      keepalive: true,
-    }).catch(() => undefined);
+    if (!isPersonalVocabulary) {
+      fetch(`/api/courses/${nextDeckId}/learn`, {
+        method: "POST",
+        keepalive: true,
+      }).catch(() => undefined);
+    }
     setDeckId(nextDeckId);
     setLesson(nextLesson);
     setIsCourseLoading(true);
     setStudyWords([]);
-    setCourseTitle("Đang tải khóa học");
+    setCourseTitle(isPersonalVocabulary ? "Từ vựng riêng tôi" : "Đang tải khóa học");
     setCourseTotal(null);
 
-    if (!initialDeckId) {
+    if (!initialDeckId && !isPersonalVocabulary) {
       router.replace(buildStudyUrl(initialMode, nextDeckId, nextLesson), { scroll: false });
     }
 
     Promise.all([
-      fetch(`/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`).then((response) => (response.ok ? response.json() : { data: [] })),
-      fetch("/api/courses?limit=80").then((response) => (response.ok ? response.json() : { data: [] })),
+      fetch(isPersonalVocabulary ? "/api/vocabulary?scope=mine" : `/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`).then((response) => (response.ok ? response.json() : { data: [] })),
+      isPersonalVocabulary
+        ? Promise.resolve({ data: [] })
+        : fetch("/api/courses?limit=80").then((response) => (response.ok ? response.json() : { data: [] })),
     ])
       .then(([vocabularyPayload, coursesPayload]: [{ data?: VocabularyItem[] }, { data?: Course[] }]) => {
-        const vocabulary = vocabularyPayload.data || [];
+        const personalSelection = isPersonalVocabulary
+          ? JSON.parse(window.sessionStorage.getItem("nihongo-personal-study-selection") || "[]") as string[]
+          : [];
+        const vocabulary = (vocabularyPayload.data || []).filter(
+          (item) => !isPersonalVocabulary || personalSelection.length === 0 || Boolean(item._id && personalSelection.includes(item._id)),
+        );
         const meaningPool = [...new Set(vocabulary.map((item) => item.meaningVi).filter(Boolean))];
         const meaningIndexes = new Map(meaningPool.map((meaning, index) => [meaning, index]));
         const mappedWords = vocabulary.map((item) => toStudyWord(item, meaningPool, meaningIndexes));
@@ -193,7 +243,10 @@ export function StudyClient({
           return;
         }
 
-        if (selectedCourse) {
+        if (isPersonalVocabulary) {
+          setCourseTitle("Từ vựng riêng tôi");
+          setCourseTotal(mappedWords.length);
+        } else if (selectedCourse) {
           setCourseTitle(nextLesson !== "all" ? `${selectedCourse.title} - Bài ${nextLesson}` : selectedCourse.title);
           setCourseTotal(nextLesson !== "all" ? mappedWords.length : selectedCourse.stats?.vocabularyCount || mappedWords.length);
         } else {
@@ -201,19 +254,19 @@ export function StudyClient({
           setCourseTotal(mappedWords.length);
         }
 
-        setStudyWords(mappedWords);
+        setStudyWords(studyScope ? shuffleWords(mappedWords) : mappedWords);
         setWordIndex(0);
         resetPractice();
       })
       .catch(() => {
-        setCourseTitle("Không tải được khóa học");
+        setCourseTitle(isPersonalVocabulary ? "Không tải được từ vựng riêng" : "Không tải được khóa học");
         setCourseTotal(0);
         setStudyWords([]);
       })
       .finally(() => {
         setIsCourseLoading(false);
       });
-  }, [initialDeckId, initialLesson, initialMode, router]);
+  }, [initialDeckId, initialLesson, initialMode, isBookmarkVocabulary, isPersonalVocabulary, router, studyScope]);
 
   useEffect(() => {
     const syncBookmarks = () => {
@@ -245,10 +298,23 @@ export function StudyClient({
   }
 
   function nextWord() {
-    setWordIndex((index) => (index + 1) % studyWords.length);
+    if (wordIndex >= studyWords.length - 1) {
+      setStudyWords((current) => {
+        const shuffled = shuffleWords(current);
+
+        if (shuffled.length > 1 && getWordBookmarkKey(shuffled[0]) === getWordBookmarkKey(currentWord)) {
+          [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+        }
+
+        return shuffled;
+      });
+      setWordIndex(0);
+    } else {
+      setWordIndex((index) => index + 1);
+    }
     setMode("flashcard");
     resetPractice();
-    router.replace(buildStudyUrl("flashcard", deckId, lesson), { scroll: false });
+    router.replace(buildStudyUrl("flashcard", deckId, lesson, studyScope), { scroll: false });
   }
 
   function finishWord() {
@@ -274,13 +340,13 @@ export function StudyClient({
   function continueFlashcard() {
     setMode("meaning");
     resetPractice();
-    router.replace(buildStudyUrl("meaning", deckId, lesson), { scroll: false });
+    router.replace(buildStudyUrl("meaning", deckId, lesson, studyScope), { scroll: false });
   }
 
   function continueMeaning() {
     setMode("typing");
     resetPractice();
-    router.replace(buildStudyUrl("typing", deckId, lesson), { scroll: false });
+    router.replace(buildStudyUrl("typing", deckId, lesson, studyScope), { scroll: false });
   }
 
   function submitTyping() {
@@ -293,14 +359,14 @@ export function StudyClient({
       setTypingAnswer("");
       setAnswerState("idle");
       setFlipped(false);
-      router.replace(buildStudyUrl("example", deckId, lesson), { scroll: false });
+      router.replace(buildStudyUrl("example", deckId, lesson, studyScope), { scroll: false });
     }
   }
 
   function changeMode(nextMode: StudyMode) {
     setMode(nextMode);
     resetPractice();
-    router.replace(buildStudyUrl(nextMode, deckId, lesson), { scroll: false });
+    router.replace(buildStudyUrl(nextMode, deckId, lesson, studyScope), { scroll: false });
   }
 
   function speakJapanese(text = currentWord.term) {
@@ -361,7 +427,7 @@ export function StudyClient({
       vocabularyQuery={vocabularyQuery}
       bookmarkedKeys={bookmarkedKeys}
       words={studyWords}
-      onBack={() => router.push("/flashcards")}
+      onBack={() => router.push(isPersonalVocabulary ? "/flashcards/my-vocabulary" : isBookmarkVocabulary ? "/flashcards/bookmarks" : "/flashcards")}
       onChoose={chooseAnswer}
       onCloseVocabulary={() => setVocabularyOpen(false)}
       onContinueFlashcard={continueFlashcard}
@@ -386,8 +452,12 @@ export function StudyClient({
   );
 }
 
-function buildStudyUrl(mode: StudyMode, deckId: string, lesson: string) {
+function buildStudyUrl(mode: StudyMode, deckId: string, lesson: string, scope?: "mine" | "bookmarks") {
   const params = new URLSearchParams({ mode });
+
+  if (scope) {
+    params.set("scope", scope);
+  }
 
   if (deckId) {
     params.set("deckId", deckId);
@@ -398,6 +468,17 @@ function buildStudyUrl(mode: StudyMode, deckId: string, lesson: string) {
   }
 
   return `/flashcards/study?${params.toString()}`;
+}
+
+function shuffleWords<T>(items: T[]) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+
+  return shuffled;
 }
 
 function isTypingCorrect(answer: string, word: Word) {
