@@ -3,6 +3,7 @@ import { FiBookOpen, FiChevronLeft, FiChevronRight, FiFilter, FiUsers } from "re
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { DiscoverControls } from "./DiscoverControls";
+import { CourseStudyButton } from "./CourseStudyButton";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -115,14 +116,23 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
                 {course.stats?.vocabularyCount || 0} {isJlptTest ? "câu" : "từ"}
               </div>
             </div>
-            <Link
-              className="mt-5 flex h-11 items-center justify-center rounded-2xl bg-slate-950 font-black text-white transition hover:-translate-y-0.5 hover:bg-rose-600"
-              href={courseHref}
-            >
-              {isJlptTest || course.slug === "n5-test-ngu-phap-tu-vung-doc-hieu"
-                ? "Làm bài"
-                : "Học khóa này"}
-            </Link>
+            {isJlptTest || course.slug === "n5-test-ngu-phap-tu-vung-doc-hieu" ? (
+              <Link
+                className="mt-5 flex h-11 items-center justify-center rounded-2xl bg-slate-950 font-black text-white transition hover:-translate-y-0.5 hover:bg-rose-600"
+                href={courseHref}
+              >
+                Làm bài
+              </Link>
+            ) : (
+              <CourseStudyButton
+                courseId={String(course._id)}
+                level={course.level || ""}
+                slug={course.slug || ""}
+                tags={(course.tags || []) as string[]}
+                title={course.title}
+                vocabularyCount={course.stats?.vocabularyCount || 0}
+              />
+            )}
           </article>
           );
         })}
