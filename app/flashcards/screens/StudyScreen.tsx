@@ -7,6 +7,7 @@ import type { AnswerState, StudyMode, Word } from "../types";
 import { MetricCard } from "../components/Cards";
 import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 import { getWordBookmarkKey } from "../bookmarkStorage";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 type GradeResult = {
   score: number;
@@ -85,6 +86,13 @@ export function StudyScreen({
   onVocabularyQueryChange: (value: string) => void;
   selectedAnswer: string;
 }>) {
+  const { t } = useLanguage();
+  const modeLabels: Record<StudyMode, { title: string; subtitle: string }> = {
+    flashcard: { title: "Flashcard", subtitle: t("flashcardHint") },
+    meaning: { title: t("meaningMode"), subtitle: t("meaningModeHint") },
+    typing: { title: t("typingMode"), subtitle: t("typingModeHint") },
+    example: { title: t("sentenceMode"), subtitle: t("sentenceModeHint") },
+  };
   const filteredWords = words.filter((word) => {
     const query = vocabularyQuery.trim().toLowerCase();
 
@@ -133,8 +141,8 @@ export function StudyScreen({
                     <Icon />
                   </span>
                   <span>
-                    <span className="block font-black">{item.title}</span>
-                    <span className="block text-xs text-slate-400">{item.subtitle}</span>
+                    <span className="block font-black">{modeLabels[item.id].title}</span>
+                    <span className="block text-xs text-slate-400">{modeLabels[item.id].subtitle}</span>
                   </span>
                 </span>
               </button>
@@ -146,21 +154,21 @@ export function StudyScreen({
           onClick={onOpenVocabulary}
           type="button"
         >
-          <FiBookOpen /> Xem từ vựng
+          <FiBookOpen /> {t("viewVocabulary")}
         </button>
       </aside>
 
       <section>
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <MetricCard label="Tổng từ" value={String(stats.total)} tone="bg-indigo-50 text-indigo-700" />
-          <MetricCard label="Cần học" value={String(stats.newWords)} tone="bg-teal-50 text-teal-700" />
-          <MetricCard label="Cần ôn" value={String(stats.review)} tone="bg-amber-50 text-amber-700" />
+          <MetricCard label={t("totalWords")} value={String(stats.total)} tone="bg-indigo-50 text-indigo-700" />
+          <MetricCard label={t("wordsToLearn")} value={String(stats.newWords)} tone="bg-teal-50 text-teal-700" />
+          <MetricCard label={t("wordsToReview")} value={String(stats.review)} tone="bg-amber-50 text-amber-700" />
         </div>
 
         {mode !== "typing" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Từ đang học</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("currentWord")}</p>
             <p className="mt-1 font-black text-slate-950">{currentWord.term}</p>
           </div>
           <BookmarkButton active={bookmarkedKeys.includes(getWordBookmarkKey(currentWord))} onClick={() => onToggleBookmark(currentWord)} />
@@ -407,6 +415,7 @@ function VocabularyDialog({
 }
 
 function BookmarkButton({ active, onClick }: Readonly<{ active: boolean; onClick: () => void }>) {
+  const { t } = useLanguage();
   return (
     <button
       className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 font-black transition-all duration-300 hover:-translate-y-0.5 ${
@@ -418,7 +427,7 @@ function BookmarkButton({ active, onClick }: Readonly<{ active: boolean; onClick
       type="button"
     >
       <FiBookmark className={active ? "fill-current" : ""} />
-      {active ? "Đã bookmark" : "Bookmark từ"}
+      {active ? t("bookmarked") : t("bookmarkWord")}
     </button>
   );
 }
@@ -484,6 +493,7 @@ function FlashcardExercise({
   onNext: () => void;
   onSpeak: (text?: string) => void;
 }>) {
+  const { t } = useLanguage();
   return (
     <div>
       <button className="group block min-h-[360px] w-full [perspective:1200px]" onClick={onFlip} type="button">
@@ -493,25 +503,25 @@ function FlashcardExercise({
         >
           <div className="absolute inset-0 rounded-[2rem] border border-indigo-100 bg-white p-8 text-center shadow-2xl shadow-indigo-500/8 [backface-visibility:hidden]">
             <div className="flex items-center justify-between">
-              <span className="rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-black text-teal-700">{"T\u1eeb m\u1edbi"}</span>
-              <span className="text-sm font-bold text-slate-400">{"B\u1ea5m \u0111\u1ec3 l\u1eadt"}</span>
+              <span className="rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-black text-teal-700">{t("newWord")}</span>
+              <span className="text-sm font-bold text-slate-400">{t("tapToFlip")}</span>
             </div>
             <div className="grid min-h-64 place-items-center">
               <div>
                 <h2 className="text-5xl font-black text-indigo-600">{currentWord.term}</h2>
                 <p className="mt-5 text-slate-500">{currentWord.kana} / {currentWord.romaji}</p>
-                <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400">{"M\u1eb7t tr\u01b0\u1edbc"}</p>
+                <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400">{t("front")}</p>
               </div>
             </div>
           </div>
           <div className="absolute inset-0 rounded-[2rem] border border-teal-100 bg-[linear-gradient(135deg,#ecfeff,#fff7ed)] p-8 text-center shadow-2xl shadow-teal-500/10 [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <div className="flex items-center justify-between">
-              <span className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700">{"M\u1eb7t sau"}</span>
-              <span className="text-sm font-bold text-slate-400">{"B\u1ea5m \u0111\u1ec3 quay l\u1ea1i"}</span>
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700">{t("back")}</span>
+              <span className="text-sm font-bold text-slate-400">{t("tapToReturn")}</span>
             </div>
             <div className="grid min-h-64 place-items-center">
               <div>
-                <p className="text-sm font-black uppercase tracking-widest text-teal-700">{"Ngh\u0129a"}</p>
+                <p className="text-sm font-black uppercase tracking-widest text-teal-700">{t("meaning")}</p>
                 <h2 className="mt-4 text-4xl font-black">{currentWord.meaning}</h2>
                 <p className="mt-5 text-lg text-slate-500">{currentWord.exampleVi}</p>
               </div>
@@ -521,14 +531,14 @@ function FlashcardExercise({
       </button>
       <div className="mt-5 flex flex-wrap justify-between gap-3">
         <button className="rounded-2xl border border-slate-200 bg-white px-6 py-3 font-black text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700" onClick={onKnown} type="button">
-          {"\u0110\u00e3 thu\u1ed9c"}
+          {t("known")}
         </button>
         <div className="flex flex-wrap gap-3">
           <button className="inline-flex items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-black text-teal-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-teal-100" onClick={() => onSpeak()} type="button">
-            <FiVolume2 /> {"Nghe"}
+            <FiVolume2 /> {t("listen")}
           </button>
           <button className="rounded-2xl bg-indigo-600 px-7 py-3 font-black text-white shadow-lg shadow-indigo-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700" onClick={onNext} type="button">
-            {"Ti\u1ebfp t\u1ee5c"}
+            {t("continue")}
           </button>
         </div>
       </div>
@@ -891,6 +901,7 @@ const deepLearnLabels: Record<DeepLearnKind, string> = {
 };
 
 function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
+  const { t } = useLanguage();
   const [activeKind, setActiveKind] = useState<DeepLearnKind | null>(null);
   const [pendingKind, setPendingKind] = useState<DeepLearnKind | null>(null);
   const [hideCostWarning, setHideCostWarning] = useState(false);
@@ -969,7 +980,7 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
   return (
     <>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <span className="font-bold text-slate-600">Học sâu hơn với AI</span>
+        <span className="font-bold text-slate-600">{t("learnWithAi")}</span>
         {(Object.entries(deepLearnLabels) as Array<[DeepLearnKind, string]>).map(([kind, label]) => (
           <button
             className="rounded-full border border-amber-300 bg-amber-50 px-5 py-2 font-bold text-amber-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-amber-100"

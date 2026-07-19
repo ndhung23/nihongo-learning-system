@@ -18,6 +18,7 @@ import {
 } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { announceDailyProgressOwner } from "./dailyProgressStorage";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 type CurrentUser = {
   userId?: string;
@@ -47,6 +48,7 @@ export function Topbar({
   onToggleTheme: () => void;
 }>) {
   const router = useRouter();
+  const { locale, setLocale, t } = useLanguage();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -61,6 +63,7 @@ export function Topbar({
   const [feedbackItems, setFeedbackItems] = useState<PublicFeedback[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -191,24 +194,51 @@ export function Topbar({
             <input
               className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-slate-400"
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Tìm tên khóa học..."
+              placeholder={t("searchCourses")}
               value={searchQuery}
             />
           </form>
 
           <nav className="hidden items-center gap-1 xl:flex">
-            <HeaderLink exact href="/flashcards" label="Trang chủ" />
-            <HeaderLink href="/flashcards/discover" label="Khám phá" />
-            <HeaderLink href="/flashcards/bookmarks" label="Bookmark của tôi" />
-            <HeaderLink href="/flashcards/my-vocabulary" label="Từ vựng riêng tôi" />
+            <HeaderLink exact href="/flashcards" label={t("home")} />
+            <HeaderLink href="/flashcards/discover" label={t("discover")} />
+            <HeaderLink href="/flashcards/bookmarks" label={t("bookmarks")} />
+            <HeaderLink href="/flashcards/my-vocabulary" label={t("myVocabulary")} />
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <button className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" type="button">
-              VI <FiChevronDown className="ml-1 inline" />
-            </button>
+            <div className="relative">
+              <button
+                aria-expanded={languageOpen}
+                aria-label={t("language")}
+                className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                onClick={() => setLanguageOpen((open) => !open)}
+                type="button"
+              >
+                <span aria-hidden="true" className="mr-1">{locale === "vi" ? "🇻🇳" : "🇬🇧"}</span>
+                {locale.toUpperCase()} <FiChevronDown className="ml-1 inline" />
+              </button>
+              {languageOpen && (
+                <div className="absolute right-0 top-12 z-40 w-40 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  {([["vi", "🇻🇳", "Tiếng Việt"], ["en", "🇬🇧", "English"]] as const).map(([value, flag, label]) => (
+                    <button
+                      className={`w-full rounded-xl px-3 py-2 text-left text-sm font-bold transition hover:bg-teal-50 dark:hover:bg-slate-800 ${locale === value ? "text-teal-700" : "text-slate-600 dark:text-slate-200"}`}
+                      key={value}
+                      onClick={() => {
+                        setLocale(value);
+                        setLanguageOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <span aria-hidden="true" className="mr-2 text-base">{flag}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
-              aria-label={theme === "dark" ? "Đổi sang giao diện sáng" : "Đổi sang giao diện tối"}
+              aria-label={theme === "dark" ? t("lightTheme") : t("darkTheme")}
               className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-amber-600 hover:shadow-lg hover:shadow-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               onClick={onToggleTheme}
               type="button"
@@ -216,7 +246,7 @@ export function Topbar({
               {theme === "dark" ? <FiSun /> : <FiMoon />}
             </button>
             <button
-              aria-label="Gửi góp ý"
+              aria-label={t("feedback")}
               className="relative grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               onClick={() => {
                 setFeedbackOpen(true);
@@ -261,15 +291,15 @@ export function Topbar({
                       </div>
                     </div>
                     <Link className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-teal-700" href="/profile">
-                      <FiUser /> Hồ sơ cá nhân
+                      <FiUser /> {t("profile")}
                     </Link>
                     {user.roles.includes("admin") && (
                       <Link className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-rose-700" href="/admin">
-                        <FiShield /> Quản trị hệ thống
+                        <FiShield /> {t("admin")}
                       </Link>
                     )}
                     <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-rose-600 transition hover:bg-rose-50" onClick={handleLogout} type="button">
-                      <FiLogOut /> Đăng xuất
+                      <FiLogOut /> {t("logout")}
                     </button>
                   </div>
                 )}
@@ -280,7 +310,7 @@ export function Topbar({
                 onClick={() => setLoginOpen(true)}
                 type="button"
               >
-                <FiLogIn /> Đăng nhập
+                <FiLogIn /> {t("login")}
               </button>
             )}
           </div>

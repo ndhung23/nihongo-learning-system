@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navItems } from "../data";
+import { type MessageKey, useLanguage } from "../i18n/LanguageProvider";
 
 const routeByScreen = {
   library: "/flashcards",
@@ -12,8 +13,17 @@ const routeByScreen = {
   shop: "/flashcards/shop",
 } as const;
 
+const labelByScreen: Record<keyof typeof routeByScreen, MessageKey> = {
+  library: "library",
+  add: "addWord",
+  study: "practice",
+  manage: "list",
+  shop: "coinShop",
+};
+
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   return (
     <aside className="group/sidebar sticky top-0 z-30 hidden h-screen w-[72px] overflow-hidden border-r border-slate-800 bg-slate-950 px-2 py-5 text-white shadow-[18px_0_60px_rgba(15,23,42,0.16)] transition-[width] duration-300 ease-out lg:flex lg:flex-col lg:hover:w-72">
@@ -41,26 +51,26 @@ export function Sidebar() {
                   : "text-slate-300 hover:-translate-y-0.5 hover:bg-white/10 hover:text-white"
               }`}
               href={href}
-              key={item.label}
+              key={item.screen}
             >
               <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition duration-300 ${isActive ? "bg-white/15" : "bg-white/8 group-hover:bg-white/12"}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="whitespace-nowrap opacity-0 transition duration-200 group-hover/sidebar:opacity-100">{item.label}</span>
+              <span className="whitespace-nowrap opacity-0 transition duration-200 group-hover/sidebar:opacity-100">{t(labelByScreen[item.screen])}</span>
             </Link>
           );
         })}
       </nav>
 
       <div className="mt-8 rounded-[1.5rem] border border-amber-400/30 bg-amber-300/10 p-4 opacity-0 transition duration-200 group-hover/sidebar:opacity-100">
-        <p className="text-sm font-black text-amber-900">Streak hôm nay</p>
+        <p className="text-sm font-black text-amber-900">{t("todayStreak")}</p>
         <div className="mt-4 flex items-end gap-2">
           {[30, 45, 35, 62, 50, 78, 58].map((height, index) => (
             <div className="flex-1 rounded-full bg-amber-200" key={index} style={{ height }} />
           ))}
         </div>
         <p className="mt-4 text-xs font-semibold leading-5 text-amber-100/80">
-          Giữ 12 ngày liên tiếp. Hoàn thành 10 từ nữa để nhận thêm điểm nước.
+          {t("streakDescription")}
         </p>
       </div>
 
