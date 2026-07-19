@@ -50,6 +50,24 @@ const DeepLearnResponseSchema = z.object({
   ).max(6),
 });
 
+type AiProvider = "gemini" | "openai" | "deepseek";
+
+const keyCooldowns = new Map<string, number>();
+const keyCursors: Record<AiProvider, number> = {
+  gemini: 0,
+  openai: 0,
+  deepseek: 0,
+};
+
+class AiProviderHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(`HTTP ${status}`);
+  }
+}
+
 export async function POST(request: NextRequest) {
   let debitedUserId: string | null = null;
 
@@ -174,10 +192,11 @@ function buildCacheKey(kind: string, term: string, meaning?: string) {
 
 async function generateAiJson(prompt: string, schema: z.ZodType<unknown>) {
   const errors: string[] = [];
-  const geminiKeys = uniqueKeys([
-    process.env.GEMINI_API_KEY,
-    process.env.APIKEYGEMINI,
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  const geminiKeys = getProviderKeyPool("gemini", [
+    "GEMINI_API_KEY",
+    "APIKEYGEMINI",
+    "GEMINI_API_KEYS",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
   ]);
   const geminiModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
@@ -198,24 +217,31 @@ async function generateAiJson(prompt: string, schema: z.ZodType<unknown>) {
           signal: AbortSignal.timeout(30_000),
         },
       );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw await createProviderHttpError(response);
+      }
       const data = await response.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (typeof text !== "string") throw new Error("Phản hồi không có nội dung");
+      const parsed = schema.parse(JSON.parse(text));
+      markKeyHealthy("gemini", apiKey);
       return {
-        data: schema.parse(JSON.parse(text)),
+        data: parsed,
         provider: "gemini",
         model: geminiModel,
       };
     } catch (error) {
       errors.push(`Gemini: ${error instanceof Error ? error.message : "lỗi"}`);
+      if (!shouldTryNextKey(error)) break;
+      markKeyUnavailable("gemini", apiKey, error);
     }
   }
 
-  const openAiKeys = uniqueKeys([
-    process.env.OPENAI_API_KEY,
-    process.env.keychatgpt,
-    process.env.CHATGPT_API_KEY,
+  const openAiKeys = getProviderKeyPool("openai", [
+    "OPENAI_API_KEY",
+    "OPENAI_API_KEYS",
+    "CHATGPT_API_KEY",
+    "keychatgpt",
   ]);
   const openAiModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
   for (const apiKey of openAiKeys) {
@@ -226,19 +252,24 @@ async function generateAiJson(prompt: string, schema: z.ZodType<unknown>) {
         openAiModel,
         prompt,
       );
+      const data = schema.parse(JSON.parse(text));
+      markKeyHealthy("openai", apiKey);
       return {
-        data: schema.parse(JSON.parse(text)),
+        data,
         provider: "openai",
         model: openAiModel,
       };
     } catch (error) {
       errors.push(`OpenAI: ${error instanceof Error ? error.message : "lỗi"}`);
+      if (!shouldTryNextKey(error)) break;
+      markKeyUnavailable("openai", apiKey, error);
     }
   }
 
-  const deepSeekKeys = uniqueKeys([
-    process.env.DEEPSEEK_API_KEY,
-    process.env.DEEPSEEK_KEY,
+  const deepSeekKeys = getProviderKeyPool("deepseek", [
+    "DEEPSEEK_API_KEY",
+    "DEEPSEEK_API_KEYS",
+    "DEEPSEEK_KEY",
   ]);
   const deepSeekModel = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   for (const apiKey of deepSeekKeys) {
@@ -249,13 +280,17 @@ async function generateAiJson(prompt: string, schema: z.ZodType<unknown>) {
         deepSeekModel,
         prompt,
       );
+      const data = schema.parse(JSON.parse(text));
+      markKeyHealthy("deepseek", apiKey);
       return {
-        data: schema.parse(JSON.parse(text)),
+        data,
         provider: "deepseek",
         model: deepSeekModel,
       };
     } catch (error) {
       errors.push(`DeepSeek: ${error instanceof Error ? error.message : "lỗi"}`);
+      if (!shouldTryNextKey(error)) break;
+      markKeyUnavailable("deepseek", apiKey, error);
     }
   }
 
@@ -286,7 +321,7 @@ async function callOpenAiCompatible(
     }),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) throw await createProviderHttpError(response);
   const data = await response.json();
   const text = data?.choices?.[0]?.message?.content;
   if (typeof text !== "string") throw new Error("Phản hồi không có nội dung");
@@ -294,7 +329,77 @@ async function callOpenAiCompatible(
 }
 
 function uniqueKeys(keys: Array<string | undefined>) {
-  return Array.from(new Set(keys.filter((key): key is string => Boolean(key?.trim()))));
+  return Array.from(
+    new Set(
+      keys
+        .flatMap((key) => key?.split(/[\n,;]+/) || [])
+        .map((key) => key.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function getProviderKeyPool(provider: AiProvider, variableNames: string[]) {
+  const configuredKeys = variableNames.flatMap((variableName) =>
+    Object.entries(process.env)
+      .filter(([name]) =>
+        name === variableName || new RegExp(`^${variableName}_\\d+$`).test(name),
+      )
+      .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+      .map(([, value]) => value),
+  );
+  const keys = uniqueKeys(configuredKeys);
+  if (keys.length < 2) return keys;
+
+  const now = Date.now();
+  const availableKeys = keys.filter(
+    (key) => (keyCooldowns.get(keyStateId(provider, key)) || 0) <= now,
+  );
+  if (availableKeys.length === 0) return [];
+
+  const start = keyCursors[provider] % availableKeys.length;
+  keyCursors[provider] = (keyCursors[provider] + 1) % availableKeys.length;
+  return [
+    ...availableKeys.slice(start),
+    ...availableKeys.slice(0, start),
+  ];
+}
+
+function shouldTryNextKey(error: unknown): error is AiProviderHttpError {
+  return error instanceof AiProviderHttpError &&
+    (error.status === 401 || error.status === 403 || error.status === 429);
+}
+
+function markKeyHealthy(provider: AiProvider, apiKey: string) {
+  keyCooldowns.delete(keyStateId(provider, apiKey));
+}
+
+function markKeyUnavailable(
+  provider: AiProvider,
+  apiKey: string,
+  error: AiProviderHttpError,
+) {
+  const cooldownMs =
+    error.retryAfterMs ??
+    (error.status === 429 ? 10 * 60_000 : 6 * 60 * 60_000);
+  keyCooldowns.set(keyStateId(provider, apiKey), Date.now() + cooldownMs);
+}
+
+function keyStateId(provider: AiProvider, apiKey: string) {
+  return `${provider}:${apiKey}`;
+}
+
+async function createProviderHttpError(response: Response) {
+  const retryAfter = response.headers.get("retry-after");
+  let retryAfterMs: number | undefined;
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    const parsed = Number.isFinite(seconds)
+      ? seconds * 1000
+      : Date.parse(retryAfter) - Date.now();
+    if (Number.isFinite(parsed) && parsed > 0) retryAfterMs = parsed;
+  }
+  return new AiProviderHttpError(response.status, retryAfterMs);
 }
 
 function buildDeepLearnPrompt(

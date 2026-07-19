@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
       $or: [{ username: normalizedLogin }, { email: normalizedLogin }],
     }).lean();
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await bcrypt.compare(password, user.passwordHash))
+    ) {
       return NextResponse.json({ message: "Sai tài khoản hoặc mật khẩu." }, { status: 401 });
     }
 

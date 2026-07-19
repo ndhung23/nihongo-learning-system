@@ -4,9 +4,14 @@ const UserSchema = new Schema(
   {
     username: { type: String, required: true, unique: true, trim: true, lowercase: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String },
     displayName: { type: String, trim: true },
     avatarUrl: { type: String },
+    authProviders: {
+      google: {
+        subject: { type: String },
+      },
+    },
     roles: {
       type: [String],
       enum: ["user", "vip", "creator", "admin"],
@@ -40,5 +45,9 @@ const UserSchema = new Schema(
 );
 
 UserSchema.index({ username: "text", email: "text", displayName: "text" });
+UserSchema.index(
+  { "authProviders.google.subject": 1 },
+  { unique: true, sparse: true },
+);
 
 export const UserModel = models.User || model("User", UserSchema);

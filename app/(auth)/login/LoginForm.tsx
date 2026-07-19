@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 
@@ -11,6 +11,17 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const oauthError = new URLSearchParams(window.location.search).get("error");
+    const messages: Record<string, string> = {
+      google_config: "Đăng nhập Google chưa được cấu hình đầy đủ.",
+      google_state: "Phiên đăng nhập Google đã hết hạn. Vui lòng thử lại.",
+      account_disabled: "Tài khoản này đang bị khóa hoặc chưa được kích hoạt.",
+      google_failed: "Không thể đăng nhập bằng Google. Vui lòng thử lại.",
+    };
+    if (oauthError && messages[oauthError]) setError(messages[oauthError]);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,9 +62,9 @@ export function LoginForm() {
       <button className="h-12 w-full rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:opacity-60" disabled={loading} type="submit">
         {loading ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
-      <button className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70" disabled title="Google OAuth sẽ được nối sau" type="button">
+      <a className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg" href="/api/auth/google">
         <FcGoogle className="h-5 w-5" /> Đăng nhập bằng Google
-      </button>
+      </a>
       <div className="grid grid-cols-1 gap-3 text-sm font-black sm:grid-cols-2">
         <Link
           className="flex h-11 items-center justify-center rounded-2xl border border-teal-200 bg-teal-50 px-4 text-center text-teal-800 transition hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-100 hover:text-teal-900"
