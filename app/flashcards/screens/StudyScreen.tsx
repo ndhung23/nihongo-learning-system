@@ -8,6 +8,7 @@ import { MetricCard } from "../components/Cards";
 import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 import { getWordBookmarkKey } from "../bookmarkStorage";
 import { useLanguage } from "../i18n/LanguageProvider";
+import { RomajiKanaInput } from "../components/RomajiKanaInput";
 
 type GradeResult = {
   score: number;
@@ -572,18 +573,15 @@ function TypingExercise({
           <FiVolume2 /> {"Nghe l\u1ea1i t\u1eeb"}
         </button>
       </div>
-      <input
+      <RomajiKanaInput
         className={`mt-8 h-16 w-full rounded-2xl border px-5 text-center text-xl font-bold outline-none transition-all duration-300 focus:bg-white focus:shadow-xl ${
           state === "wrong"
             ? "border-rose-300 bg-rose-50 focus:border-rose-400 focus:shadow-rose-500/10"
             : "border-slate-200 bg-slate-50 focus:border-teal-400 focus:shadow-teal-500/10"
         }`}
-        onChange={(event) => onAnswerChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            onNext();
-          }
-        }}
+        name="typingAnswer"
+        onEnter={onNext}
+        onValueChange={onAnswerChange}
         placeholder={"\u4f8b: \u30b7\u30b9\u30c6\u30e0\u958b\u767a / \u3057\u3059\u3066\u3080\u304b\u3044\u306f\u3064 / shisutemu kaihatsu"}
         value={answer}
       />
@@ -742,14 +740,16 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
           </div>
         )}
         <ExampleTranslation currentWord={currentWord} />
-        <textarea
+        <RomajiKanaInput
           className="mt-5 min-h-32 w-full rounded-2xl border border-slate-200 bg-white p-4 outline-none transition-all duration-300 focus:border-teal-400 focus:shadow-xl focus:shadow-teal-500/10"
-          onChange={(event) => {
-            setSentence(event.target.value);
+          name="practiceSentence"
+          onValueChange={(value) => {
+            setSentence(value);
             setGrade(null);
             setGradeError("");
           }}
           placeholder={"T\u1ef1 \u0111\u1eb7t m\u1ed9t c\u00e2u ti\u1ebfng Nh\u1eadt..."}
+          textarea
           value={sentence}
         />
         {gradeError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{gradeError}</p>}

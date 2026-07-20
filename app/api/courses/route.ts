@@ -14,6 +14,14 @@ const getCachedCourses = unstable_cache(
 
     if (type === "roadmap") {
       filter.tags = "roadmap";
+    } else if (type === "test") {
+      filter.tags = "Test";
+    } else if (type === "kanji") {
+      filter.tags = { $in: ["Kanji", "Luyện viết Kanji"] };
+    } else if (type === "basic") {
+      filter.tags = "Cơ bản";
+    } else if (type === "flashcard") {
+      filter.tags = { $nin: ["roadmap", "Test", "Cơ bản", "Kanji", "Luyện viết Kanji"] };
     }
 
     if (q) {
@@ -32,7 +40,16 @@ const getCachedCourses = unstable_cache(
       slug: course.slug,
       description: course.description,
       level: course.level,
-      type: course.contentType === "jlpt-test" ? "jlpt-test" : course.tags?.includes("roadmap") ? "roadmap" : "flashcard",
+      type:
+        course.contentType === "jlpt-test"
+          ? "jlpt-test"
+          : course.tags?.includes("roadmap")
+            ? "roadmap"
+            : course.tags?.includes("Kanji") || course.tags?.includes("Luyện viết Kanji")
+              ? "kanji"
+            : course.tags?.includes("Cơ bản")
+              ? "basic"
+              : "flashcard",
       jlptTest: course.jlptTest
         ? {
             level: course.jlptTest.level,

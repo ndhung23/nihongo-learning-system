@@ -4,6 +4,7 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { DiscoverControls } from "./DiscoverControls";
 import { CourseStudyButton } from "./CourseStudyButton";
+import { getVisibleKanaCourseCount, KanaCourseCards } from "./KanaCourseCards";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -27,8 +28,12 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
     filter.tags = "roadmap";
   } else if (type === "test") {
     filter.tags = "Test";
+  } else if (type === "kanji") {
+    filter.tags = { $in: ["Kanji", "Luyện viết Kanji"] };
+  } else if (type === "basic") {
+    filter.tags = "Cơ bản";
   } else if (type === "flashcard") {
-    filter.tags = { $nin: ["roadmap", "Test"] };
+    filter.tags = { $nin: ["roadmap", "Test", "Cơ bản", "Kanji", "Luyện viết Kanji"] };
   }
 
   if (q) {
@@ -48,6 +53,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         : { updatedAt: -1 };
 
   const totalCourses = await DeckModel.countDocuments(filter);
+  const kanaCourseCount = getVisibleKanaCourseCount({ level, query: q, type });
   const totalPages = Math.max(Math.ceil(totalCourses / pageSize), 1);
   const page = Math.min(requestedPage, totalPages);
   const courses = await DeckModel.find(filter)
@@ -63,11 +69,13 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Khám phá</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Các khóa học</h1>
           <p className="mt-3 max-w-2xl text-slate-500">
-            {totalCourses} khóa học phù hợp · Mặc định hiển thị khóa mới nhất trước.
+            {totalCourses + kanaCourseCount} khóa học phù hợp · Mặc định hiển thị khóa mới nhất trước.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <DiscoverFilter href={buildDiscoverHref({ type: "all", q, level, sort })} active={type === "all"} label="All" />
+          <DiscoverFilter href={buildDiscoverHref({ type: "basic", q, level, sort })} active={type === "basic"} label="Khóa học cơ bản" />
+          <DiscoverFilter href={buildDiscoverHref({ type: "kanji", q, level, sort })} active={type === "kanji"} label="Luyện viết Kanji" />
           <DiscoverFilter href={buildDiscoverHref({ type: "flashcard", q, level, sort })} active={type === "flashcard"} label="Khóa học flashcard" />
           <DiscoverFilter href={buildDiscoverHref({ type: "roadmap", q, level, sort })} active={type === "roadmap"} label="Khóa học lộ trình" />
           <DiscoverFilter href={buildDiscoverHref({ type: "test", q, level, sort })} active={type === "test"} label="Đề thi" />
@@ -78,8 +86,10 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         initialLevel={level}
         initialQuery={q}
         initialSort={sort}
-        type={["flashcard", "roadmap", "test"].includes(type) ? type : "all"}
+        type={["basic", "kanji", "flashcard", "roadmap", "test"].includes(type) ? type : "all"}
       />
+
+      <KanaCourseCards level={level} query={q} type={type} />
 
       <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {courses.map((course) => {
@@ -176,7 +186,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         </nav>
       )}
 
-      {courses.length === 0 && (
+      {courses.length === 0 && kanaCourseCount === 0 && (
         <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center">
           <FiFilter className="mx-auto h-8 w-8 text-slate-400" />
           <p className="mt-3 font-black text-slate-950">Chưa có khóa học phù hợp.</p>

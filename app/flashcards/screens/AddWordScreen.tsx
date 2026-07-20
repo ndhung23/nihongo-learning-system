@@ -3,6 +3,7 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { FiAlertCircle, FiArrowLeft, FiBookmark, FiCheckCircle, FiUploadCloud, FiX, FiZap } from "react-icons/fi";
 import { FormField } from "../components/FormField";
+import { RomajiKanaInput } from "../components/RomajiKanaInput";
 import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStorage";
 
 type WordForm = {
@@ -306,10 +307,10 @@ export function AddWordScreen({
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/[0.05]">
           <label className="block text-xs font-black uppercase tracking-wider text-slate-500">Từ vựng & trợ lý AI</label>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-            <input
+            <RomajiKanaInput
               className="h-13 flex-1 rounded-2xl border border-slate-200 px-4 outline-none transition-all duration-300 focus:border-teal-400 focus:shadow-lg focus:shadow-teal-500/10"
               name="term"
-              onChange={handleFieldChange}
+              onValueChange={(value) => setForm((current) => ({ ...current, term: value }))}
               placeholder="Nhập một từ tiếng Nhật..."
               value={form.term}
             />
@@ -355,10 +356,25 @@ export function AddWordScreen({
               <FormField label="Từ loại" name="partOfSpeech" onChange={handleFieldChange} placeholder="n, v, adj, adv..." value={form.partOfSpeech} />
               <FormField label="Nghĩa tiếng Việt" name="meaningVi" onChange={handleFieldChange} placeholder="Nghĩa ngắn gọn..." value={form.meaningVi} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Kana" name="kana" onChange={handleFieldChange} placeholder="かな..." value={form.kana} />
+                <FormField
+                  kanaSuggestions
+                  label="Kana"
+                  name="kana"
+                  onValueChange={(value) => setForm((current) => ({ ...current, kana: value }))}
+                  placeholder="Gõ romaji để chọn ひらがな / カタカナ..."
+                  value={form.kana}
+                />
                 <FormField label="Romaji" name="romaji" onChange={handleFieldChange} placeholder="romaji..." value={form.romaji} />
               </div>
-              <FormField label="Ví dụ" name="exampleJa" onChange={handleFieldChange} placeholder="Ví dụ chứa từ vựng..." textarea value={form.exampleJa} />
+              <FormField
+                kanaSuggestions
+                label="Ví dụ"
+                name="exampleJa"
+                onValueChange={(value) => setForm((current) => ({ ...current, exampleJa: value }))}
+                placeholder="Gõ romaji, nhấn Enter để chuyển Kana..."
+                textarea
+                value={form.exampleJa}
+              />
               <FormField label="Dịch nghĩa ví dụ" name="exampleVi" onChange={handleFieldChange} placeholder="VD: Tôi học tiếng Nhật mỗi ngày" value={form.exampleVi} />
             </>
           )}
