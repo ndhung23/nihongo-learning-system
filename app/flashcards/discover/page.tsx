@@ -52,15 +52,27 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         ? { updatedAt: 1 }
         : { updatedAt: -1 };
 
-  const totalCourses = await DeckModel.countDocuments(filter);
   const kanaCourseCount = getVisibleKanaCourseCount({ level, query: q, type });
+  const [totalCourses, requestedCourses] = await Promise.all([
+    DeckModel.countDocuments(filter),
+    DeckModel.find(filter)
+      .sort(sortDefinition)
+      .skip((requestedPage - 1) * pageSize)
+      .limit(pageSize)
+      .select("title slug description level contentType jlptTest stats tags")
+      .lean(),
+  ]);
   const totalPages = Math.max(Math.ceil(totalCourses / pageSize), 1);
   const page = Math.min(requestedPage, totalPages);
-  const courses = await DeckModel.find(filter)
-    .sort(sortDefinition)
-    .skip((page - 1) * pageSize)
-    .limit(pageSize)
-    .lean();
+  const courses =
+    page === requestedPage
+      ? requestedCourses
+      : await DeckModel.find(filter)
+          .sort(sortDefinition)
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .select("title slug description level contentType jlptTest stats tags")
+          .lean();
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-10">

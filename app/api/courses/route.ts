@@ -31,6 +31,7 @@ const getCachedCourses = unstable_cache(
 
     const courses = await DeckModel.find(filter)
       .sort(sort === "newest" ? { updatedAt: -1 } : { "stats.learnerCount": -1, "stats.vocabularyCount": -1, updatedAt: -1 })
+      .select("title slug description level contentType jlptTest stats tags updatedAt")
       .limit(limit)
       .lean();
 

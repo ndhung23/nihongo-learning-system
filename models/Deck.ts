@@ -49,6 +49,8 @@ const DeckSchema = new Schema(
 
 DeckSchema.index({ title: "text", description: "text", tags: "text" });
 DeckSchema.index({ level: 1, status: 1, visibility: 1, sourceType: 1 });
+DeckSchema.index({ status: 1, visibility: 1, updatedAt: -1 });
+DeckSchema.index({ status: 1, visibility: 1, "stats.learnerCount": -1, updatedAt: -1 });
 DeckSchema.index(
   { "jlptTest.level": 1, "jlptTest.number": 1 },
   {

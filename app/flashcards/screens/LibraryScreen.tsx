@@ -47,27 +47,15 @@ export function LibraryScreen({
   useEffect(() => {
     setSelectedCourseId(window.localStorage.getItem("selectedCourseId"));
 
-    Promise.all([
-      fetch("/api/courses?sort=newest&limit=80", { cache: "no-store" }).then(
-        (response) => (response.ok ? response.json() : { data: [] }),
-      ),
-      fetch("/api/courses/learning", { cache: "no-store" }).then((response) =>
-        response.ok ? response.json() : { data: [] },
-      ),
-    ])
-      .then(
-        ([coursesPayload, learningPayload]: [
-          { data?: PublicCourse[] },
-          { data?: PublicCourse[] },
-        ]) => {
-          setCourses(coursesPayload.data || []);
-          setLearningCourses(learningPayload.data || []);
-        },
-      )
-      .catch(() => {
-        setCourses([]);
-        setLearningCourses([]);
-      });
+    void fetch("/api/courses?sort=newest&limit=24")
+      .then((response) => (response.ok ? response.json() : { data: [] }))
+      .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
+      .catch(() => setCourses([]));
+
+    void fetch("/api/courses/learning", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { data: [] }))
+      .then((payload: { data?: PublicCourse[] }) => setLearningCourses(payload.data || []))
+      .catch(() => setLearningCourses([]));
   }, []);
 
   function scrollToDiscover() {

@@ -19,10 +19,6 @@ export async function GET() {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
-  const balances = await UserModel.collection.findOne(
-    { _id: user._id },
-    { projection: { aiCredits: 1 } },
-  );
   const roles = user.roles.filter(isRole);
 
   return NextResponse.json({
@@ -35,7 +31,7 @@ export async function GET() {
       avatarUrl: user.avatarUrl,
       roles,
       permissions: getPermissionsForRoles(roles),
-      aiCredits: typeof balances?.aiCredits === "number" ? balances.aiCredits : 1,
+      aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
       profile: {
         gender: user.profile?.gender,
         phone: user.profile?.phone,

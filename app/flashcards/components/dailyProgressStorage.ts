@@ -23,17 +23,8 @@ export function announceDailyProgressOwner(userId?: string | null, aiCredits?: n
 }
 
 export async function resolveDailyProgressStorageKey() {
-  try {
-    const response = await fetch("/api/auth/me", { cache: "no-store" });
-    if (!response.ok) {
-      announceDailyProgressOwner(null);
-      return getDailyProgressStorageKey();
-    }
-    const payload = (await response.json()) as { user?: { userId?: string; id?: string; aiCredits?: number } | null };
-    const userId = payload.user?.userId || payload.user?.id || null;
-    announceDailyProgressOwner(userId, payload.user?.aiCredits);
-    return getDailyProgressStorageKey(userId);
-  } catch {
-    return getKnownDailyProgressStorageKey();
-  }
+  // Topbar owns the single /api/auth/me request and announces any account
+  // change. Reuse the last known owner here to avoid a duplicate DB request
+  // every time the home screen mounts.
+  return getKnownDailyProgressStorageKey();
 }
