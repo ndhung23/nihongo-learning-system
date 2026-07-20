@@ -7,6 +7,7 @@ import {
   getDailyProgressStorageKey,
   resolveDailyProgressStorageKey,
 } from "./dailyProgressStorage";
+import { PaymentTopUpModal } from "./PaymentTopUpModal";
 
 type DailyState = {
   date: string;
@@ -99,6 +100,7 @@ export function GachaDailyPanel() {
   const [spinning, setSpinning] = useState(false);
   const [lastPrize, setLastPrize] = useState("");
   const [resultOpen, setResultOpen] = useState(false);
+  const [paymentKind, setPaymentKind] = useState<"ai" | "vip" | null>(null);
   const soundTimerRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const claimedAdminTicketsForRef = useRef("");
@@ -267,6 +269,15 @@ export function GachaDailyPanel() {
           <Stat icon={<FiCpu />} label="Lượt AI" value={dailyState.aiCredits} />
         </div>
 
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button className="h-10 rounded-xl border border-teal-200 bg-teal-50 text-xs font-black text-teal-800 transition hover:bg-teal-100" onClick={() => setPaymentKind("ai")} type="button">
+            Nạp lượt AI
+          </button>
+          <button className="h-10 rounded-xl border border-violet-200 bg-violet-50 text-xs font-black text-violet-800 transition hover:bg-violet-100" onClick={() => setPaymentKind("vip")} type="button">
+            Nâng cấp VIP
+          </button>
+        </div>
+
         <button
           className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 font-black text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           disabled={dailyState.checkedIn}
@@ -384,6 +395,9 @@ export function GachaDailyPanel() {
             </button>
           </div>
         </div>
+      )}
+      {paymentKind && (
+        <PaymentTopUpModal initialKind={paymentKind} onClose={() => setPaymentKind(null)} />
       )}
     </aside>
   );

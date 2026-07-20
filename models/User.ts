@@ -34,6 +34,7 @@ const UserSchema = new Schema(
     },
     vipUntil: { type: Date },
     aiCredits: { type: Number, default: 1, min: 0 },
+    processedPaymentIds: { type: [Schema.Types.ObjectId], default: [], select: false },
     pendingGachaTickets: { type: Number, default: 0, min: 0 },
     passwordReset: {
       tokenHash: { type: String },
