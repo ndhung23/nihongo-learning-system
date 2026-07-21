@@ -10,6 +10,7 @@ import {
   FiChevronRight,
   FiFileText,
 } from "react-icons/fi";
+import { HighlightFeedback } from "./HighlightFeedback";
 
 type Section = "vocabulary-kanji" | "grammar-reading";
 type FeedbackMode = "immediate" | "at-end";
@@ -347,6 +348,14 @@ export function JlptTestClient({
             prompt={question.prompt}
           />
         </h2>
+
+        <HighlightFeedback
+          level={level}
+          testNumber={testNumber}
+          section={section === "vocabulary-kanji" ? "vocabularyKanji" : "grammarReading"}
+          questionId={question.id}
+          prompt={question.prompt}
+        />
 
         <div className="mt-6 grid gap-3">
           {question.options.map((option, optionIndex) => {

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requireAuth } from "@/lib/auth/session";
+import { sendPaymentRequestAdminEmail } from "@/lib/email";
 import { connectMongoDB } from "@/lib/mongodb";
 import { PaymentRequestModel } from "@/models/PaymentRequest";
 
@@ -47,6 +48,19 @@ export async function POST(request: NextRequest) {
       vipMonths: payload.kind === "vip" ? payload.amount / 20_000 : 0,
       transferCode,
     });
+
+    try {
+      await sendPaymentRequestAdminEmail({
+        username: session.username,
+        userEmail: session.email,
+        kind: payload.kind,
+        amount: payload.amount,
+        transferCode,
+        createdAt: payment.createdAt,
+      });
+    } catch (emailError) {
+      console.error("Failed to send payment notification email:", emailError);
+    }
 
     return NextResponse.json({ data: serializePayment(payment.toObject()) }, { status: 201 });
   } catch (error) {
