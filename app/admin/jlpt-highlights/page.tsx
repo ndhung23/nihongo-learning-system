@@ -1,7 +1,7 @@
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptHighlightSuggestionModel } from "@/models/JlptHighlightSuggestion";
 import { JlptTestModel } from "@/models/JlptTest";
-import { JlptHighlightsClient } from "./JlptHighlightsClient";
+import { PaginatedHighlightsClient } from "./PaginatedHighlightsClient";
 
 export default async function JlptHighlightsPage() {
   await connectMongoDB();
@@ -12,5 +12,5 @@ export default async function JlptHighlightsPage() {
   const questions = tests.flatMap((test) => (["vocabularyKanji", "grammarReading"] as const).flatMap((section) =>
     (test.sections?.[section] ?? []).map((question: { id: string; prompt: string; highlightText?: string }) => ({ level: test.level, testNumber: test.number, section, questionId: question.id, prompt: question.prompt, highlightText: question.highlightText ?? "" })),
   ));
-  return <JlptHighlightsClient questions={questions} suggestions={suggestions.map((item) => ({ id: String(item._id), level: item.level, testNumber: item.testNumber, questionId: item.questionId, prompt: item.prompt, currentHighlightText: item.currentHighlightText, suggestedHighlightText: item.suggestedHighlightText, note: item.note, username: item.username, status: item.status }))} />;
+  return <PaginatedHighlightsClient questions={questions} suggestions={suggestions.map((item) => ({ id: String(item._id), level: item.level, testNumber: item.testNumber, questionId: item.questionId, prompt: item.prompt, currentHighlightText: item.currentHighlightText, suggestedHighlightText: item.suggestedHighlightText, note: item.note, username: item.username, status: item.status }))} />;
 }
