@@ -14,6 +14,7 @@ export async function GET() {
     })
       .sort({ lastLearnedAt: -1 })
       .limit(30)
+      .select("deckId lastLearnedAt")
       .lean();
 
     const deckIds = learningRecords.map((record) => record.deckId);
@@ -21,7 +22,9 @@ export async function GET() {
       _id: { $in: deckIds },
       status: "published",
       visibility: "public",
-    }).lean();
+    })
+      .select("title slug description level contentType jlptTest stats tags")
+      .lean();
     const decksById = new Map(
       decks.map((deck) => [deck._id.toString(), deck]),
     );

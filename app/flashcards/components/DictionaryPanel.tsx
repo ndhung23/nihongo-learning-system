@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { FiBookmark, FiBookOpen, FiDelete, FiExternalLink, FiLoader, FiMaximize2, FiMinimize2, FiSearch, FiVolume2, FiX } from "react-icons/fi";
+import { LuPin, LuPinOff } from "react-icons/lu";
 import { vocabularyBookmarkKey, type VocabularyBookmark } from "../bookmarkStorage";
 import { FuriganaText } from "./FuriganaText";
 import { RomajiKanaInput } from "./RomajiKanaInput";
@@ -41,7 +42,13 @@ const katakanaKeys = hiraganaKeys.map((character) => {
   return String.fromCharCode(character.charCodeAt(0) + 0x60);
 });
 
-export function DictionaryPanel() {
+export function DictionaryPanel({
+  onPinnedChange,
+  pinned,
+}: Readonly<{
+  onPinnedChange: (pinned: boolean) => void;
+  pinned: boolean;
+}>) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
@@ -63,6 +70,26 @@ export function DictionaryPanel() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  useEffect(() => {
+    if (pinned) setOpen(true);
+  }, [pinned]);
+
+  function togglePinned() {
+    const nextPinned = !pinned;
+    onPinnedChange(nextPinned);
+    window.localStorage.setItem("nihongo-dictionary-pinned", String(nextPinned));
+    setOpen(true);
+    if (nextPinned) setExpanded(false);
+  }
+
+  function closePanel() {
+    setOpen(false);
+    if (pinned) {
+      onPinnedChange(false);
+      window.localStorage.setItem("nihongo-dictionary-pinned", "false");
+    }
+  }
 
   async function search(event?: FormEvent) {
     event?.preventDefault();
@@ -107,16 +134,26 @@ export function DictionaryPanel() {
 
   return (
     <>
-      <button aria-label="Mở tra từ điển" className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-teal-700 px-5 py-3 text-sm font-black text-white shadow-2xl shadow-teal-700/25 transition hover:-translate-y-1 hover:bg-teal-800" onClick={() => setOpen(true)} type="button">
+      <button aria-label="Mở tra từ điển" className={`fixed bottom-5 right-5 z-40 items-center gap-2 rounded-full bg-teal-700 px-5 py-3 text-sm font-black text-white shadow-2xl shadow-teal-700/25 transition hover:-translate-y-1 hover:bg-teal-800 ${pinned ? "hidden" : "flex"}`} onClick={() => setOpen(true)} type="button">
         <FiBookOpen /> Tra từ <span className="hidden rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] sm:inline">Ctrl K</span>
       </button>
-      {open && <button aria-label="Đóng từ điển" className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]" onClick={() => setOpen(false)} type="button" />}
-      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l border-slate-200 bg-[#fbfaf5] shadow-2xl transition-all duration-300 dark:border-slate-700 dark:bg-slate-950 sm:w-[390px] ${expanded ? "sm:w-[min(760px,calc(100vw-72px))]" : ""} ${open ? "translate-x-0" : "translate-x-full"}`}>
+      {open && !pinned && <button aria-label="Đóng từ điển" className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]" onClick={() => setOpen(false)} type="button" />}
+      <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l border-slate-200 bg-[#fbfaf5] shadow-2xl transition-all duration-300 dark:border-slate-700 dark:bg-slate-950 sm:w-[390px] ${expanded && !pinned ? "sm:w-[min(760px,calc(100vw-72px))]" : ""} ${open ? "translate-x-0" : "translate-x-full"}`}>
         <header className="border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/90">
           <div className="flex items-center gap-2">
             <FiBookOpen className="text-teal-600" /><h2 className="font-black">Tra từ Nhật → Việt</h2>
-            <button aria-label="Đổi kích thước" className="ml-auto hidden h-9 w-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 sm:grid dark:hover:bg-slate-800" onClick={() => setExpanded((value) => !value)} type="button">{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
-            <button aria-label="Đóng" className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500 text-white hover:bg-rose-600" onClick={() => setOpen(false)} type="button"><FiX /></button>
+            <button
+              aria-label={pinned ? "Bỏ ghim từ điển" : "Ghim từ điển bên phải"}
+              aria-pressed={pinned}
+              className={`ml-auto hidden h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition xl:flex ${pinned ? "bg-teal-700 text-white" : "bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-300"}`}
+              onClick={togglePinned}
+              title={pinned ? "Bỏ ghim" : "Ghim bên phải"}
+              type="button"
+            >
+              {pinned ? <LuPinOff /> : <LuPin />} {pinned ? "Bỏ ghim" : "Ghim"}
+            </button>
+            {!pinned && <button aria-label="Đổi kích thước" className="hidden h-9 w-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 sm:grid dark:hover:bg-slate-800" onClick={() => setExpanded((value) => !value)} type="button">{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>}
+            <button aria-label="Đóng" className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500 text-white hover:bg-rose-600" onClick={closePanel} type="button"><FiX /></button>
           </div>
           <form className="mt-3 flex gap-2" onSubmit={search}>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 [&>div]:min-w-0 [&>div]:flex-1 dark:border-slate-700 dark:bg-slate-950">
@@ -174,7 +211,6 @@ export function DictionaryPanel() {
           {!entry && !loading && !error && (
             <div className="rounded-3xl border border-dashed border-teal-200 bg-teal-50/70 p-6 text-center dark:border-teal-900 dark:bg-teal-950/30">
               <FiSearch className="mx-auto h-8 w-8 text-teal-600" /><p className="mt-3 font-black">Nhập từ bạn muốn tra</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Ưu tiên dữ liệu khóa học, sau đó đối chiếu Jisho. Không tìm thấy sẽ chuyển sang Google Dịch.</p>
             </div>
           )}
           {loading && <div className="grid min-h-56 place-items-center"><FiLoader className="h-8 w-8 animate-spin text-teal-600" /></div>}
@@ -218,12 +254,10 @@ export function DictionaryPanel() {
           {result && !loading && (
             <section className="mt-4">
               {result.entries.length === 0 && <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">Chưa tìm thấy trong dữ liệu từ điển. Hãy dùng Google Dịch hoặc các nguồn bên dưới.</div>}
-              <p className="mt-4 text-xs font-black uppercase tracking-widest text-slate-400">Tra thêm từ nguồn gốc</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {result.links.map((link) => <a className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700" href={link.url} key={link.name} rel="noreferrer" target="_blank">{link.name} <FiExternalLink /></a>)}
                 <a className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700" href={result.googleTranslateUrl} rel="noreferrer" target="_blank">Google Dịch <FiExternalLink /></a>
               </div>
-              {!result.googleConfigured && <p className="mt-3 text-xs leading-5 text-slate-400">Google Cloud Translation chưa có khóa máy chủ, nên nút trên sẽ mở Google Dịch với từ đã điền sẵn.</p>}
             </section>
           )}
         </div>

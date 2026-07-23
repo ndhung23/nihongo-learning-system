@@ -5,39 +5,22 @@ import { FiAward, FiBookOpen, FiCheckCircle, FiChevronLeft, FiChevronRight, FiCp
 import type { StudyMode } from "../types";
 import { ActionCard } from "../components/Cards";
 import { GachaDailyPanel } from "../components/GachaDailyPanel";
-
-type PublicCourse = {
-  id: string;
-  title: string;
-  slug: string;
-  description: string;
-  level: string;
-  stats?: {
-    vocabularyCount?: number;
-    learnerCount?: number;
-    ratingAverage?: number;
-    ratingCount?: number;
-  };
-  tags?: string[];
-  type?: string;
-  jlptTest?: {
-    level?: string;
-    number?: number;
-  };
-};
+import type { PublicCourse } from "@/lib/publicCourses";
 
 export function LibraryScreen({
+  initialCourses,
   onAdd,
   onManage,
   onStudy,
   onTest,
 }: Readonly<{
+  initialCourses?: PublicCourse[];
   onAdd: () => void;
   onManage: () => void;
   onStudy: (mode?: StudyMode, deckId?: string, lesson?: string) => void;
   onTest: (level?: string, number?: number) => void;
 }>) {
-  const [courses, setCourses] = useState<PublicCourse[]>([]);
+  const [courses, setCourses] = useState<PublicCourse[]>(initialCourses || []);
   const [learningCourses, setLearningCourses] = useState<PublicCourse[]>([]);
   const [coursePage, setCoursePage] = useState(1);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
@@ -47,16 +30,18 @@ export function LibraryScreen({
   useEffect(() => {
     setSelectedCourseId(window.localStorage.getItem("selectedCourseId"));
 
-    void fetch("/api/courses?sort=newest&limit=24")
-      .then((response) => (response.ok ? response.json() : { data: [] }))
-      .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
-      .catch(() => setCourses([]));
+    if (!initialCourses?.length) {
+      void fetch("/api/courses?sort=newest&limit=24")
+        .then((response) => (response.ok ? response.json() : { data: [] }))
+        .then((payload: { data?: PublicCourse[] }) => setCourses(payload.data || []))
+        .catch(() => setCourses([]));
+    }
 
     void fetch("/api/courses/learning", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { data: [] }))
       .then((payload: { data?: PublicCourse[] }) => setLearningCourses(payload.data || []))
       .catch(() => setLearningCourses([]));
-  }, []);
+  }, [initialCourses]);
 
   function scrollToDiscover() {
     discoverRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });

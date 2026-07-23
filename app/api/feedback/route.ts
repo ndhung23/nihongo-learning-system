@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthSession } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { FeedbackModel } from "@/models/Feedback";
+import { consumeRateLimit, requestIdentity } from "@/lib/rateLimit";
 
 const FeedbackSchema = z.object({
   message: z.string().trim().min(5).max(2000),
@@ -34,6 +35,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const rate = consumeRateLimit(`feedback:${requestIdentity(request)}`, 5, 10 * 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { message: "Bạn gửi góp ý quá nhanh. Vui lòng thử lại sau." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
+  }
+
   try {
     const payload = FeedbackSchema.parse(await request.json());
     const session = await getAuthSession();

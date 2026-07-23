@@ -26,6 +26,7 @@ const CourseLearnerSchema = new Schema(
 );
 
 CourseLearnerSchema.index({ deckId: 1, userId: 1 }, { unique: true });
+CourseLearnerSchema.index({ userId: 1, lastLearnedAt: -1 });
 
 export const CourseLearnerModel =
   models.CourseLearner || model("CourseLearner", CourseLearnerSchema);

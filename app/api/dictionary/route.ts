@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import { VocabularyModel } from "@/models/Vocabulary";
+import { consumeRateLimit, requestIdentity } from "@/lib/rateLimit";
 
 type JishoItem = {
   is_common?: boolean;
@@ -8,8 +9,6 @@ type JishoItem = {
   japanese?: Array<{ word?: string; reading?: string }>;
   senses?: Array<{ english_definitions?: string[]; parts_of_speech?: string[] }>;
 };
-
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function sourceLinks(query: string) {
   const q = encodeURIComponent(query);
@@ -41,6 +40,14 @@ async function translateToVietnamese(text: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const rate = consumeRateLimit(`dictionary:${requestIdentity(request)}`, 60, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { message: "Bạn tra từ quá nhanh. Vui lòng thử lại sau ít phút." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
+  }
+
   const query = (request.nextUrl.searchParams.get("q") || "").trim().slice(0, 100);
   if (!query) return NextResponse.json({ message: "Vui lòng nhập từ cần tra." }, { status: 400 });
 
@@ -49,9 +56,8 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectMongoDB();
-    const exact = new RegExp(`^${escapeRegex(query)}$`, "i");
     const local = await VocabularyModel.find({
-      $or: [{ term: exact }, { kana: exact }, { romaji: exact }, { meaningVi: exact }],
+      $or: [{ term: query }, { kana: query }, { romaji: query.toLowerCase() }, { meaningVi: query }],
     })
       .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples synonyms antonyms audioUrl")
       .limit(6)

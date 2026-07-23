@@ -1,38 +1,7 @@
-"use client";
+import { getCachedPublicCourses } from "@/lib/publicCourses";
+import { FlashcardsHomeClient } from "./FlashcardsHomeClient";
 
-import { useRouter } from "next/navigation";
-import { LibraryScreen } from "./screens/LibraryScreen";
-import type { StudyMode } from "./types";
-
-export default function FlashcardsPage() {
-  const router = useRouter();
-
-  function openStudy(mode: StudyMode = "flashcard", deckId?: string, lesson?: string) {
-    const params = new URLSearchParams({ mode });
-
-    if (deckId) {
-      params.set("deckId", deckId);
-    }
-
-    if (lesson && lesson !== "all") {
-      params.set("lesson", lesson);
-    }
-
-    router.push(`/flashcards/study?${params.toString()}`);
-  }
-
-  return (
-    <LibraryScreen
-      onAdd={() => router.push("/flashcards/add")}
-      onManage={() => router.push("/flashcards/manage")}
-      onStudy={openStudy}
-      onTest={(level, number) =>
-        router.push(
-          level && number
-            ? `/flashcards/tests/${level.toLowerCase()}/${number}`
-            : "/flashcards/tests",
-        )
-      }
-    />
-  );
+export default async function FlashcardsPage() {
+  const initialCourses = await getCachedPublicCourses("newest", "all", "", 24);
+  return <FlashcardsHomeClient initialCourses={initialCourses} />;
 }

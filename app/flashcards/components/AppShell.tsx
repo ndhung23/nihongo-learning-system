@@ -9,10 +9,13 @@ import { LanguageProvider } from "../i18n/LanguageProvider";
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [dictionaryPinned, setDictionaryPinned] = useState(false);
 
   useEffect(() => {
     const initialTheme = window.localStorage.getItem("nihongo-theme") === "dark" ? "dark" : "light";
+    const initialDictionaryPinned = window.matchMedia("(min-width: 1280px)").matches;
     queueMicrotask(() => setTheme(initialTheme));
+    queueMicrotask(() => setDictionaryPinned(initialDictionaryPinned));
   }, []);
 
   useEffect(() => {
@@ -32,11 +35,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     <LanguageProvider>
     <main className={`nihongo-app theme-${theme} min-h-screen bg-[#fbfaf5] text-slate-950 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100`}>
       <ApiActivityIndicator />
-      <DictionaryPanel />
+      <DictionaryPanel onPinnedChange={setDictionaryPinned} pinned={dictionaryPinned} />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(225,29,72,0.08),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(20,184,166,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.4),transparent)] dark:bg-[radial-gradient(circle_at_16%_12%,rgba(244,63,94,0.18),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(45,212,191,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.78),transparent)]" />
       <div className="relative grid min-h-screen lg:grid-cols-[72px_1fr]">
         <Sidebar />
-        <section className="min-w-0">
+        <section className={`min-w-0 transition-[padding] duration-300 ${dictionaryPinned ? "xl:pr-[390px]" : ""}`}>
           <Topbar theme={theme} onToggleTheme={toggleTheme} />
           {children}
         </section>

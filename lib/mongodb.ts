@@ -26,6 +26,12 @@ export async function connectMongoDB() {
   cached.promise ??= mongoose.connect(MONGODB_URI, {
     bufferCommands: false,
     dbName: process.env.MONGODB_DB || "nihongo_learning_system",
+    maxPoolSize: Math.max(Number(process.env.MONGODB_MAX_POOL_SIZE || 40), 5),
+    minPoolSize: Math.max(Number(process.env.MONGODB_MIN_POOL_SIZE || 5), 0),
+    maxIdleTimeMS: 60_000,
+    serverSelectionTimeoutMS: 5_000,
+    socketTimeoutMS: 30_000,
+    waitQueueTimeoutMS: 5_000,
   });
 
   cached.conn = await cached.promise;

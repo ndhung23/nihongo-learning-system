@@ -5,6 +5,7 @@ import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { AiLearningCacheModel } from "@/models/AiLearningCache";
 import { UserModel } from "@/models/User";
+import { consumeRateLimit, requestIdentity } from "@/lib/rateLimit";
 
 const GradeSentenceSchema = z.object({
   sentence: z.string().trim().min(1).max(500),
@@ -83,6 +84,14 @@ class AiProviderHttpError extends Error {
 }
 
 export async function POST(request: NextRequest) {
+  const rate = consumeRateLimit(`ai:${requestIdentity(request)}`, 20, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { message: "Bạn gửi yêu cầu AI quá nhanh. Vui lòng thử lại sau." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
+  }
+
   let debitedUserId: string | null = null;
 
   try {

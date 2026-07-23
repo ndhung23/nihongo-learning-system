@@ -37,5 +37,8 @@ VocabularySchema.index({ deckId: 1, term: 1 }, { unique: true, sparse: true });
 VocabularySchema.index({ deckId: 1, lesson: 1 });
 VocabularySchema.index({ deckId: 1, createdAt: -1 });
 VocabularySchema.index({ deckId: 1, lesson: 1, createdAt: -1 });
+VocabularySchema.index({ term: 1 });
+VocabularySchema.index({ kana: 1 });
+VocabularySchema.index({ romaji: 1 });
 
 export const VocabularyModel = models.Vocabulary || model("Vocabulary", VocabularySchema);

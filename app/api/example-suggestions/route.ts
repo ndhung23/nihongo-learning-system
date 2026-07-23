@@ -5,6 +5,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { ExampleSuggestionModel } from "@/models/ExampleSuggestion";
 import { VocabularyModel } from "@/models/Vocabulary";
+import { consumeRateLimit, requestIdentity } from "@/lib/rateLimit";
 
 const SuggestionSchema = z.object({
   vocabularyId: z.string().min(1),
@@ -14,6 +15,14 @@ const SuggestionSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const rate = consumeRateLimit(`example-suggestion:${requestIdentity(request)}`, 10, 10 * 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { message: "Bạn gửi góp ý quá nhanh. Vui lòng thử lại sau." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
+  }
+
   try {
     const payload = SuggestionSchema.parse(await request.json());
 
