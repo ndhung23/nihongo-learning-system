@@ -1,5 +1,6 @@
 import { FiArrowLeft, FiSearch } from "react-icons/fi";
 import { words } from "../data";
+import { FuriganaText } from "../components/FuriganaText";
 
 export function ManageScreen({ onBack }: Readonly<{ onBack: () => void }>) {
   return (
@@ -37,7 +38,7 @@ export function ManageScreen({ onBack }: Readonly<{ onBack: () => void }>) {
         {words.map((word) => (
           <div className="grid gap-4 border-t border-slate-100 px-5 py-5 text-sm transition-colors hover:bg-rose-50/50 md:grid-cols-[1fr_1fr_1fr_1.4fr]" key={word.term}>
             <div>
-              <p className="text-base font-black">{word.term}</p>
+              <FuriganaText as="p" className="text-base font-black" text={word.term} reading={word.kana} />
               <p className="font-bold text-rose-600">{word.type}</p>
             </div>
             <p>{word.meaning}</p>

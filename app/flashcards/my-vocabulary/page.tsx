@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FiBookOpen, FiCheckSquare, FiEdit3, FiPlay, FiPlus, FiSquare } from "react-icons/fi";
+import { FuriganaText } from "../components/FuriganaText";
 
 type PersonalVocabulary = {
   _id: string;
@@ -126,7 +127,7 @@ export default function MyVocabularyPage() {
               </span>
               <div className="flex items-start justify-between gap-3">
                 <div className="pr-8">
-                  <h2 className="text-2xl font-black text-slate-950">{item.term}</h2>
+                  <FuriganaText as="h2" className="text-2xl font-black text-slate-950" text={item.term} reading={item.kana} />
                   {(item.kana || item.romaji) && (
                     <p className="mt-1 text-sm font-bold text-slate-500">
                       {[item.kana, item.romaji].filter(Boolean).join(" · ")}

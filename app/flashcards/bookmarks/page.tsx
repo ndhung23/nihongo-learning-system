@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FiBookmark, FiCheckSquare, FiCompass, FiPlay, FiSearch, FiSquare, FiTrash2 } from "react-icons/fi";
 import { readVocabularyBookmarks, type VocabularyBookmark, writeVocabularyBookmarks } from "../bookmarkStorage";
+import { FuriganaText } from "../components/FuriganaText";
 
 export default function BookmarksPage() {
   const [bookmarks, setBookmarks] = useState<VocabularyBookmark[]>([]);
@@ -126,7 +127,7 @@ export default function BookmarksPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="pr-14">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">{bookmark.courseTitle || "Từ vựng riêng"}</p>
-                  <h2 className="mt-3 text-2xl font-black text-slate-950">{bookmark.term}</h2>
+                  <FuriganaText as="h2" className="mt-3 text-2xl font-black text-slate-950" text={bookmark.term} reading={bookmark.kana} />
                   <p className="mt-1 text-sm font-bold text-slate-500">{[bookmark.kana, bookmark.romaji].filter(Boolean).join(" / ")}</p>
                 </div>
                 <button

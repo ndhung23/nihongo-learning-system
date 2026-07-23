@@ -38,6 +38,8 @@ type VocabularyItem = {
     ja?: string;
     vi?: string;
   }>;
+  synonyms?: string[];
+  antonyms?: string[];
 };
 
 type DailyState = {
@@ -536,6 +538,8 @@ function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes
     wrong,
     example,
     exampleVi,
+    synonyms: item.synonyms || [],
+    antonyms: item.antonyms || [],
     tags: ["IT"],
     sourceUrl: item.sourceUrl,
   };

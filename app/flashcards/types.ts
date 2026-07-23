@@ -17,6 +17,8 @@ export type Word = {
   wrong: string[];
   example: string;
   exampleVi: string;
+  synonyms?: string[];
+  antonyms?: string[];
   tags: string[];
   sourceUrl?: string;
 };

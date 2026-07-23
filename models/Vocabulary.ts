@@ -17,6 +17,7 @@ const VocabularySchema = new Schema(
     ],
     distractors: { type: [String], default: [] },
     synonyms: { type: [String], default: [] },
+    antonyms: { type: [String], default: [] },
     collocations: { type: [String], default: [] },
     wordFamily: { type: [String], default: [] },
     tags: { type: [String], default: [] },

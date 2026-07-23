@@ -24,6 +24,7 @@ const CreateVocabularySchema = z.object({
     .default([]),
   distractors: z.array(z.string()).default([]),
   synonyms: z.array(z.string()).default([]),
+  antonyms: z.array(z.string()).default([]),
   collocations: z.array(z.string()).default([]),
   wordFamily: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
@@ -57,14 +58,14 @@ const getCachedVocabulary = unstable_cache(
     }
 
     const vocabulary = await VocabularyModel.find(filter)
-      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples sourceUrl")
+      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples synonyms antonyms sourceUrl")
       .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 })
       .limit(limit)
       .lean();
 
     return JSON.parse(JSON.stringify(vocabulary));
   },
-  ["public-vocabulary-v2"],
+  ["public-vocabulary-v3-relations"],
   { revalidate: 300, tags: ["vocabulary"] },
 );
 
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
         createdBy: session.userId,
         source: "user",
       })
-        .select("_id term kana romaji meaningVi partOfSpeech level examples createdAt")
+        .select("_id term kana romaji meaningVi partOfSpeech level examples synonyms antonyms createdAt")
         .sort({ createdAt: -1 })
         .lean();
 

@@ -9,6 +9,7 @@ import { getKnownDailyProgressStorageKey } from "../components/dailyProgressStor
 import { getWordBookmarkKey } from "../bookmarkStorage";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { RomajiKanaInput } from "../components/RomajiKanaInput";
+import { FuriganaText } from "../components/FuriganaText";
 
 type GradeResult = {
   score: number;
@@ -170,7 +171,7 @@ export function StudyScreen({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("currentWord")}</p>
-            <p className="mt-1 font-black text-slate-950">{currentWord.term}</p>
+            <FuriganaText as="p" className="mt-1 font-black text-slate-950" text={currentWord.term} reading={currentWord.kana} />
           </div>
           <BookmarkButton active={bookmarkedKeys.includes(getWordBookmarkKey(currentWord))} onClick={() => onToggleBookmark(currentWord)} />
         </div>
@@ -293,7 +294,7 @@ function MeaningExercise({
           <span className="absolute right-5 top-5 rounded-full bg-amber-200 px-4 py-2 text-sm font-black text-amber-800">Cycle 1</span>
           <p className="text-sm font-black uppercase tracking-[0.22em] text-teal-800">Chọn nghĩa đúng</p>
           <h2 className="mt-5 text-4xl font-black tracking-tight">
-            {currentWord.term}
+            <FuriganaText text={currentWord.term} reading={currentWord.kana} />
             <span className="ml-2 text-base font-bold text-slate-500">({currentWord.type})</span>
             <button
               aria-label="Ph\u00e1t \u00e2m ti\u1ebfng Nh\u1eadt"
@@ -379,7 +380,7 @@ function VocabularyDialog({
               <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-300 hover:bg-teal-50/40" key={`${word.term}-${word.meaning}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-lg font-black text-slate-950">{word.term}</h3>
+                    <FuriganaText as="h3" className="text-lg font-black text-slate-950" text={word.term} reading={word.kana} />
                     <p className="mt-1 text-sm font-bold text-slate-500">
                       {[word.kana, word.romaji].filter(Boolean).join(" / ") || "IT"}
                     </p>
@@ -460,7 +461,7 @@ function ResultPanel({
       <div className="pt-5">
         {!isCorrect && <p className="mb-2 text-sm font-bold text-rose-700">Bạn đã chọn: {selectedAnswer}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-3xl font-black">{currentWord.term}</h3>
+          <FuriganaText as="h3" className="text-3xl font-black" text={currentWord.term} reading={currentWord.kana} />
           <SoundButton onSpeak={() => onSpeak()} />
         </div>
         <p className="mt-1 text-xl font-bold">{currentWord.meaning}</p>
@@ -509,7 +510,7 @@ function FlashcardExercise({
             </div>
             <div className="grid min-h-64 place-items-center">
               <div>
-                <h2 className="text-5xl font-black text-indigo-600">{currentWord.term}</h2>
+                <FuriganaText as="h2" className="text-5xl font-black text-indigo-600" text={currentWord.term} reading={currentWord.kana} />
                 <p className="mt-5 text-slate-500">{currentWord.kana} / {currentWord.romaji}</p>
                 <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400">{t("front")}</p>
               </div>
@@ -692,7 +693,7 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
       <div className="bg-teal-50 p-8 text-center">
         <p className="text-sm font-black uppercase tracking-[0.24em] text-teal-700">{"\u0110\u1eb7t c\u00e2u v\u1edbi t\u1eeb n\u00e0y"}</p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <h2 className="text-4xl font-black">{currentWord.term}</h2>
+          <FuriganaText as="h2" className="text-4xl font-black" text={currentWord.term} reading={currentWord.kana} />
           <SoundButton onSpeak={() => onSpeak()} />
         </div>
         <p className="mt-2 text-lg font-bold text-rose-700">{currentWord.meaning} / {currentWord.kana}</p>
@@ -901,15 +902,24 @@ const deepLearnLabels: Record<DeepLearnKind, string> = {
 };
 
 function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
-  const { t } = useLanguage();
   const [activeKind, setActiveKind] = useState<DeepLearnKind | null>(null);
   const [pendingKind, setPendingKind] = useState<DeepLearnKind | null>(null);
   const [hideCostWarning, setHideCostWarning] = useState(false);
   const [items, setItems] = useState<DeepLearnItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [contentSource, setContentSource] = useState<"local" | "ai">("local");
 
   function requestDeepLearn(kind: DeepLearnKind) {
+    const localItems = getLocalDeepLearnItems(kind, currentWord);
+    if (localItems.length > 0) {
+      setActiveKind(kind);
+      setItems(localItems);
+      setError("");
+      setLoading(false);
+      setContentSource("local");
+      return;
+    }
     const warningKey = `${getKnownDailyProgressStorageKey()}:ai-cost-warning-dismissed`;
     if (window.localStorage.getItem(warningKey) === "true") {
       void openDeepLearn(kind);
@@ -937,6 +947,7 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
     setItems([]);
     setError("");
     setLoading(true);
+    setContentSource("ai");
 
     try {
       const response = await fetch("/api/flashcards/grade-sentence", {
@@ -980,7 +991,7 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
   return (
     <>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <span className="font-bold text-slate-600">{t("learnWithAi")}</span>
+        <span className="font-bold text-slate-600">Học sâu hơn</span>
         {(Object.entries(deepLearnLabels) as Array<[DeepLearnKind, string]>).map(([kind, label]) => (
           <button
             className="rounded-full border border-amber-300 bg-amber-50 px-5 py-2 font-bold text-amber-800 transition-all duration-300 hover:-translate-y-0.5 hover:bg-amber-100"
@@ -1056,18 +1067,20 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
               <div className="flex items-start gap-3">
                 <div>
                   <h3 className="text-xl font-black text-slate-950">{deepLearnLabels[activeKind]}</h3>
-                  <p className="mt-1 font-bold text-indigo-600">{currentWord.term}</p>
+                  <FuriganaText as="p" className="mt-1 font-bold text-indigo-600" text={currentWord.term} reading={currentWord.kana} />
                 </div>
                 <div className="group relative">
                   <span
-                    aria-label="Thông tin về nội dung AI"
+                    aria-label="Thông tin nguồn nội dung"
                     className="grid h-8 w-8 cursor-help place-items-center rounded-full border border-amber-300 bg-amber-50 text-amber-600"
                     tabIndex={0}
                   >
                     <FiAlertCircle />
                   </span>
                   <div className="pointer-events-none absolute left-1/2 top-10 z-20 w-64 -translate-x-1/2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold leading-5 text-white opacity-0 shadow-xl transition group-hover:opacity-100 group-focus-within:opacity-100">
-                    Nội dung do AI tạo có thể có sai sót. Hãy kiểm tra lại.
+                    {contentSource === "local"
+                      ? "Dữ liệu đã lưu từ Jisho/JMdict, không sử dụng lượt AI."
+                      : "Nội dung do AI tạo có thể có sai sót. Hãy kiểm tra lại."}
                   </div>
                 </div>
               </div>
@@ -1123,4 +1136,30 @@ function DeepLearnActions({ currentWord }: Readonly<{ currentWord: Word }>) {
       )}
     </>
   );
+}
+
+function getLocalDeepLearnItems(kind: DeepLearnKind, word: Word): DeepLearnItem[] {
+  if (kind === "examples" && word.example) {
+    return [{
+      japanese: word.example,
+      kana: "",
+      meaning: word.exampleVi || "",
+      note: "Ví dụ đã lưu trong khóa học",
+    }];
+  }
+
+  const values = kind === "synonyms"
+    ? word.synonyms
+    : kind === "antonyms"
+      ? word.antonyms
+      : [];
+
+  return (values || []).map((japanese) => ({
+    japanese,
+    kana: "",
+    meaning: "",
+    note: kind === "synonyms"
+      ? "Từ liên quan/gần nghĩa theo Jisho"
+      : "Từ trái nghĩa theo Jisho",
+  }));
 }
