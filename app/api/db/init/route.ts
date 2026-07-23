@@ -7,6 +7,7 @@ import { UserModel } from "@/models/User";
 import { UserVocabularyProgressModel } from "@/models/UserVocabularyProgress";
 import { VocabularyModel } from "@/models/Vocabulary";
 import { CourseLearnerModel } from "@/models/CourseLearner";
+import { DictionaryEntryModel } from "@/models/DictionaryEntry";
 
 const seedVocabulary = [
   {
@@ -72,6 +73,7 @@ export async function POST() {
       UserVocabularyProgressModel.createCollection(),
       ReviewLogModel.createCollection(),
       CourseLearnerModel.createCollection(),
+      DictionaryEntryModel.createCollection(),
     ]);
 
     await Promise.all([
@@ -81,6 +83,7 @@ export async function POST() {
       UserVocabularyProgressModel.syncIndexes(),
       ReviewLogModel.syncIndexes(),
       CourseLearnerModel.syncIndexes(),
+      DictionaryEntryModel.syncIndexes(),
     ]);
 
     const deck = await DeckModel.findOneAndUpdate(

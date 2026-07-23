@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { FiBookmark, FiBookOpen, FiDelete, FiExternalLink, FiLoader, FiMaximize2, FiMinimize2, FiSearch, FiVolume2, FiX } from "react-icons/fi";
+import { FiBookmark, FiBookOpen, FiDelete, FiExternalLink, FiLoader, FiMaximize2, FiMinimize2, FiSearch, FiSend, FiUsers, FiVolume2, FiX } from "react-icons/fi";
 import { LuPin, LuPinOff } from "react-icons/lu";
 import { vocabularyBookmarkKey, type VocabularyBookmark } from "../bookmarkStorage";
 import { FuriganaText } from "./FuriganaText";
@@ -10,7 +10,11 @@ import { RomajiKanaInput } from "./RomajiKanaInput";
 type DictionaryEntry = {
   id?: string; deckId?: string; term: string; reading: string; romaji?: string;
   meaningVi?: string; meaningsEn?: string[]; partOfSpeech?: string; jlpt?: string;
+  meaningSource?: "course" | "ai" | "none";
+  translationProvider?: "google" | "mymemory" | "gemini" | "none";
+  communityMeanings?: Array<{ id?: string; meaningVi: string; contributor: string }>;
   examples: Array<{ ja: string; vi?: string }>; synonyms: string[]; antonyms: string[];
+  relatedWords?: string[];
   audioUrl?: string; isCommon?: boolean; source: string;
 };
 type DictionaryResponse = {
@@ -58,6 +62,9 @@ export function DictionaryPanel({
   const [saved, setSaved] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [keyboardScript, setKeyboardScript] = useState<"hiragana" | "katakana">("hiragana");
+  const [suggestedMeaning, setSuggestedMeaning] = useState("");
+  const [suggestionStatus, setSuggestionStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [suggestionError, setSuggestionError] = useState("");
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -95,6 +102,7 @@ export function DictionaryPanel({
     event?.preventDefault();
     if (!query.trim()) return;
     setOpen(true); setLoading(true); setError(""); setSaved(false);
+    setSuggestedMeaning(""); setSuggestionStatus("idle"); setSuggestionError("");
     try {
       const response = await fetch(`/api/dictionary?q=${encodeURIComponent(query.trim())}`, { cache: "no-store" });
       const payload = (await response.json()) as DictionaryResponse;
@@ -127,6 +135,49 @@ export function DictionaryPanel({
     window.localStorage.setItem(vocabularyBookmarkKey, JSON.stringify([bookmark, ...current.filter((item) => item.key !== key)]));
     window.dispatchEvent(new CustomEvent("nihongo-vocabulary-bookmarks-updated"));
     setSaved(true);
+  }
+
+  async function submitCommunityMeaning(event: FormEvent) {
+    event.preventDefault();
+    if (!entry || !suggestedMeaning.trim()) return;
+    setSuggestionStatus("sending");
+    setSuggestionError("");
+
+    try {
+      const response = await fetch("/api/dictionary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          term: entry.term,
+          reading: entry.reading,
+          meaningVi: suggestedMeaning.trim(),
+        }),
+      });
+      const payload = (await response.json()) as {
+        data?: { meaningVi: string; contributor: string };
+        message?: string;
+      };
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.message || "Không thể lưu nghĩa góp ý.");
+      }
+
+      const communityMeaning = payload.data;
+      setResult((current) => current ? {
+        ...current,
+        entries: current.entries.map((item, index) => index === 0 ? {
+          ...item,
+          communityMeanings: [
+            communityMeaning,
+            ...(item.communityMeanings || []).filter((meaning) => meaning.meaningVi !== communityMeaning.meaningVi),
+          ],
+        } : item),
+      } : current);
+      setSuggestedMeaning("");
+      setSuggestionStatus("sent");
+    } catch (submitError) {
+      setSuggestionError(submitError instanceof Error ? submitError.message : "Không thể lưu nghĩa góp ý.");
+      setSuggestionStatus("idle");
+    }
   }
 
   const entry = result?.entries[0];
@@ -230,15 +281,61 @@ export function DictionaryPanel({
                   <button aria-label="Nghe phát âm" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-700" onClick={() => speak(entry)} type="button"><FiVolume2 /></button>
                 </div>
                 <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Nghĩa tiếng Việt</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Nghĩa tiếng Việt</p>
+                    {entry.meaningSource === "ai" && <span className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-black text-violet-700">AI dịch{entry.translationProvider === "mymemory" ? " · MyMemory" : entry.translationProvider === "google" ? " · Google" : entry.translationProvider === "gemini" ? " · Gemini" : ""}</span>}
+                    {entry.meaningSource === "course" && <span className="rounded-full bg-teal-100 px-2 py-1 text-[10px] font-black text-teal-700">Dữ liệu khóa học</span>}
+                  </div>
                   <p className="mt-1 text-xl font-black text-emerald-800 dark:text-emerald-200">{entry.meaningVi || "Chưa có bản dịch Việt tự động"}</p>
                 </div>
                 {entry.partOfSpeech && <p className="mt-4 text-sm"><strong>Loại từ:</strong> {entry.partOfSpeech}</p>}
                 {entry.meaningsEn && <ol className="mt-4 space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-300">{entry.meaningsEn.map((meaning) => <li className="list-decimal" key={meaning}>{meaning}</li>)}</ol>}
               </section>
-              {(entry.synonyms.length > 0 || entry.antonyms.length > 0) && (
+              <section className="mt-4 rounded-3xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+                <div className="flex items-center gap-2 text-sky-800 dark:text-sky-200">
+                  <FiUsers />
+                  <h4 className="font-black">Bản dịch do cộng đồng góp ý</h4>
+                </div>
+                {(entry.communityMeanings || []).length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {(entry.communityMeanings || []).map((meaning, index) => (
+                      <div className="rounded-2xl bg-white p-3 dark:bg-slate-900" key={meaning.id || `${meaning.meaningVi}-${index}`}>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{meaning.meaningVi}</p>
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">Góp ý bởi {meaning.contributor}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Chưa có nghĩa nào từ cộng đồng.</p>
+                )}
+                <form className="mt-3" onSubmit={submitCommunityMeaning}>
+                  <textarea
+                    className="min-h-20 w-full resize-none rounded-2xl border border-sky-200 bg-white p-3 text-sm font-semibold outline-none focus:border-sky-500 dark:border-sky-900 dark:bg-slate-900"
+                    maxLength={300}
+                    onChange={(event) => {
+                      setSuggestedMeaning(event.target.value);
+                      setSuggestionError("");
+                      setSuggestionStatus("idle");
+                    }}
+                    placeholder="Gợi ý nghĩa tiếng Việt..."
+                    value={suggestedMeaning}
+                  />
+                  {suggestionError && <p className="mt-2 text-xs font-bold text-rose-600">{suggestionError}</p>}
+                  {suggestionStatus === "sent" && <p className="mt-2 text-xs font-bold text-emerald-600">Đã lưu bản dịch cộng đồng.</p>}
+                  <button
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-700 py-2.5 text-sm font-black text-white hover:bg-sky-800 disabled:opacity-50"
+                    disabled={suggestionStatus === "sending" || suggestedMeaning.trim().length < 2}
+                    type="submit"
+                  >
+                    {suggestionStatus === "sending" ? <FiLoader className="animate-spin" /> : <FiSend />}
+                    Gửi góp ý nghĩa
+                  </button>
+                </form>
+              </section>
+              {(entry.synonyms.length > 0 || (entry.relatedWords || []).length > 0 || entry.antonyms.length > 0) && (
                 <section className="mt-4 rounded-3xl border border-teal-200 bg-teal-50 p-4 dark:border-teal-900 dark:bg-teal-950/30">
                   {entry.synonyms.length > 0 && <p className="text-sm"><strong className="text-teal-800">≈ Đồng nghĩa:</strong> {entry.synonyms.join("、")}</p>}
+                  {(entry.relatedWords || []).length > 0 && <p className="mt-2 text-sm"><strong className="text-sky-800">≈ Liên quan / gần nghĩa:</strong> {(entry.relatedWords || []).join("、")}</p>}
                   {entry.antonyms.length > 0 && <p className="mt-2 text-sm"><strong className="text-rose-700">↔ Trái nghĩa:</strong> {entry.antonyms.join("、")}</p>}
                 </section>
               )}
