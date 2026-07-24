@@ -49,8 +49,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <DictionaryPanel onPinnedChange={setDictionaryPinned} pinned={dictionaryPinned} />
       <AiChatbox dictionaryPinned={dictionaryPinned} />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(225,29,72,0.08),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(20,184,166,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.4),transparent)] dark:bg-[radial-gradient(circle_at_16%_12%,rgba(244,63,94,0.18),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(45,212,191,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.78),transparent)]" />
-      <div className="relative grid min-h-screen lg:grid-cols-[72px_1fr]">
-        <Suspense fallback={<div className="hidden w-[72px] bg-slate-950 lg:block" />}>
+      <div className="relative grid min-h-screen lg:grid-cols-[64px_1fr]">
+        <Suspense fallback={<div className="hidden w-[64px] bg-slate-950 lg:block" />}>
           <Sidebar />
         </Suspense>
         <section className={`min-w-0 transition-[padding] duration-150 ${dictionaryPinned || !preferencesReady ? "xl:pr-[390px]" : ""}`}>
