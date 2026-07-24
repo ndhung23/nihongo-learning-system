@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FiBarChart2, FiBookOpen, FiCreditCard, FiDatabase, FiEdit3, FiHome, FiMail, FiMessageSquare, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiClipboard, FiCreditCard, FiDatabase, FiEdit3, FiHome, FiMail, FiMessageSquare, FiUsers } from "react-icons/fi";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 
 const adminNav = [
+  { label: "Đề thi JLPT", href: "/admin/jlpt-tests", icon: FiClipboard },
   { label: "Dashboard", href: "/admin", icon: FiBarChart2 },
   { label: "Người dùng", href: "/admin/users", icon: FiUsers },
   { label: "Duyệt thanh toán", href: "/admin/payments", icon: FiCreditCard },

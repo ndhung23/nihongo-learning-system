@@ -8,11 +8,14 @@ import {
   FiCheck,
   FiChevronLeft,
   FiChevronRight,
+  FiClock,
   FiFileText,
+  FiLayers,
 } from "react-icons/fi";
 import { HighlightFeedback } from "./HighlightFeedback";
 
 type Section = "vocabulary-kanji" | "grammar-reading";
+type PracticeMode = Section | "full";
 type FeedbackMode = "immediate" | "at-end";
 
 type Question = {
@@ -22,6 +25,7 @@ type Question = {
   prompt: string;
   highlightText?: string;
   options: string[];
+  sourceSection?: Section;
 };
 
 type GradeResult = {
@@ -44,7 +48,7 @@ export function JlptTestClient({
   level,
   testNumber,
 }: Readonly<{ courseId: string; level: string; testNumber: number }>) {
-  const [section, setSection] = useState<Section | null>(null);
+  const [section, setSection] = useState<PracticeMode | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [results, setResults] = useState<Record<string, GradeResult>>({});
@@ -69,23 +73,33 @@ export function JlptTestClient({
     );
   }, [courseId]);
 
-  async function startSection(nextSection: Section) {
+  async function startSection(nextSection: PracticeMode) {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(
-        `/api/jlpt-tests/${level.toLowerCase()}/${testNumber}?section=${nextSection}`,
-        { cache: "no-store" },
+      const requestedSections: Section[] = nextSection === "full"
+        ? ["vocabulary-kanji", "grammar-reading"]
+        : [nextSection];
+      const loadedSections = await Promise.all(
+        requestedSections.map(async (requestedSection) => {
+          const response = await fetch(
+            `/api/jlpt-tests/${level.toLowerCase()}/${testNumber}?section=${requestedSection}`,
+            { cache: "no-store" },
+          );
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.message || "Không thể tải đề thi.");
+          }
+          return (payload.test.questions as Question[]).map((question) => ({
+            ...question,
+            sourceSection: requestedSection,
+          }));
+        }),
       );
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.message || "Không thể tải đề thi.");
-      }
 
       setSection(nextSection);
-      setQuestions(payload.test.questions);
+      setQuestions(loadedSections.flat());
       setAnswers({});
       setResults({});
       setSummary(null);
@@ -106,40 +120,62 @@ export function JlptTestClient({
     setMessage("");
 
     try {
-      const response = await fetch(
-        `/api/jlpt-tests/${level.toLowerCase()}/${testNumber}/grade`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            section,
-            answers: Object.entries(answers).map(
-              ([questionId, selectedIndex]) => ({
-                questionId,
-                selectedIndex,
+      const sectionsToGrade: Section[] = section === "full"
+        ? ["vocabulary-kanji", "grammar-reading"]
+        : [section];
+      const payloads = await Promise.all(
+        sectionsToGrade.map(async (gradeSection) => {
+          const validIds = new Set(
+            questions
+              .filter((question) => question.sourceSection === gradeSection)
+              .map((question) => question.id),
+          );
+          const response = await fetch(
+            `/api/jlpt-tests/${level.toLowerCase()}/${testNumber}/grade`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                section: gradeSection,
+                answers: Object.entries(answers)
+                  .filter(([questionId]) => validIds.has(questionId))
+                  .map(([questionId, selectedIndex]) => ({ questionId, selectedIndex })),
               }),
-            ),
-          }),
-        },
+            },
+          );
+          const payload = await response.json();
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error("Bạn cần đăng nhập trước khi nộp bài.");
+            }
+            throw new Error(payload.message || "Không thể chấm bài.");
+          }
+          return payload as { results: GradeResult[]; summary: GradeSummary };
+        }),
       );
-      const payload = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Bạn cần đăng nhập trước khi nộp bài.");
-        }
-        throw new Error(payload.message || "Không thể chấm bài.");
-      }
+      const combinedResults = payloads.flatMap((payload) => payload.results);
+      const combinedSummary = payloads.reduce(
+        (total, payload) => ({
+          answered: total.answered + payload.summary.answered,
+          total: total.total + payload.summary.total,
+          correct: total.correct + payload.summary.correct,
+          percentage: 0,
+        }),
+        { answered: 0, total: 0, correct: 0, percentage: 0 },
+      );
+      combinedSummary.percentage = combinedSummary.total
+        ? Math.round((combinedSummary.correct / combinedSummary.total) * 100)
+        : 0;
 
       setResults(
         Object.fromEntries(
-          (payload.results as GradeResult[]).map((result) => [
+          combinedResults.map((result) => [
             result.questionId,
             result,
           ]),
         ),
       );
-      setSummary(payload.summary);
+      setSummary(combinedSummary);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Không thể chấm bài.",
@@ -151,6 +187,9 @@ export function JlptTestClient({
 
   async function chooseAnswer(questionId: string, selectedIndex: number) {
     if (!section || summary || checkingAnswer) return;
+    const questionSection = questions.find((question) => question.id === questionId)?.sourceSection;
+    const gradeSection = section === "full" ? questionSection : section;
+    if (!gradeSection) return;
 
     setAnswers((current) => ({ ...current, [questionId]: selectedIndex }));
 
@@ -166,7 +205,7 @@ export function JlptTestClient({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            section,
+            section: gradeSection,
             answers: [{ questionId, selectedIndex }],
           }),
         },
@@ -227,7 +266,7 @@ export function JlptTestClient({
             sau khi bạn nộp bài.
           </p>
 
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
             <SectionButton
               description="文字・語彙 (Moji / Goi)"
               disabled={loading}
@@ -241,6 +280,13 @@ export function JlptTestClient({
               icon={<FiBookOpen />}
               onClick={() => startSection("grammar-reading")}
               title="Ngữ pháp + Reading"
+            />
+            <SectionButton
+              description="Làm toàn bộ đề trong một lần"
+              disabled={loading}
+              icon={<FiLayers />}
+              onClick={() => startSection("full")}
+              title="Luyện full"
             />
           </div>
           {message && (
@@ -270,6 +316,28 @@ export function JlptTestClient({
       ? results[question.id]
       : undefined;
   const answeredCount = Object.keys(answers).length;
+
+  if (section === "full") {
+    return (
+      <FullTestView
+        answers={answers}
+        checkingAnswer={checkingAnswer}
+        feedbackMode={feedbackMode}
+        level={level}
+        message={message}
+        onChooseAnswer={chooseAnswer}
+        onLeave={leaveSection}
+        onSubmit={submitTest}
+        onToggleFeedback={setFeedbackMode}
+        questions={questions}
+        results={results}
+        submitting={submitting}
+        summary={summary}
+        testNumber={testNumber}
+        title={title}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto min-h-[calc(100vh-5rem)] max-w-5xl px-4 py-8 sm:px-6">
@@ -481,6 +549,237 @@ export function JlptTestClient({
         })}
       </div>
     </main>
+  );
+}
+
+function FullTestView({
+  answers,
+  checkingAnswer,
+  feedbackMode,
+  level,
+  message,
+  onChooseAnswer,
+  onLeave,
+  onSubmit,
+  onToggleFeedback,
+  questions,
+  results,
+  submitting,
+  summary,
+  testNumber,
+  title,
+}: Readonly<{
+  answers: Record<string, number>;
+  checkingAnswer: boolean;
+  feedbackMode: FeedbackMode;
+  level: string;
+  message: string;
+  onChooseAnswer: (questionId: string, selectedIndex: number) => void;
+  onLeave: () => void;
+  onSubmit: () => void;
+  onToggleFeedback: (mode: FeedbackMode) => void;
+  questions: Question[];
+  results: Record<string, GradeResult>;
+  submitting: boolean;
+  summary: GradeSummary | null;
+  testNumber: number;
+  title: string;
+}>) {
+  const [secondsLeft, setSecondsLeft] = useState(90 * 60);
+
+  useEffect(() => {
+    if (summary || secondsLeft <= 0) return;
+    const timer = window.setInterval(
+      () => setSecondsLeft((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [secondsLeft, summary]);
+
+  const answeredCount = Object.keys(answers).length;
+  const groups = questions.reduce<Array<{ label: string; questions: Question[] }>>(
+    (items, question) => {
+      const sectionLabel = question.sourceSection === "vocabulary-kanji"
+        ? "Từ vựng · Kanji"
+        : "Ngữ pháp · Reading";
+      const label = `${sectionLabel} — ${question.group || "Câu hỏi"}`;
+      const current = items.at(-1);
+      if (current?.label === label) current.questions.push(question);
+      else items.push({ label, questions: [question] });
+      return items;
+    },
+    [],
+  );
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+
+  return (
+    <main className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1500px] px-4 py-6 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <button className="inline-flex items-center gap-2 text-sm font-black text-rose-600" onClick={onLeave} type="button">
+            <FiArrowLeft /> Chọn phần khác
+          </button>
+          <h1 className="mt-2 text-2xl font-black text-slate-950">{title} · Luyện full</h1>
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            Làm toàn bộ {questions.length} câu hỏi trong một lần.
+          </p>
+        </div>
+        <AnswerVisibilityToggle mode={feedbackMode} onChange={onToggleFeedback} />
+      </div>
+
+      {summary && (
+        <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 font-black text-emerald-800">
+          <FiCheck className="mr-2 inline" />
+          Kết quả: {summary.correct}/{summary.total} câu đúng · {summary.percentage}%
+        </section>
+      )}
+
+      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="space-y-4">
+          {questions.map((question, questionIndex) => {
+            const selectedIndex = answers[question.id];
+            const result = feedbackMode === "immediate" || summary ? results[question.id] : undefined;
+
+            return (
+              <article
+                className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+                id={`full-question-${questionIndex + 1}`}
+                key={question.id}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-teal-700">{question.group}</p>
+                  <span className="text-sm font-black text-slate-500">Câu {questionIndex + 1}</span>
+                </div>
+                {question.instruction && (
+                  <p className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700">
+                    {question.instruction}
+                  </p>
+                )}
+                <h2 className="mt-5 whitespace-pre-wrap text-lg font-black leading-8 text-slate-950">
+                  <HighlightedPrompt highlightText={question.highlightText} prompt={question.prompt} />
+                </h2>
+                <HighlightFeedback
+                  level={level}
+                  testNumber={testNumber}
+                  section={question.sourceSection === "vocabulary-kanji" ? "vocabularyKanji" : "grammarReading"}
+                  questionId={question.id}
+                  prompt={question.prompt}
+                />
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {question.options.map((option, optionIndex) => {
+                    const selected = selectedIndex === optionIndex;
+                    const correct = result?.correctIndex === optionIndex;
+                    const wrong = Boolean(result) && selected && !correct;
+                    const tone = correct
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+                      : wrong
+                        ? "border-rose-500 bg-rose-50 text-rose-900"
+                        : selected
+                          ? "border-blue-500 bg-blue-50 text-blue-900"
+                          : "border-slate-200 hover:border-teal-400";
+                    return (
+                      <button
+                        className={`flex min-h-12 items-center gap-3 rounded-xl border px-4 text-left font-bold transition ${tone}`}
+                        disabled={Boolean(summary) || checkingAnswer}
+                        key={`${question.id}-${optionIndex}`}
+                        onClick={() => onChooseAnswer(question.id, optionIndex)}
+                        type="button"
+                      >
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-current text-xs">
+                          {optionIndex + 1}
+                        </span>
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+                {result && (
+                  <div className={`mt-4 rounded-xl p-4 font-bold ${result.correct ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+                    {result.correct ? "Chính xác" : `Đáp án đúng: ${question.options[result.correctIndex]}`}
+                    {result.explanation && <p className="mt-2 text-sm font-semibold text-slate-600">{result.explanation}</p>}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+
+        <aside className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border-2 border-teal-500 bg-teal-50/90 p-4 shadow-lg">
+          <div className="flex items-center justify-center gap-2 text-lg font-black text-slate-800">
+            <FiClock className="text-teal-600" />
+            {minutes}:{String(seconds).padStart(2, "0")}
+          </div>
+          {!summary && (
+            <button
+              className="mt-4 h-11 w-full rounded-full bg-slate-800 font-black text-white transition hover:bg-rose-600 disabled:opacity-50"
+              disabled={submitting || answeredCount === 0}
+              onClick={onSubmit}
+              type="button"
+            >
+              {submitting ? "Đang chấm..." : "Nộp bài"}
+            </button>
+          )}
+          <p className="mt-3 text-center text-xs font-bold text-slate-500">
+            {answeredCount}/{questions.length} câu đã trả lời
+          </p>
+          <div className="mt-4 space-y-4">
+            {groups.map((group) => (
+              <div key={group.label}>
+                <p className="mb-2 text-xs font-black text-teal-800">{group.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {group.questions.map((question) => {
+                    const index = questions.findIndex((item) => item.id === question.id);
+                    const result = feedbackMode === "immediate" || summary ? results[question.id] : undefined;
+                    const tone = result
+                      ? result.correct ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                      : answers[question.id] !== undefined
+                        ? "border-blue-600 bg-blue-100 text-blue-800"
+                        : "border-slate-300 bg-white text-slate-700";
+                    return (
+                      <button
+                        className={`grid h-9 w-9 place-items-center rounded-full border text-xs font-black ${tone}`}
+                        key={question.id}
+                        onClick={() => document.getElementById(`full-question-${index + 1}`)?.scrollIntoView({ behavior: "smooth" })}
+                        type="button"
+                      >
+                        {index + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </div>
+
+      {message && <p className="mt-5 rounded-xl bg-rose-50 p-4 font-bold text-rose-700">{message}</p>}
+    </main>
+  );
+}
+
+function AnswerVisibilityToggle({
+  mode,
+  onChange,
+}: Readonly<{ mode: FeedbackMode; onChange: (mode: FeedbackMode) => void }>) {
+  return (
+    <div className="flex rounded-xl border border-slate-200 bg-slate-950 p-1 text-xs font-black">
+      <button
+        className={`rounded-lg px-3 py-2 transition ${mode === "immediate" ? "bg-rose-500 text-white" : "text-slate-300 hover:text-white"}`}
+        onClick={() => onChange("immediate")}
+        type="button"
+      >
+        Hiện đáp án
+      </button>
+      <button
+        className={`rounded-lg px-3 py-2 transition ${mode === "at-end" ? "bg-rose-500 text-white" : "text-slate-300 hover:text-white"}`}
+        onClick={() => onChange("at-end")}
+        type="button"
+      >
+        Ẩn đáp án
+      </button>
+    </div>
   );
 }
 
