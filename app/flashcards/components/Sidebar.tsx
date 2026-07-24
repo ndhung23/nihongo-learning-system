@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { FiBook, FiClipboard, FiLayers } from "react-icons/fi";
 import { navItems } from "../data";
 import { type MessageKey, useLanguage } from "../i18n/LanguageProvider";
 
@@ -23,7 +24,24 @@ const labelByScreen: Record<keyof typeof routeByScreen, MessageKey> = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
+  const sidebarItems = navItems.flatMap((item) => {
+    if (item.screen !== "study") {
+      return [{
+        key: item.screen,
+        href: routeByScreen[item.screen],
+        icon: item.icon,
+        label: labelByScreen[item.screen],
+      }];
+    }
+
+    return [
+      { key: "reading", href: "/flashcards/reading", icon: FiBook, label: "readingPractice" as MessageKey },
+      { key: "tests", href: "/flashcards/discover?type=test", icon: FiClipboard, label: "testPractice" as MessageKey },
+      { key: "vocabulary", href: "/flashcards/discover?type=flashcard", icon: FiLayers, label: "vocabularyPractice" as MessageKey },
+    ];
+  });
 
   return (
     <aside className="group/sidebar sticky top-0 z-30 hidden h-screen w-[72px] overflow-hidden border-r border-slate-800 bg-slate-950 px-2 py-5 text-white shadow-[18px_0_60px_rgba(15,23,42,0.16)] transition-[width] duration-300 ease-out lg:flex lg:flex-col lg:hover:w-72">
@@ -38,9 +56,10 @@ export function Sidebar() {
       </Link>
 
       <nav className="space-y-2">
-        {navItems.map((item) => {
-          const href = routeByScreen[item.screen];
-          const isActive = pathname === href;
+        {sidebarItems.map((item) => {
+          const expectedType = item.key === "tests" ? "test" : item.key === "vocabulary" ? "flashcard" : "";
+          const isActive = pathname === item.href ||
+            (pathname === "/flashcards/discover" && expectedType === searchParams.get("type"));
           const Icon = item.icon;
 
           return (
@@ -50,13 +69,13 @@ export function Sidebar() {
                   ? "bg-rose-600 text-white shadow-xl shadow-rose-950/25"
                   : "text-slate-300 hover:-translate-y-0.5 hover:bg-white/10 hover:text-white"
               }`}
-              href={href}
-              key={item.screen}
+              href={item.href}
+              key={item.key}
             >
               <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition duration-300 ${isActive ? "bg-white/15" : "bg-white/8 group-hover:bg-white/12"}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="whitespace-nowrap opacity-0 transition duration-200 group-hover/sidebar:opacity-100">{t(labelByScreen[item.screen])}</span>
+              <span className="whitespace-nowrap opacity-0 transition duration-200 group-hover/sidebar:opacity-100">{t(item.label)}</span>
             </Link>
           );
         })}

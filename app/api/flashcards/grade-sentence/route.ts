@@ -65,6 +65,19 @@ const VocabularySuggestionResponseSchema = z.object({
   exampleVi: z.string(),
 });
 
+const AiChatRequestSchema = z.object({
+  action: z.literal("chat"),
+  message: z.string().trim().min(1).max(1000),
+  history: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().trim().min(1).max(2000),
+  })).max(10).default([]),
+});
+
+const AiChatResponseSchema = z.object({
+  answer: z.string().min(1).max(4000),
+});
+
 type AiProvider = "gemini" | "openai" | "deepseek";
 
 const keyCooldowns = new Map<string, number>();
@@ -100,11 +113,14 @@ export async function POST(request: NextRequest) {
     const body: unknown = await request.json();
     const deepLearnRequest = DeepLearnRequestSchema.safeParse(body);
     const vocabularySuggestionRequest = VocabularySuggestionRequestSchema.safeParse(body);
+    const aiChatRequest = AiChatRequestSchema.safeParse(body);
     let prompt: string;
     if (deepLearnRequest.success) {
       prompt = buildDeepLearnPrompt(deepLearnRequest.data.kind, deepLearnRequest.data.word);
     } else if (vocabularySuggestionRequest.success) {
       prompt = buildVocabularySuggestionPrompt(vocabularySuggestionRequest.data.term);
+    } else if (aiChatRequest.success) {
+      prompt = buildAiChatPrompt(aiChatRequest.data.message, aiChatRequest.data.history);
     } else {
       const gradeRequest = GradeSentenceSchema.parse(body);
       prompt = buildPrompt(gradeRequest.sentence, gradeRequest.word);
@@ -158,6 +174,8 @@ export async function POST(request: NextRequest) {
         ? DeepLearnResponseSchema
         : vocabularySuggestionRequest.success
           ? VocabularySuggestionResponseSchema
+          : aiChatRequest.success
+            ? AiChatResponseSchema
           : GeminiResponseSchema,
     );
     const parsed = generated.data;
@@ -205,6 +223,25 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: error instanceof Error ? error.message : "Kh\u00f4ng th\u1ec3 ch\u1ea5m c\u00e2u." }, { status: 500 });
   }
+}
+
+function buildAiChatPrompt(message: string, history: Array<{ role: "user" | "assistant"; content: string }>) {
+  const conversation = history
+    .map((item) => `${item.role === "user" ? "Người học" : "Trợ lý"}: ${item.content}`)
+    .join("\n");
+
+  return `
+Bạn là trợ lý học tiếng Nhật dành cho người Việt. Trả lời rõ ràng, chính xác, thân thiện và ưu tiên ví dụ ngắn.
+Khi viết Kanji, nếu hữu ích hãy kèm cách đọc kana. Không bịa thông tin; nếu không chắc hãy nói rõ.
+
+Lịch sử hội thoại:
+${conversation || "(chưa có)"}
+
+Câu hỏi mới: ${message}
+
+Chỉ trả về JSON thuần, không markdown, đúng cấu trúc:
+{"answer":"câu trả lời bằng tiếng Việt"}
+`.trim();
 }
 
 function buildVocabularySuggestionPrompt(term: string) {

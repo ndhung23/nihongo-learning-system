@@ -36,6 +36,10 @@ const UserSchema = new Schema(
     aiCredits: { type: Number, default: 1, min: 0 },
     processedPaymentIds: { type: [Schema.Types.ObjectId], default: [], select: false },
     pendingGachaTickets: { type: Number, default: 0, min: 0 },
+    contributionRewards: {
+      dateKey: { type: String, default: "" },
+      count: { type: Number, default: 0, min: 0, max: 10 },
+    },
     passwordReset: {
       tokenHash: { type: String },
       expiresAt: { type: Date },

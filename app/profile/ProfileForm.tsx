@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiLock, FiSave, FiUser } from "react-icons/fi";
+import { FiLink, FiLock, FiSave, FiUploadCloud, FiUser, FiX } from "react-icons/fi";
 
 type ProfileUser = {
   id: string;
@@ -44,6 +44,34 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [avatarMode, setAvatarMode] = useState<"upload" | "url">("upload");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setError("");
+    setSuccess("");
+    setAvatarUploading(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("purpose", "avatar");
+      const response = await fetch("/api/uploads/image", { method: "POST", body });
+      const result = (await response.json()) as { data?: { url?: string }; message?: string };
+      if (!response.ok || !result.data?.url) {
+        throw new Error(result.message || "Không thể tải avatar lên.");
+      }
+      setForm((current) => ({ ...current, avatarUrl: result.data?.url || "" }));
+      setSuccess("Đã tải avatar lên. Nhấn “Lưu hồ sơ” để áp dụng.");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Không thể tải avatar lên.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,10 +128,49 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
             </select>
           </label>
           <ProfileInput label="Ngày sinh" onChange={(value) => setForm({ ...form, birthday: value })} type="date" value={form.birthday} />
-          <label className="sm:col-span-2">
-            <span className="mb-2 block text-sm font-black text-slate-700">Avatar URL</span>
-            <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400" onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://..." value={form.avatarUrl} />
-          </label>
+          <div className="sm:col-span-2">
+            <span className="mb-2 block text-sm font-black text-slate-700">Ảnh đại diện</span>
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+              <button
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${avatarMode === "upload" ? "bg-white text-teal-700 shadow-sm" : "text-slate-500"}`}
+                onClick={() => setAvatarMode("upload")}
+                type="button"
+              >
+                <FiUploadCloud /> Tải ảnh từ máy
+              </button>
+              <button
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${avatarMode === "url" ? "bg-white text-teal-700 shadow-sm" : "text-slate-500"}`}
+                onClick={() => setAvatarMode("url")}
+                type="button"
+              >
+                <FiLink /> Dùng link URL
+              </button>
+            </div>
+
+            {avatarMode === "upload" ? (
+              <label className="flex min-h-24 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-teal-200 bg-teal-50/60 px-4 text-center font-black text-teal-700 transition hover:border-teal-400 hover:bg-teal-50">
+                <span><FiUploadCloud className="mx-auto mb-2 text-xl" />{avatarUploading ? "Đang tải lên Cloudinary..." : "Chọn ảnh JPG, PNG, WebP hoặc GIF"}</span>
+                <input accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={avatarUploading} onChange={uploadAvatar} type="file" />
+              </label>
+            ) : (
+              <input
+                className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400"
+                onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })}
+                placeholder="https://example.com/avatar.jpg"
+                type="url"
+                value={form.avatarUrl}
+              />
+            )}
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-slate-400">Ảnh tải từ máy tối đa 5 MB.</p>
+              {form.avatarUrl ? (
+                <button className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-50" onClick={() => setForm({ ...form, avatarUrl: "" })} type="button">
+                  <FiX /> Xóa avatar
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       </section>
 

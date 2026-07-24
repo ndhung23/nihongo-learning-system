@@ -613,6 +613,7 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
   const [suggestionNote, setSuggestionNote] = useState("");
   const [suggestionStatus, setSuggestionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [suggestionError, setSuggestionError] = useState("");
+  const [suggestionReward, setSuggestionReward] = useState("");
   const [grade, setGrade] = useState<GradeResult | null>(null);
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState("");
@@ -681,7 +682,10 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
           note: suggestionNote,
         }),
       });
-      const payload = await response.json();
+      const payload = (await response.json()) as {
+        data?: { reward?: { awarded: boolean; dailyRewardCount: number; dailyLimit: number } };
+        message?: string;
+      };
 
       if (!response.ok) {
         throw new Error(payload.message || "Không thể gửi góp ý mẫu câu.");
@@ -689,6 +693,13 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
 
       setSuggestionStatus("sent");
       setSuggestionNote("");
+      const reward = payload.data?.reward;
+      setSuggestionReward(
+        reward?.awarded
+          ? `Bạn nhận được 1 vé Gacha (${reward.dailyRewardCount}/${reward.dailyLimit} vé góp ý hôm nay).`
+          : "Góp ý đã được lưu. Bạn đã đạt giới hạn 10 vé góp ý hôm nay hoặc chưa đăng nhập.",
+      );
+      if (reward?.awarded) window.dispatchEvent(new CustomEvent("nihongo-gacha-rewarded"));
     } catch (error) {
       setSuggestionError(error instanceof Error ? error.message : "Không thể gửi góp ý mẫu câu.");
       setSuggestionStatus("error");
@@ -741,6 +752,7 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
               value={suggestionNote}
             />
             {suggestionStatus === "sent" && <p className="mt-3 rounded-2xl bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700">Đã gửi góp ý mẫu câu. Admin sẽ xem và chọn nếu phù hợp.</p>}
+            {suggestionReward && <p className="mt-3 rounded-2xl bg-amber-100 px-4 py-3 text-sm font-black text-amber-800">🎟️ {suggestionReward}</p>}
             {suggestionError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{suggestionError}</p>}
             <button className="mt-3 h-11 rounded-2xl bg-amber-500 px-5 font-black text-white transition hover:bg-amber-600 disabled:opacity-60" disabled={suggestionStatus === "sending"} onClick={submitExampleSuggestion} type="button">
               {suggestionStatus === "sending" ? "Đang gửi..." : "Gửi cho admin duyệt"}

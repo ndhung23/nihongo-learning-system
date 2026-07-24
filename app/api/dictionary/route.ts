@@ -5,6 +5,7 @@ import { VocabularyModel } from "@/models/Vocabulary";
 import { consumeRateLimit, requestIdentity } from "@/lib/rateLimit";
 import { DictionaryEntryModel } from "@/models/DictionaryEntry";
 import { AuthError, requireAuth } from "@/lib/auth/session";
+import { rewardContribution } from "@/lib/gachaContributionRewards";
 
 type JishoItem = {
   is_common?: boolean;
@@ -518,14 +519,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const rate = consumeRateLimit(`dictionary-suggestion:${requestIdentity(request)}`, 5, 10 * 60_000);
-  if (!rate.allowed) {
-    return NextResponse.json(
-      { message: "Bạn gửi nghĩa quá nhanh. Vui lòng thử lại sau." },
-      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
-    );
-  }
-
   try {
     const session = await requireAuth();
     const payload = CommunityMeaningSchema.parse(await request.json());
@@ -557,10 +550,15 @@ export async function POST(request: NextRequest) {
       await entry.save();
     }
 
+    const reward = duplicate
+      ? { awarded: false, dailyRewardCount: 0, dailyLimit: 10 }
+      : await rewardContribution(session.userId);
+
     return NextResponse.json({
       data: {
         meaningVi: payload.meaningVi,
         contributor: session.username || "Thành viên cộng đồng",
+        reward,
       },
     }, { status: duplicate ? 200 : 201 });
   } catch (error) {

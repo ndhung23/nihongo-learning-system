@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiActivity, FiCpu, FiDollarSign, FiGift, FiStar, FiX } from "react-icons/fi";
+import { FiActivity, FiAward, FiCpu, FiDollarSign, FiGift, FiStar, FiX, FiZap } from "react-icons/fi";
 import {
   dailyAuthChangedEvent,
   getDailyProgressStorageKey,
@@ -138,16 +138,10 @@ export function GachaDailyPanel() {
   }, [activeStorageKey]);
 
   useEffect(() => {
-    if (
-      activeStorageKey.endsWith(":guest") ||
-      claimedAdminTicketsForRef.current === activeStorageKey
-    ) {
-      return;
-    }
-    claimedAdminTicketsForRef.current = activeStorageKey;
-
-    void fetch("/api/profile", { method: "POST" })
-      .then(async (response) => {
+    const claimPendingTickets = () => {
+      if (activeStorageKey.endsWith(":guest")) return;
+      void fetch("/api/profile", { method: "POST" })
+        .then(async (response) => {
         if (!response.ok) return;
         const payload = (await response.json()) as { claimedGachaTickets?: number };
         const claimed = Math.max(Number(payload.claimedGachaTickets) || 0, 0);
@@ -156,6 +150,18 @@ export function GachaDailyPanel() {
         saveDailyState(activeStorageKey, { ...current, tickets: current.tickets + claimed });
       })
       .catch(() => undefined);
+    };
+
+    if (
+      !activeStorageKey.endsWith(":guest") &&
+      claimedAdminTicketsForRef.current !== activeStorageKey
+    ) {
+      claimedAdminTicketsForRef.current = activeStorageKey;
+      claimPendingTickets();
+    }
+
+    window.addEventListener("nihongo-gacha-rewarded", claimPendingTickets);
+    return () => window.removeEventListener("nihongo-gacha-rewarded", claimPendingTickets);
   }, [activeStorageKey]);
 
   useEffect(
@@ -270,10 +276,12 @@ export function GachaDailyPanel() {
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button className="h-10 rounded-xl border border-teal-200 bg-teal-50 text-xs font-black text-teal-800 transition hover:bg-teal-100" onClick={() => setPaymentKind("ai")} type="button">
+          <button className="group flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-teal-300 bg-gradient-to-r from-teal-500 to-cyan-500 px-2 text-xs font-black text-white shadow-lg shadow-teal-500/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-teal-500/30" onClick={() => setPaymentKind("ai")} type="button">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-white/20 transition group-hover:scale-110"><FiZap /></span>
             Nạp lượt AI
           </button>
-          <button className="h-10 rounded-xl border border-violet-200 bg-violet-50 text-xs font-black text-violet-800 transition hover:bg-violet-100" onClick={() => setPaymentKind("vip")} type="button">
+          <button className="group flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-gradient-to-r from-violet-600 to-fuchsia-500 px-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-500/30" onClick={() => setPaymentKind("vip")} type="button">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-white/20 transition group-hover:scale-110"><FiAward /></span>
             Nâng cấp VIP
           </button>
         </div>

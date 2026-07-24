@@ -65,6 +65,8 @@ export function DictionaryPanel({
   const [suggestedMeaning, setSuggestedMeaning] = useState("");
   const [suggestionStatus, setSuggestionStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [suggestionError, setSuggestionError] = useState("");
+  const [suggestionReward, setSuggestionReward] = useState("");
+  const [communityPage, setCommunityPage] = useState(1);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -102,7 +104,7 @@ export function DictionaryPanel({
     event?.preventDefault();
     if (!query.trim()) return;
     setOpen(true); setLoading(true); setError(""); setSaved(false);
-    setSuggestedMeaning(""); setSuggestionStatus("idle"); setSuggestionError("");
+    setSuggestedMeaning(""); setSuggestionStatus("idle"); setSuggestionError(""); setSuggestionReward(""); setCommunityPage(1);
     try {
       const response = await fetch(`/api/dictionary?q=${encodeURIComponent(query.trim())}`, { cache: "no-store" });
       const payload = (await response.json()) as DictionaryResponse;
@@ -154,7 +156,11 @@ export function DictionaryPanel({
         }),
       });
       const payload = (await response.json()) as {
-        data?: { meaningVi: string; contributor: string };
+        data?: {
+          meaningVi: string;
+          contributor: string;
+          reward?: { awarded: boolean; dailyRewardCount: number; dailyLimit: number };
+        };
         message?: string;
       };
       if (!response.ok || !payload.data) {
@@ -174,6 +180,14 @@ export function DictionaryPanel({
       } : current);
       setSuggestedMeaning("");
       setSuggestionStatus("sent");
+      setCommunityPage(1);
+      const reward = payload.data.reward;
+      setSuggestionReward(
+        reward?.awarded
+          ? `Bạn nhận được 1 vé Gacha (${reward.dailyRewardCount}/${reward.dailyLimit} vé góp ý hôm nay).`
+          : "Góp ý đã được lưu. Bạn đã đạt giới hạn 10 vé góp ý hôm nay.",
+      );
+      if (reward?.awarded) window.dispatchEvent(new CustomEvent("nihongo-gacha-rewarded"));
     } catch (submitError) {
       setSuggestionError(submitError instanceof Error ? submitError.message : "Không thể lưu nghĩa góp ý.");
       setSuggestionStatus("idle");
@@ -181,6 +195,9 @@ export function DictionaryPanel({
   }
 
   const entry = result?.entries[0];
+  const communityMeanings = entry?.communityMeanings || [];
+  const communityPageCount = Math.max(1, Math.ceil(communityMeanings.length / 3));
+  const visibleCommunityMeanings = communityMeanings.slice((communityPage - 1) * 3, communityPage * 3);
   const keyboardKeys = keyboardScript === "hiragana" ? hiraganaKeys : katakanaKeys;
 
   return (
@@ -296,14 +313,21 @@ export function DictionaryPanel({
                   <FiUsers />
                   <h4 className="font-black">Bản dịch do cộng đồng góp ý</h4>
                 </div>
-                {(entry.communityMeanings || []).length > 0 ? (
+                {communityMeanings.length > 0 ? (
                   <div className="mt-3 space-y-2">
-                    {(entry.communityMeanings || []).map((meaning, index) => (
+                    {visibleCommunityMeanings.map((meaning, index) => (
                       <div className="rounded-2xl bg-white p-3 dark:bg-slate-900" key={meaning.id || `${meaning.meaningVi}-${index}`}>
                         <p className="font-bold text-slate-800 dark:text-slate-100">{meaning.meaningVi}</p>
                         <p className="mt-1 text-[11px] font-bold text-slate-400">Góp ý bởi {meaning.contributor}</p>
                       </div>
                     ))}
+                    {communityPageCount > 1 && (
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <button className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-black text-sky-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={communityPage === 1} onClick={() => setCommunityPage((page) => Math.max(1, page - 1))} type="button">← Trước</button>
+                        <span className="text-xs font-black text-sky-700">Trang {communityPage}/{communityPageCount}</span>
+                        <button className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-black text-sky-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={communityPage === communityPageCount} onClick={() => setCommunityPage((page) => Math.min(communityPageCount, page + 1))} type="button">Sau →</button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Chưa có nghĩa nào từ cộng đồng.</p>
@@ -322,6 +346,7 @@ export function DictionaryPanel({
                   />
                   {suggestionError && <p className="mt-2 text-xs font-bold text-rose-600">{suggestionError}</p>}
                   {suggestionStatus === "sent" && <p className="mt-2 text-xs font-bold text-emerald-600">Đã lưu bản dịch cộng đồng.</p>}
+                  {suggestionReward && <p className="mt-2 rounded-xl bg-amber-100 px-3 py-2 text-xs font-black text-amber-800">🎟️ {suggestionReward}</p>}
                   <button
                     className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-700 py-2.5 text-sm font-black text-white hover:bg-sky-800 disabled:opacity-50"
                     disabled={suggestionStatus === "sending" || suggestedMeaning.trim().length < 2}

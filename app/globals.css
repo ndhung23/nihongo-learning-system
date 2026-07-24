@@ -158,3 +158,8 @@ html {
 .nihongo-app.theme-dark [class*="linear-gradient"] :where(.text-slate-500, .text-slate-400) {
   color: #cbd5e1 !important;
 }
+
+.hide-furigana ruby rt,
+.hide-furigana ruby rp {
+  display: none;
+}

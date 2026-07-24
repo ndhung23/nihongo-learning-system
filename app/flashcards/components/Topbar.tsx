@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   FiChevronDown,
+  FiEye,
+  FiEyeOff,
   FiLogIn,
   FiLogOut,
   FiMail,
@@ -64,6 +66,7 @@ export function Topbar({
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [showFurigana, setShowFurigana] = useState(true);
 
   const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -83,6 +86,21 @@ export function Topbar({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadMe();
   }, [loadMe]);
+
+  useEffect(() => {
+    const visible = window.localStorage.getItem("nihongo-show-furigana") !== "false";
+    queueMicrotask(() => setShowFurigana(visible));
+    document.documentElement.classList.toggle("hide-furigana", !visible);
+  }, []);
+
+  function toggleFurigana() {
+    setShowFurigana((current) => {
+      const next = !current;
+      window.localStorage.setItem("nihongo-show-furigana", String(next));
+      document.documentElement.classList.toggle("hide-furigana", !next);
+      return next;
+    });
+  }
 
   const loadFeedback = useCallback(async () => {
     setFeedbackLoading(true);
@@ -293,6 +311,20 @@ export function Topbar({
                     <Link className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-teal-700" href="/profile">
                       <FiUser /> {t("profile")}
                     </Link>
+                    <button
+                      aria-pressed={showFurigana}
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-violet-50 hover:text-violet-700"
+                      onClick={toggleFurigana}
+                      type="button"
+                    >
+                      <span className="flex items-center gap-3">
+                        {showFurigana ? <FiEye /> : <FiEyeOff />}
+                        Gợi ý Hiragana
+                      </span>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${showFurigana ? "bg-teal-100 text-teal-700" : "bg-slate-100 text-slate-500"}`}>
+                        {showFurigana ? "Hiện" : "Ẩn"}
+                      </span>
+                    </button>
                     {user.roles.includes("admin") && (
                       <Link className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold text-slate-600 transition hover:bg-slate-50 hover:text-rose-700" href="/admin">
                         <FiShield /> {t("admin")}

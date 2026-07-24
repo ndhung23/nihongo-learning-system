@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     const session = await requirePermission("flashcard:create");
     const formData = await request.formData();
     const file = formData.get("file");
+    const purpose = formData.get("purpose") === "avatar" ? "avatars" : "vocabulary";
     if (!(file instanceof File)) {
       return NextResponse.json({ message: "Vui lòng chọn một ảnh." }, { status: 400 });
     }
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 
     const { cloudName, apiKey, apiSecret } = readCloudinaryConfig();
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = `nihongo-learning/vocabulary/${session.userId}`;
+    const folder = `nihongo-learning/${purpose}/${session.userId}`;
     const signature = createHash("sha1")
       .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
       .digest("hex");
