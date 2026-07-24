@@ -1,22 +1,32 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { ApiActivityIndicator } from "./ApiActivityIndicator";
-import { DictionaryPanel } from "./DictionaryPanel";
-import { AiChatbox } from "./AiChatbox";
 import { LanguageProvider } from "../i18n/LanguageProvider";
+
+const DictionaryPanel = dynamic(
+  () => import("./DictionaryPanel").then((module) => module.DictionaryPanel),
+  { ssr: false },
+);
+const AiChatbox = dynamic(
+  () => import("./AiChatbox").then((module) => module.AiChatbox),
+  { ssr: false },
+);
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [dictionaryPinned, setDictionaryPinned] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
 
   useEffect(() => {
     const initialTheme = window.localStorage.getItem("nihongo-theme") === "dark" ? "dark" : "light";
     const initialDictionaryPinned = window.matchMedia("(min-width: 1280px)").matches;
     queueMicrotask(() => setTheme(initialTheme));
     queueMicrotask(() => setDictionaryPinned(initialDictionaryPinned));
+    queueMicrotask(() => setPreferencesReady(true));
   }, []);
 
   useEffect(() => {
@@ -34,7 +44,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
 
   return (
     <LanguageProvider>
-    <main className={`nihongo-app theme-${theme} min-h-screen bg-[#fbfaf5] text-slate-950 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100`}>
+    <main className={`nihongo-app theme-${theme} min-h-screen bg-[#fbfaf5] text-slate-950 transition-colors duration-150 dark:bg-slate-950 dark:text-slate-100`}>
       <ApiActivityIndicator />
       <DictionaryPanel onPinnedChange={setDictionaryPinned} pinned={dictionaryPinned} />
       <AiChatbox dictionaryPinned={dictionaryPinned} />
@@ -43,7 +53,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <Suspense fallback={<div className="hidden w-[72px] bg-slate-950 lg:block" />}>
           <Sidebar />
         </Suspense>
-        <section className={`min-w-0 transition-[padding] duration-300 ${dictionaryPinned ? "xl:pr-[390px]" : ""}`}>
+        <section className={`min-w-0 transition-[padding] duration-150 ${dictionaryPinned || !preferencesReady ? "xl:pr-[390px]" : ""}`}>
           <Topbar theme={theme} onToggleTheme={toggleTheme} />
           {children}
         </section>

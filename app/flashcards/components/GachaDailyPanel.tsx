@@ -103,7 +103,7 @@ export function GachaDailyPanel() {
   const [paymentKind, setPaymentKind] = useState<"ai" | "vip" | null>(null);
   const soundTimerRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const claimedAdminTicketsForRef = useRef("");
+  const claimedPendingTicketsForRef = useRef("");
   const readyQuestCount = useMemo(
     () =>
       quests.filter(
@@ -116,13 +116,24 @@ export function GachaDailyPanel() {
   useEffect(() => {
     const sync = () => setDailyState(readDailyState(activeStorageKey));
     const switchOwner = (event: Event) => {
-      const detail = (event as CustomEvent<{ storageKey?: string; aiCredits?: number }>).detail;
+      const detail = (event as CustomEvent<{
+        storageKey?: string;
+        aiCredits?: number;
+        pendingGachaTickets?: number;
+      }>).detail;
       if (detail?.storageKey) {
         if (typeof detail.aiCredits === "number") {
           const accountState = readDailyState(detail.storageKey);
           saveDailyState(detail.storageKey, { ...accountState, aiCredits: detail.aiCredits });
         }
         setActiveStorageKey(detail.storageKey);
+        if (
+          Number(detail.pendingGachaTickets) > 0 &&
+          claimedPendingTicketsForRef.current !== detail.storageKey
+        ) {
+          claimedPendingTicketsForRef.current = detail.storageKey;
+          window.dispatchEvent(new CustomEvent("nihongo-gacha-rewarded"));
+        }
       }
     };
     void resolveDailyProgressStorageKey().then(setActiveStorageKey);
@@ -151,14 +162,6 @@ export function GachaDailyPanel() {
       })
       .catch(() => undefined);
     };
-
-    if (
-      !activeStorageKey.endsWith(":guest") &&
-      claimedAdminTicketsForRef.current !== activeStorageKey
-    ) {
-      claimedAdminTicketsForRef.current = activeStorageKey;
-      claimPendingTickets();
-    }
 
     window.addEventListener("nihongo-gacha-rewarded", claimPendingTickets);
     return () => window.removeEventListener("nihongo-gacha-rewarded", claimPendingTickets);

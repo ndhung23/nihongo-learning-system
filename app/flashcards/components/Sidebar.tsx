@@ -44,7 +44,7 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="group/sidebar sticky top-0 z-30 hidden h-screen w-[72px] overflow-hidden border-r border-slate-800 bg-slate-950 px-2 py-5 text-white shadow-[18px_0_60px_rgba(15,23,42,0.16)] transition-[width] duration-300 ease-out lg:flex lg:flex-col lg:hover:w-72">
+    <aside className="group/sidebar sticky top-0 z-30 hidden h-screen w-[72px] overflow-hidden border-r border-slate-800 bg-slate-950 px-2 py-5 text-white shadow-[18px_0_60px_rgba(15,23,42,0.16)] transition-[width] duration-150 ease-out lg:flex lg:flex-col lg:hover:w-72">
       <Link className="group mb-9 flex h-14 items-center gap-3 overflow-hidden rounded-2xl px-2 text-left" href="/flashcards">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#e11d48] text-xl font-black text-white shadow-xl shadow-rose-600/20 transition duration-300 group-hover:-translate-y-1 group-hover:rotate-3">
           日
@@ -58,7 +58,7 @@ export function Sidebar() {
       <nav className="space-y-2">
         {sidebarItems.map((item) => {
           const expectedType = item.key === "tests" ? "test" : item.key === "vocabulary" ? "flashcard" : "";
-          const isActive = pathname === item.href ||
+          const isActive = (item.key === "library" && pathname === "/") || pathname === item.href ||
             (pathname === "/flashcards/discover" && expectedType === searchParams.get("type"));
           const Icon = item.icon;
 

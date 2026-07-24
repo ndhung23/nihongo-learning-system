@@ -10,14 +10,18 @@ export function getKnownDailyProgressStorageKey() {
   return getDailyProgressStorageKey(window.localStorage.getItem(userMarkerKey));
 }
 
-export function announceDailyProgressOwner(userId?: string | null, aiCredits?: number) {
+export function announceDailyProgressOwner(
+  userId?: string | null,
+  aiCredits?: number,
+  pendingGachaTickets?: number,
+) {
   if (typeof window === "undefined") return;
   if (userId) window.localStorage.setItem(userMarkerKey, userId);
   else window.localStorage.removeItem(userMarkerKey);
 
   window.dispatchEvent(
     new CustomEvent(dailyAuthChangedEvent, {
-      detail: { storageKey: getDailyProgressStorageKey(userId), aiCredits },
+      detail: { storageKey: getDailyProgressStorageKey(userId), aiCredits, pendingGachaTickets },
     }),
   );
 }

@@ -32,6 +32,7 @@ export async function GET() {
       roles,
       permissions: getPermissionsForRoles(roles),
       aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
+      pendingGachaTickets: Math.max(Number(user.pendingGachaTickets) || 0, 0),
       profile: {
         gender: user.profile?.gender,
         phone: user.profile?.phone,

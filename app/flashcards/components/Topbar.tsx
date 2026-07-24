@@ -32,6 +32,7 @@ type CurrentUser = {
   roles: string[];
   permissions?: string[];
   aiCredits?: number;
+  pendingGachaTickets?: number;
 };
 
 type PublicFeedback = {
@@ -79,7 +80,11 @@ export function Topbar({
 
     const payload = (await response.json()) as { user: CurrentUser };
     setUser(payload.user);
-    announceDailyProgressOwner(payload.user.userId || payload.user.id, payload.user.aiCredits);
+    announceDailyProgressOwner(
+      payload.user.userId || payload.user.id,
+      payload.user.aiCredits,
+      payload.user.pendingGachaTickets,
+    );
   }, []);
 
   useEffect(() => {
@@ -140,7 +145,11 @@ export function Topbar({
       }
 
       setUser(payload.user);
-      announceDailyProgressOwner(payload.user.userId || payload.user.id, payload.user.aiCredits);
+      announceDailyProgressOwner(
+        payload.user.userId || payload.user.id,
+        payload.user.aiCredits,
+        payload.user.pendingGachaTickets,
+      );
       setLoginOpen(false);
       setMenuOpen(false);
     } finally {
@@ -202,10 +211,10 @@ export function Topbar({
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/88">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-150 dark:border-slate-800 dark:bg-slate-950/88">
         <div className="mx-auto flex h-20 max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-10">
           <form
-            className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-300 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
+            className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-150 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
             onSubmit={handleCourseSearch}
           >
             <FiSearch className="text-slate-400 transition group-focus-within:text-teal-600" />
