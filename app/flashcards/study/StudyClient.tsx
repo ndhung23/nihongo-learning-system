@@ -34,6 +34,7 @@ type VocabularyItem = {
   level?: "kana" | "n5" | "n4" | "n3" | "n2" | "n1" | "custom";
   lesson?: number;
   sourceUrl?: string;
+  imageUrl?: string;
   examples?: Array<{
     ja?: string;
     vi?: string;
@@ -542,6 +543,7 @@ function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes
     antonyms: item.antonyms || [],
     tags: ["IT"],
     sourceUrl: item.sourceUrl,
+    imageUrl: item.imageUrl,
   };
 }
 

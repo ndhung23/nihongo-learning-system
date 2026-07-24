@@ -14,6 +14,7 @@ type WordForm = {
   meaningVi: string;
   exampleJa: string;
   exampleVi: string;
+  imageUrl: string;
 };
 
 type ParsedImportRow = {
@@ -31,6 +32,7 @@ const emptyForm: WordForm = {
   meaningVi: "",
   exampleJa: "",
   exampleVi: "",
+  imageUrl: "",
 };
 
 const japanesePattern = /[\u3040-\u30ff\u3400-\u9fff]/;
@@ -127,6 +129,7 @@ function toPayload(word: WordForm) {
       : [],
     source: "user",
     level: "custom",
+    imageUrl: word.imageUrl,
   };
 }
 
@@ -143,6 +146,7 @@ export function AddWordScreen({
   const [status, setStatus] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const parsedRows = useMemo(
     () => importText.split(/\r?\n/).map(parseImportLine).filter(Boolean) as ParsedImportRow[],
@@ -155,6 +159,30 @@ export function AddWordScreen({
   const handleFieldChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const uploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    setStatus(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const response = await fetch("/api/uploads/image", { method: "POST", body });
+      const payload = (await response.json()) as { data?: { url?: string }; message?: string };
+      if (!response.ok || !payload.data?.url) {
+        throw new Error(payload.message || "Không thể tải ảnh lên.");
+      }
+      setForm((current) => ({ ...current, imageUrl: payload.data?.url || "" }));
+      setStatus({ tone: "success", message: "Đã tải ảnh minh họa lên." });
+    } catch (error) {
+      setStatus({ tone: "error", message: error instanceof Error ? error.message : "Không thể tải ảnh lên." });
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const saveWord = async (word: WordForm) => {
@@ -376,6 +404,22 @@ export function AddWordScreen({
                 value={form.exampleJa}
               />
               <FormField label="Dịch nghĩa ví dụ" name="exampleVi" onChange={handleFieldChange} placeholder="VD: Tôi học tiếng Nhật mỗi ngày" value={form.exampleVi} />
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Ảnh minh họa</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-black text-teal-700 transition hover:bg-teal-100">
+                    <FiUploadCloud />
+                    {isUploadingImage ? "Đang tải ảnh..." : form.imageUrl ? "Đổi ảnh" : "Chọn ảnh từ máy"}
+                    <input accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={isUploadingImage} onChange={uploadImage} type="file" />
+                  </label>
+                  {form.imageUrl ? (
+                    <button className="rounded-xl px-4 py-2 text-sm font-black text-rose-600 hover:bg-rose-50" onClick={() => setForm((current) => ({ ...current, imageUrl: "" }))} type="button">
+                      Xóa ảnh
+                    </button>
+                  ) : null}
+                  <span className="text-xs font-bold text-slate-400">JPG, PNG, WebP hoặc GIF · tối đa 5 MB</span>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -385,6 +429,7 @@ export function AddWordScreen({
             {previewWord.term ? (
               <>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-600">Preview thẻ học</p>
+                {previewWord.imageUrl ? <img alt={`Minh họa ${previewWord.term}`} className="mx-auto mt-4 h-40 w-full max-w-72 rounded-2xl object-cover shadow-lg" src={previewWord.imageUrl} /> : null}
                 <h2 className="mt-4 text-4xl font-black text-slate-950">{previewWord.term}</h2>
                 <p className="mt-2 font-bold text-slate-500">{previewWord.kana || "Chưa có kana"}</p>
                 <p className="mt-5 text-2xl font-black text-teal-700">{previewWord.meaningVi || "Chưa có nghĩa"}</p>

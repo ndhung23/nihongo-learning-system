@@ -58,14 +58,14 @@ const getCachedVocabulary = unstable_cache(
     }
 
     const vocabulary = await VocabularyModel.find(filter)
-      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples synonyms antonyms sourceUrl")
+      .select("_id deckId term kana romaji meaningVi partOfSpeech level lesson examples synonyms antonyms sourceUrl imageUrl")
       .sort(q ? { score: { $meta: "textScore" } } : { createdAt: -1 })
       .limit(limit)
       .lean();
 
     return JSON.parse(JSON.stringify(vocabulary));
   },
-  ["public-vocabulary-v3-relations"],
+  ["public-vocabulary-v4-images"],
   { revalidate: 300, tags: ["vocabulary"] },
 );
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         createdBy: session.userId,
         source: "user",
       })
-        .select("_id term kana romaji meaningVi partOfSpeech level examples synonyms antonyms createdAt")
+        .select("_id term kana romaji meaningVi partOfSpeech level examples synonyms antonyms imageUrl createdAt")
         .sort({ createdAt: -1 })
         .lean();
 

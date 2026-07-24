@@ -21,6 +21,7 @@ export type Word = {
   antonyms?: string[];
   tags: string[];
   sourceUrl?: string;
+  imageUrl?: string;
 };
 
 export type Deck = {

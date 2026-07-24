@@ -510,6 +510,13 @@ function FlashcardExercise({
             </div>
             <div className="grid min-h-64 place-items-center">
               <div>
+                {currentWord.imageUrl ? (
+                  <img
+                    alt={`Minh họa ${currentWord.term}`}
+                    className="mx-auto mb-5 h-36 w-56 rounded-2xl object-cover shadow-lg shadow-indigo-500/10"
+                    src={currentWord.imageUrl}
+                  />
+                ) : null}
                 <FuriganaText as="h2" className="text-5xl font-black text-indigo-600" text={currentWord.term} reading={currentWord.kana} />
                 <p className="mt-5 text-slate-500">{currentWord.kana} / {currentWord.romaji}</p>
                 <p className="mt-8 text-sm font-black uppercase tracking-widest text-slate-400">{t("front")}</p>
