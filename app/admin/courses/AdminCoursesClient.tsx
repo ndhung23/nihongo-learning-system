@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiArchive, FiEdit3, FiEye, FiEyeOff, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
+import { FiArchive, FiBookOpen, FiEdit3, FiEyeOff, FiHelpCircle, FiLoader, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 
 type Course = {
   _id: string;
@@ -146,7 +146,7 @@ const statusOptions = [
   ["Archived", "archived"],
 ] as const;
 
-export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course[]; meta: Meta }>) {
+export function AdminCoursesClient({ courses, initialOpenCourseId, meta }: Readonly<{ courses: Course[]; initialOpenCourseId?: string; meta: Meta }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
@@ -155,6 +155,7 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const autoOpenedCourse = useRef(false);
 
   const queryState = useMemo(
     () => ({
@@ -167,6 +168,14 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
     }),
     [meta.limit, searchParams],
   );
+
+  useEffect(() => {
+    if (autoOpenedCourse.current) return;
+    const course = courses.find((item) => item._id === initialOpenCourseId);
+    if (!course) return;
+    autoOpenedCourse.current = true;
+    void openDetail(course);
+  }, [courses, initialOpenCourseId]);
 
   function updateQuery(next: Record<string, string | number>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -379,8 +388,8 @@ export function AdminCoursesClient({ courses, meta }: Readonly<{ courses: Course
               <p className="mt-1">{course.stats?.learnerCount || 0} học viên</p>
             </div>
             <div className="flex gap-2 lg:justify-end">
-              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700" onClick={() => openDetail(course)} title="Chi tiết" type="button">
-                <FiEye />
+              <button className="flex h-9 items-center gap-1 rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100" onClick={() => openDetail(course)} title="Quản lý từ vựng" type="button">
+                <FiBookOpen /> Từ vựng
               </button>
               <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
                 <FiEdit3 />
@@ -499,6 +508,9 @@ function CourseDetailDialog({
   const [importText, setImportText] = useState("");
   const [vocabularyError, setVocabularyError] = useState("");
   const [vocabularySaving, setVocabularySaving] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<string>("all");
+  const [vocabularyLoading, setVocabularyLoading] = useState(false);
+  const [showImportHint, setShowImportHint] = useState(false);
 
   function editVocabulary(word: CourseDetail["recentVocabulary"][number]) {
     setVocabularyForm({
@@ -545,7 +557,7 @@ function CourseDetailDialog({
 
         return [result.data, ...current].slice(0, 80);
       });
-      setVocabularyForm(emptyVocabularyForm);
+      setVocabularyForm({ ...emptyVocabularyForm, lesson: selectedLesson === "all" ? "" : selectedLesson });
     } finally {
       setVocabularySaving(false);
     }
@@ -567,6 +579,26 @@ function CourseDetailDialog({
     setVocabulary((current) => current.filter((word) => word._id !== wordId));
   }
 
+  async function loadVocabulary(lesson: string) {
+    setSelectedLesson(lesson);
+    setVocabularyLoading(true);
+    setVocabularyError("");
+    try {
+      const query = new URLSearchParams({ limit: "200" });
+      if (lesson !== "all") query.set("lesson", lesson);
+      const response = await fetch(`/api/admin/courses/${course._id}/vocabulary?${query}`, { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) {
+        setVocabularyError(result.message || "Không thể tải từ vựng của bài.");
+        return;
+      }
+      setVocabulary(result.data || []);
+      setVocabularyForm((current) => ({ ...current, lesson: lesson === "all" ? current.lesson : lesson }));
+    } finally {
+      setVocabularyLoading(false);
+    }
+  }
+
   async function importVocabulary() {
     setVocabularySaving(true);
     setVocabularyError("");
@@ -585,7 +617,9 @@ function CourseDetailDialog({
       }
 
       setImportText("");
-      const refresh = await fetch(`/api/admin/courses/${course._id}/vocabulary?limit=80`, { cache: "no-store" });
+      const refreshQuery = new URLSearchParams({ limit: "200" });
+      if (selectedLesson !== "all") refreshQuery.set("lesson", selectedLesson);
+      const refresh = await fetch(`/api/admin/courses/${course._id}/vocabulary?${refreshQuery}`, { cache: "no-store" });
       const refreshResult = await refresh.json();
 
       if (refresh.ok) {
@@ -595,6 +629,22 @@ function CourseDetailDialog({
       setVocabularyError(`Đã import ${result.data.imported} dòng.`);
     } finally {
       setVocabularySaving(false);
+    }
+  }
+
+  async function selectImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setVocabularyError("File import không được lớn hơn 5 MB.");
+      return;
+    }
+    try {
+      setImportText(await file.text());
+      setVocabularyError(`Đã đọc file “${file.name}”. Kiểm tra nội dung rồi bấm Import.`);
+    } catch {
+      setVocabularyError("Không thể đọc file này.");
     }
   }
 
@@ -638,11 +688,24 @@ function CourseDetailDialog({
           <div className="rounded-[1.5rem] border border-slate-200 p-4">
             <p className="text-sm font-black uppercase tracking-widest text-teal-700">Thống kê theo bài</p>
             <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
+              <button
+                className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${selectedLesson === "all" ? "bg-teal-700 text-white" : "bg-slate-50 hover:bg-teal-50"}`}
+                onClick={() => loadVocabulary("all")}
+                type="button"
+              >
+                <span>Tất cả bài</span>
+                <span>{course.stats?.vocabularyCount || 0} từ</span>
+              </button>
               {detail.lessonStats.map((lesson) => (
-                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold" key={String(lesson.lesson)}>
+                <button
+                  className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${selectedLesson === String(lesson.lesson) ? "bg-teal-700 text-white shadow" : "bg-slate-50 hover:bg-teal-50"}`}
+                  key={String(lesson.lesson)}
+                  onClick={() => loadVocabulary(String(lesson.lesson))}
+                  type="button"
+                >
                   <span>Bài {lesson.lesson}</span>
                   <span>{lesson.count} từ · {lesson.published} public</span>
-                </div>
+                </button>
               ))}
               {detail.lessonStats.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">Chưa có từ vựng trong khóa này.</p>}
             </div>
@@ -651,7 +714,7 @@ function CourseDetailDialog({
           <div className="rounded-[1.5rem] border border-slate-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-black uppercase tracking-widest text-rose-600">CRUD từ vựng</p>
-              <button className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700" onClick={() => setVocabularyForm(emptyVocabularyForm)} type="button">
+              <button className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700" onClick={() => setVocabularyForm({ ...emptyVocabularyForm, lesson: selectedLesson === "all" ? "" : selectedLesson })} type="button">
                 Tạo mới
               </button>
             </div>
@@ -683,11 +746,28 @@ function CourseDetailDialog({
             </form>
 
             <div className="mt-5 rounded-2xl bg-slate-50 p-3">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Import text</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Import / Copy paste</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Hỗ trợ TXT, CSV hoặc JSON; xử lý trực tiếp, không dùng AI.</p>
+                </div>
+                <label className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-teal-700 hover:bg-teal-50">
+                  <FiUploadCloud className="mr-1 inline" /> Chọn file
+                  <input accept=".txt,.csv,.json,text/plain,text/csv,application/json" className="hidden" onChange={selectImportFile} type="file" />
+                </label>
+              </div>
+              <button
+                className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white text-xs font-black text-teal-800 hover:bg-teal-50"
+                onClick={() => setShowImportHint((current) => !current)}
+                type="button"
+              >
+                <FiHelpCircle /> Hướng dẫn Format Import từ vựng
+              </button>
+              {showImportHint ? <VocabularyImportHint onClose={() => setShowImportHint(false)} /> : null}
               <textarea
-                className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-rose-400"
+                className="mt-3 min-h-36 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm font-semibold outline-none transition focus:border-rose-400"
                 onChange={(event) => setImportText(event.target.value)}
-                placeholder="何でも,なんでも,nandemo,cái gì cũng,何でも食べます"
+                placeholder={'CSV: term,kana,romaji,meaningVi,example,lesson\n何でも,なんでも,nandemo,cái gì cũng,何でも食べます,1\n\nJSON: {"words":[{"term":"何でも","kana":"なんでも","meaningVi":"cái gì cũng"}]}'}
                 value={importText}
               />
               <button className="mt-2 h-10 w-full rounded-xl bg-rose-600 text-sm font-black text-white transition hover:bg-rose-700 disabled:opacity-60" disabled={vocabularySaving || !importText.trim()} onClick={importVocabulary} type="button">
@@ -698,6 +778,7 @@ function CourseDetailDialog({
             {vocabularyError && <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">{vocabularyError}</p>}
 
             <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
+              {vocabularyLoading ? <p className="flex items-center justify-center gap-2 rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500"><FiLoader className="animate-spin" /> Đang tải bài {selectedLesson === "all" ? "tất cả" : selectedLesson}...</p> : null}
               {vocabulary.map((word) => (
                 <article className="rounded-2xl bg-slate-50 p-4" key={word._id}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -734,6 +815,51 @@ function DetailMetric({ label, value }: Readonly<{ label: string; value: string 
     <div className="rounded-2xl bg-slate-50 p-4">
       <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
       <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function VocabularyImportHint({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="mt-3 rounded-xl border border-teal-200 bg-white p-4 text-sm text-slate-700">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-black text-slate-900">Format Import từ vựng</h4>
+          <p className="mt-1 text-xs text-slate-500">Copy–paste hoặc chọn file UTF-8. JSON/CSV được xử lý trực tiếp, không dùng AI.</p>
+        </div>
+        <button aria-label="Đóng hướng dẫn" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 hover:bg-rose-100" onClick={onClose} type="button"><FiX /></button>
+      </div>
+      <div className="mt-3 grid gap-3">
+        <ImportExample title="TXT — một từ mỗi dòng">
+          {`何でも|なんでも|nandemo|cái gì cũng|何でも食べます`}
+        </ImportExample>
+        <ImportExample title="CSV — có dòng tiêu đề">
+          {`term,kana,romaji,meaningVi,example,lesson
+何でも,なんでも,nandemo,cái gì cũng,何でも食べます,1`}
+        </ImportExample>
+        <ImportExample title="JSON">
+          {`{
+  "words": [{
+    "term": "何でも",
+    "kana": "なんでも",
+    "romaji": "nandemo",
+    "meaningVi": "cái gì cũng",
+    "lesson": 1,
+    "examples": [{"ja": "何でも食べます", "vi": "Tôi ăn gì cũng được"}]
+  }]
+}`}
+        </ImportExample>
+      </div>
+      <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Nếu đang chọn một bài, danh sách sau Import chỉ hiển thị từ thuộc bài đó. Từ trùng Kanji trong cùng khóa sẽ được cập nhật.</p>
+    </div>
+  );
+}
+
+function ImportExample({ children, title }: { children: string; title: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-slate-50 p-3">
+      <p className="mb-2 text-xs font-black text-slate-900">{title}</p>
+      <pre className="overflow-x-auto whitespace-pre text-xs leading-5">{children}</pre>
     </div>
   );
 }

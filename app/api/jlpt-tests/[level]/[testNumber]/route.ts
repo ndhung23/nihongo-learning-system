@@ -5,6 +5,7 @@ import { JlptTestModel } from "@/models/JlptTest";
 const sectionMap = {
   "vocabulary-kanji": "vocabularyKanji",
   "grammar-reading": "grammarReading",
+  listening: "listening",
 } as const;
 
 type PublicSection = keyof typeof sectionMap;
@@ -47,6 +48,8 @@ export async function GET(
       [`sections.${databaseKey}.instruction`]: 1,
       [`sections.${databaseKey}.prompt`]: 1,
       [`sections.${databaseKey}.highlightText`]: 1,
+      [`sections.${databaseKey}.imageUrl`]: 1,
+      [`sections.${databaseKey}.audioUrl`]: 1,
       [`sections.${databaseKey}.options`]: 1,
     })
     .lean();

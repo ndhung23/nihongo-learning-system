@@ -18,6 +18,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
   const sourceType = firstParam(params.sourceType);
   const visibility = firstParam(params.visibility);
   const status = firstParam(params.status);
+  const initialOpenCourseId = firstParam(params.open);
 
   await connectMongoDB();
 
@@ -77,6 +78,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
         ownerId: serializeOwner(course.ownerId),
       }))}
       meta={{ page: Math.min(page, totalPages), limit, total, totalPages }}
+      initialOpenCourseId={initialOpenCourseId}
     />
   );
 }

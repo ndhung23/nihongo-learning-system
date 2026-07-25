@@ -120,7 +120,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               romaji: row.romaji,
               meaningVi: row.meaningVi,
               level: vocabularyLevel,
-              lesson: payload.lesson,
+              lesson: row.lesson ?? payload.lesson,
               source: "system",
               isPublished: payload.isPublished,
               examples: row.example ? [{ ja: row.example }] : [],
@@ -159,14 +159,73 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 function parseImportText(importText: string) {
-  const rows: Array<{ term: string; kana?: string; romaji?: string; meaningVi: string; example?: string }> = [];
+  const rows: Array<{ term: string; kana?: string; romaji?: string; meaningVi: string; example?: string; lesson?: number }> = [];
+  const content = importText.replace(/^```(?:json|csv)?\s*/i, "").replace(/\s*```$/, "").trim();
 
-  importText
-    .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^\*\*|\*\*$/g, ""))
-    .filter(Boolean)
+  if (content.startsWith("{") || content.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(content) as unknown;
+      const items = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { words?: unknown; vocabulary?: unknown }).words ||
+          (parsed as { vocabulary?: unknown }).vocabulary;
+      if (!Array.isArray(items)) return rows;
+      items.forEach((item) => {
+        if (!item || typeof item !== "object") return;
+        const word = item as Record<string, unknown>;
+        const term = String(word.term ?? "").trim();
+        const meaningVi = String(word.meaningVi ?? word.meaning ?? "").trim();
+        const examples = Array.isArray(word.examples) ? word.examples : [];
+        const firstExample = examples[0];
+        const example = typeof firstExample === "string"
+          ? firstExample
+          : firstExample && typeof firstExample === "object"
+            ? String((firstExample as Record<string, unknown>).ja ?? "")
+            : String(word.example ?? "");
+        if (term && meaningVi) {
+          const lesson = Number(word.lesson);
+          rows.push({
+            term,
+            kana: String(word.kana ?? "").trim(),
+            romaji: String(word.romaji ?? "").trim(),
+            meaningVi,
+            example: example.trim(),
+            lesson: Number.isInteger(lesson) && lesson > 0 && lesson <= 99 ? lesson : undefined,
+          });
+        }
+      });
+      return rows;
+    } catch {
+      return rows;
+    }
+  }
+
+  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const firstLine = lines[0]?.toLowerCase() || "";
+  const hasHeader = firstLine.includes("term") && (firstLine.includes("meaningvi") || firstLine.includes("meaning"));
+  const headers = hasHeader ? lines.shift()!.split(",").map((item) => item.trim()) : [];
+
+  lines
     .forEach((line) => {
       const parts = line.includes("|") ? line.split("|") : line.includes(",") ? line.split(",") : line.split(/\s+/);
+      if (hasHeader) {
+        const values = parts.map((part) => part.trim());
+        const record = Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]));
+        const term = record.term;
+        const meaningVi = record.meaningVi || record.meaning;
+        if (term && meaningVi) {
+          const lesson = Number(record.lesson);
+          rows.push({
+            term,
+            kana: record.kana,
+            romaji: record.romaji,
+            meaningVi,
+            example: record.example,
+            lesson: Number.isInteger(lesson) && lesson > 0 && lesson <= 99 ? lesson : undefined,
+          });
+        }
+        return;
+      }
       const [term, kana, romaji, meaningVi, ...exampleParts] = parts.map((part) => part.trim());
       const example = exampleParts.join(" ").trim();
 

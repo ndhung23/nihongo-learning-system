@@ -7,10 +7,11 @@ import { JlptTestModel } from "@/models/JlptTest";
 const sectionMap = {
   "vocabulary-kanji": "vocabularyKanji",
   "grammar-reading": "grammarReading",
+  listening: "listening",
 } as const;
 
 const bodySchema = z.object({
-  section: z.enum(["vocabulary-kanji", "grammar-reading"]),
+  section: z.enum(["vocabulary-kanji", "grammar-reading", "listening"]),
   answers: z
     .array(
       z.object({

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function JlptTestsPage() {
   await connectMongoDB();
   const tests = await JlptTestModel.find({})
-    .select({ level: 1, number: 1, title: 1, questionCount: 1 })
+    .select({ level: 1, number: 1, title: 1, questionCount: 1, "sections.listening": 1 })
     .sort({ level: -1, number: 1 })
     .lean();
 
@@ -24,7 +24,7 @@ export default async function JlptTestsPage() {
         Đề thi JLPT minh họa
       </h1>
       <p className="mt-3 text-slate-500">
-        Chọn đề và làm riêng phần Từ vựng + Kanji hoặc Ngữ pháp + Reading.
+        Chọn đề và luyện riêng Từ vựng + Kanji, Ngữ pháp + Reading hoặc Nghe hiểu.
       </p>
       <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tests.map((test) => (
@@ -38,7 +38,7 @@ export default async function JlptTestsPage() {
               Đề thi {test.level} minh họa số {test.number}
             </h2>
             <p className="mt-2 text-sm font-bold text-slate-500">
-              {test.questionCount} câu · 2 phần thi
+              {test.questionCount} câu · {test.sections?.listening?.length ? 3 : 2} phần thi
             </p>
           </Link>
         ))}

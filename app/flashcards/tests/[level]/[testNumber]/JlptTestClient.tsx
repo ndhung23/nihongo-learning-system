@@ -10,11 +10,12 @@ import {
   FiChevronRight,
   FiClock,
   FiFileText,
+  FiHeadphones,
   FiLayers,
 } from "react-icons/fi";
 import { HighlightFeedback } from "./HighlightFeedback";
 
-type Section = "vocabulary-kanji" | "grammar-reading";
+type Section = "vocabulary-kanji" | "grammar-reading" | "listening";
 type PracticeMode = Section | "full";
 type FeedbackMode = "immediate" | "at-end";
 
@@ -24,6 +25,8 @@ type Question = {
   instruction: string;
   prompt: string;
   highlightText?: string;
+  imageUrl?: string;
+  audioUrl?: string;
   options: string[];
   sourceSection?: Section;
 };
@@ -45,9 +48,10 @@ type GradeSummary = {
 
 export function JlptTestClient({
   courseId,
+  hasListening,
   level,
   testNumber,
-}: Readonly<{ courseId: string; level: string; testNumber: number }>) {
+}: Readonly<{ courseId: string; hasListening: boolean; level: string; testNumber: number }>) {
   const [section, setSection] = useState<PracticeMode | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -79,7 +83,7 @@ export function JlptTestClient({
 
     try {
       const requestedSections: Section[] = nextSection === "full"
-        ? ["vocabulary-kanji", "grammar-reading"]
+        ? hasListening ? ["vocabulary-kanji", "grammar-reading", "listening"] : ["vocabulary-kanji", "grammar-reading"]
         : [nextSection];
       const loadedSections = await Promise.all(
         requestedSections.map(async (requestedSection) => {
@@ -121,7 +125,7 @@ export function JlptTestClient({
 
     try {
       const sectionsToGrade: Section[] = section === "full"
-        ? ["vocabulary-kanji", "grammar-reading"]
+        ? hasListening ? ["vocabulary-kanji", "grammar-reading", "listening"] : ["vocabulary-kanji", "grammar-reading"]
         : [section];
       const payloads = await Promise.all(
         sectionsToGrade.map(async (gradeSection) => {
@@ -187,6 +191,7 @@ export function JlptTestClient({
 
   async function chooseAnswer(questionId: string, selectedIndex: number) {
     if (!section || summary || checkingAnswer) return;
+    playUiSound("select");
     const questionSection = questions.find((question) => question.id === questionId)?.sourceSection;
     const gradeSection = section === "full" ? questionSection : section;
     if (!gradeSection) return;
@@ -221,6 +226,7 @@ export function JlptTestClient({
 
       const result = (payload.results as GradeResult[])[0];
       if (result) {
+        playUiSound(result.correct ? "correct" : "wrong");
         setResults((current) => ({
           ...current,
           [result.questionId]: result,
@@ -266,7 +272,7 @@ export function JlptTestClient({
             sau khi bạn nộp bài.
           </p>
 
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
+          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <SectionButton
               description="文字・語彙 (Moji / Goi)"
               disabled={loading}
@@ -281,6 +287,13 @@ export function JlptTestClient({
               onClick={() => startSection("grammar-reading")}
               title="Ngữ pháp + Reading"
             />
+            {hasListening ? <SectionButton
+              description="聴解 (Choukai)"
+              disabled={loading}
+              icon={<FiHeadphones />}
+              onClick={() => startSection("listening")}
+              title="Nghe hiểu"
+            /> : null}
             <SectionButton
               description="Làm toàn bộ đề trong một lần"
               disabled={loading}
@@ -352,9 +365,7 @@ export function JlptTestClient({
           </button>
           <h1 className="mt-3 text-2xl font-black text-slate-950">{title}</h1>
           <p className="text-sm font-bold text-slate-500">
-            {section === "vocabulary-kanji"
-              ? "Từ vựng + Kanji"
-              : "Ngữ pháp + Reading"}
+            {section === "vocabulary-kanji" ? "Từ vựng + Kanji" : section === "grammar-reading" ? "Ngữ pháp + Reading" : "Nghe hiểu"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -416,14 +427,15 @@ export function JlptTestClient({
             prompt={question.prompt}
           />
         </h2>
+        <QuestionMedia question={question} />
 
-        <HighlightFeedback
+        {section !== "listening" ? <HighlightFeedback
           level={level}
           testNumber={testNumber}
           section={section === "vocabulary-kanji" ? "vocabularyKanji" : "grammarReading"}
           questionId={question.id}
           prompt={question.prompt}
-        />
+        /> : null}
 
         <div className="mt-6 grid gap-3">
           {question.options.map((option, optionIndex) => {
@@ -499,7 +511,10 @@ export function JlptTestClient({
             <button
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white disabled:opacity-30"
               disabled={currentIndex === questions.length - 1}
-              onClick={() => setCurrentIndex((value) => value + 1)}
+              onClick={() => {
+                playUiSound("next");
+                setCurrentIndex((value) => value + 1);
+              }}
               type="button"
             >
               Tiếp <FiChevronRight />
@@ -601,7 +616,7 @@ function FullTestView({
     (items, question) => {
       const sectionLabel = question.sourceSection === "vocabulary-kanji"
         ? "Từ vựng · Kanji"
-        : "Ngữ pháp · Reading";
+        : question.sourceSection === "grammar-reading" ? "Ngữ pháp · Reading" : "Nghe hiểu";
       const label = `${sectionLabel} — ${question.group || "Câu hỏi"}`;
       const current = items.at(-1);
       if (current?.label === label) current.questions.push(question);
@@ -659,13 +674,14 @@ function FullTestView({
                 <h2 className="mt-5 whitespace-pre-wrap text-lg font-black leading-8 text-slate-950">
                   <HighlightedPrompt highlightText={question.highlightText} prompt={question.prompt} />
                 </h2>
-                <HighlightFeedback
+                <QuestionMedia question={question} />
+                {question.sourceSection !== "listening" ? <HighlightFeedback
                   level={level}
                   testNumber={testNumber}
                   section={question.sourceSection === "vocabulary-kanji" ? "vocabularyKanji" : "grammarReading"}
                   questionId={question.id}
                   prompt={question.prompt}
-                />
+                /> : null}
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
                   {question.options.map((option, optionIndex) => {
                     const selected = selectedIndex === optionIndex;
@@ -803,6 +819,22 @@ function HighlightedPrompt({
   );
 }
 
+function QuestionMedia({ question }: Readonly<{ question: Question }>) {
+  if (!question.imageUrl && !question.audioUrl) return null;
+  return (
+    <div className="mt-5 space-y-4">
+      {question.audioUrl ? (
+        <audio className="w-full" controls preload="metadata" src={question.audioUrl}>
+          Trình duyệt của bạn không hỗ trợ phát âm thanh.
+        </audio>
+      ) : null}
+      {question.imageUrl ? (
+        <img alt="Tranh minh họa câu hỏi" className="mx-auto max-h-[520px] w-auto max-w-full rounded-xl border border-slate-200 object-contain" src={question.imageUrl} />
+      ) : null}
+    </div>
+  );
+}
+
 function SectionButton({
   description,
   disabled,
@@ -834,4 +866,44 @@ function SectionButton({
       </span>
     </button>
   );
+}
+
+type UiSound = "select" | "next" | "correct" | "wrong";
+
+function playUiSound(sound: UiSound) {
+  try {
+    const AudioContextClass = window.AudioContext;
+    const context = new AudioContextClass();
+    const now = context.currentTime;
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(sound === "wrong" ? 0.12 : 0.09, now + 0.01);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + (sound === "correct" ? 0.32 : 0.2));
+    master.connect(context.destination);
+
+    const notes = sound === "correct"
+      ? [{ frequency: 523.25, start: 0 }, { frequency: 659.25, start: 0.09 }, { frequency: 783.99, start: 0.18 }]
+      : sound === "wrong"
+        ? [{ frequency: 220, start: 0 }, { frequency: 174.61, start: 0.1 }]
+        : sound === "next"
+          ? [{ frequency: 440, start: 0 }, { frequency: 587.33, start: 0.07 }]
+          : [{ frequency: 620, start: 0 }];
+
+    notes.forEach(({ frequency, start }) => {
+      const oscillator = context.createOscillator();
+      const noteGain = context.createGain();
+      oscillator.type = sound === "wrong" ? "sawtooth" : "sine";
+      oscillator.frequency.setValueAtTime(frequency, now + start);
+      noteGain.gain.setValueAtTime(0.0001, now + start);
+      noteGain.gain.exponentialRampToValueAtTime(1, now + start + 0.008);
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, now + start + 0.11);
+      oscillator.connect(noteGain);
+      noteGain.connect(master);
+      oscillator.start(now + start);
+      oscillator.stop(now + start + 0.12);
+    });
+    window.setTimeout(() => context.close().catch(() => undefined), 700);
+  } catch {
+    // Âm thanh là hiệu ứng bổ trợ; không làm gián đoạn bài thi nếu trình duyệt không hỗ trợ.
+  }
 }

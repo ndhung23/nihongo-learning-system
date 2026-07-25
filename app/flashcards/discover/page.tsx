@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { FiBookOpen, FiChevronLeft, FiChevronRight, FiFilter, FiUsers } from "react-icons/fi";
+import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiUsers } from "react-icons/fi";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { DiscoverControls } from "./DiscoverControls";
 import { CourseStudyButton } from "./CourseStudyButton";
 import { getVisibleKanaCourseCount, KanaCourseCards } from "./KanaCourseCards";
+import { getAuthSession } from "@/lib/auth/session";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -17,6 +18,8 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
   const requestedPage = Math.max(Number(firstParam(params.page)) || 1, 1);
   const pageSize = 9;
 
+  const session = await getAuthSession();
+  const isAdmin = Boolean(session?.roles.includes("admin"));
   await connectMongoDB();
 
   const filter: Record<string, unknown> = {
@@ -155,6 +158,14 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
                 vocabularyCount={course.stats?.vocabularyCount || 0}
               />
             )}
+            {isAdmin && !isJlptTest ? (
+              <Link
+                className="mt-2 flex h-10 items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 text-sm font-black text-teal-800 transition hover:bg-teal-100"
+                href={`/admin/courses?q=${encodeURIComponent(course.slug || course.title)}&open=${String(course._id)}`}
+              >
+                <FiEdit3 /> Quản lý từ vựng
+              </Link>
+            ) : null}
           </article>
           );
         })}

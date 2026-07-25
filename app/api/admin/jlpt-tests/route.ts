@@ -7,11 +7,15 @@ import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
 
 const QuestionSchema = z.object({
-  group: z.string().trim().min(1).max(100),
+  group: z.string().trim().min(1, "Nhóm câu hỏi không được để trống.").max(100),
   instruction: z.string().trim().max(500).default(""),
-  prompt: z.string().trim().min(1).max(3000),
+  prompt: z.string().trim().min(1, "Nội dung câu hỏi không được để trống.").max(3000),
   highlightText: z.string().trim().max(300).default(""),
-  options: z.array(z.string().trim().min(1).max(500)).min(2).max(6),
+  imageUrl: z.string().trim().url().or(z.literal("")).default(""),
+  audioUrl: z.string().trim().url().or(z.literal("")).default(""),
+  options: z.array(z.string().trim().min(1).max(500))
+    .min(2, "Mỗi câu hỏi cần ít nhất 2 lựa chọn.")
+    .max(6, "Mỗi câu hỏi chỉ được có tối đa 6 lựa chọn."),
   correctIndex: z.coerce.number().int().min(0),
   explanation: z.string().trim().max(2000).default(""),
 }).superRefine((question, context) => {
@@ -28,9 +32,18 @@ const CreateTestSchema = z.object({
   visibility: z.enum(["private", "public", "unlisted"]).default("public"),
   status: z.enum(["draft", "published", "hidden"]).default("published"),
   sections: z.object({
-    vocabularyKanji: z.array(QuestionSchema).min(1),
-    grammarReading: z.array(QuestionSchema).min(1),
+    vocabularyKanji: z.array(QuestionSchema),
+    grammarReading: z.array(QuestionSchema),
+    listening: z.array(QuestionSchema).default([]),
   }),
+}).superRefine((test, context) => {
+  if (test.sections.vocabularyKanji.length + test.sections.grammarReading.length + test.sections.listening.length === 0) {
+    context.addIssue({
+      code: "custom",
+      path: ["sections"],
+      message: "Đề thi cần có ít nhất 1 câu hỏi.",
+    });
+  }
 });
 
 export async function POST(request: NextRequest) {
@@ -41,11 +54,12 @@ export async function POST(request: NextRequest) {
     if (await JlptTestModel.exists({ level: payload.level, number: payload.number })) {
       return NextResponse.json({ message: `${payload.level} đề số ${payload.number} đã tồn tại.` }, { status: 409 });
     }
-    const decorate = (questions: z.infer<typeof QuestionSchema>[], section: "vk" | "gr") =>
+    const decorate = (questions: z.infer<typeof QuestionSchema>[], section: "vk" | "gr" | "ls") =>
       questions.map((question, index) => ({ ...question, id: `${payload.level.toLowerCase()}-t${payload.number}-${section}-q${index + 1}` }));
     const vocabularyKanji = decorate(payload.sections.vocabularyKanji, "vk");
     const grammarReading = decorate(payload.sections.grammarReading, "gr");
-    const questionCount = vocabularyKanji.length + grammarReading.length;
+    const listening = decorate(payload.sections.listening, "ls");
+    const questionCount = vocabularyKanji.length + grammarReading.length + listening.length;
     const test = await JlptTestModel.create({
       level: payload.level,
       number: payload.number,
@@ -54,8 +68,9 @@ export async function POST(request: NextRequest) {
       sectionDefinitions: {
         vocabularyKanji: { key: "vocabulary-kanji", title: "Từ vựng + Kanji", sourceGroups: [...new Set(vocabularyKanji.map((item) => item.group))] },
         grammarReading: { key: "grammar-reading", title: "Ngữ pháp + Reading", sourceGroups: [...new Set(grammarReading.map((item) => item.group))] },
+        listening: { key: "listening", title: "Nghe hiểu", sourceGroups: [...new Set(listening.map((item) => item.group))] },
       },
-      sections: { vocabularyKanji, grammarReading },
+      sections: { vocabularyKanji, grammarReading, listening },
       questionCount,
       source: "private-import",
       importedAt: new Date(),
@@ -81,13 +96,25 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     revalidateTag("courses", { expire: 0 });
-    return NextResponse.json({ data: { id: String(test._id), level: payload.level, number: payload.number, title: payload.title, questionCount } }, { status: 201 });
+    return NextResponse.json({ data: { id: String(test._id), level: payload.level, number: payload.number, title: payload.title, questionCount, sectionCount: listening.length ? 3 : 2 } }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
     }
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: error.issues[0]?.message || "Dữ liệu đề thi chưa hợp lệ.", issues: error.issues }, { status: 400 });
+      const issue = error.issues[0];
+      const sectionLabel = issue?.path[1] === "vocabularyKanji"
+        ? "Từ vựng + Kanji"
+        : issue?.path[1] === "grammarReading"
+          ? "Ngữ pháp + Reading"
+          : "";
+      const questionIndex = typeof issue?.path[2] === "number" ? issue.path[2] + 1 : null;
+      const location = sectionLabel && questionIndex ? `Phần ${sectionLabel}, câu ${questionIndex}: ` : "";
+      const detail = issue?.message === "Invalid input" ? "Dữ liệu câu hỏi chưa đúng định dạng." : issue?.message;
+      return NextResponse.json({
+        message: `${location}${detail || "Dữ liệu đề thi chưa hợp lệ."}`,
+        issues: error.issues,
+      }, { status: 400 });
     }
     if ((error as { code?: number }).code === 11000) {
       return NextResponse.json({ message: "Số đề hoặc đường dẫn đề thi đã tồn tại." }, { status: 409 });

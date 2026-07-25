@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
+import { JlptTestModel } from "@/models/JlptTest";
 import { JlptTestClient } from "./JlptTestClient";
 
 export default async function JlptTestPage({
@@ -21,15 +22,16 @@ export default async function JlptTestPage({
   }
 
   await connectMongoDB();
-  const course = await DeckModel.findOne({
-    contentType: "jlpt-test",
-    "jlptTest.level": level,
-    "jlptTest.number": testNumber,
-    status: "published",
-    visibility: "public",
-  })
-    .select({ _id: 1 })
-    .lean();
+  const [course, test] = await Promise.all([
+    DeckModel.findOne({
+      contentType: "jlpt-test",
+      "jlptTest.level": level,
+      "jlptTest.number": testNumber,
+      status: "published",
+      visibility: "public",
+    }).select({ _id: 1 }).lean(),
+    JlptTestModel.findOne({ level, number: testNumber }).select({ "sections.listening": 1 }).lean(),
+  ]);
 
   if (!course) {
     notFound();
@@ -38,6 +40,7 @@ export default async function JlptTestPage({
   return (
     <JlptTestClient
       courseId={course._id.toString()}
+      hasListening={Boolean(test?.sections?.listening?.length)}
       level={level}
       testNumber={testNumber}
     />

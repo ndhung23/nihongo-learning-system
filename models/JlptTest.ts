@@ -9,6 +9,8 @@ const JlptQuestionSchema = new Schema(
     instruction: { type: String, default: "" },
     prompt: { type: String, required: true },
     highlightText: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
+    audioUrl: { type: String, default: "" },
     options: {
       type: [String],
       required: true,
@@ -55,10 +57,12 @@ const JlptTestSchema = new Schema(
     sectionDefinitions: {
       vocabularyKanji: { type: SectionDefinitionSchema, required: true },
       grammarReading: { type: SectionDefinitionSchema, required: true },
+      listening: { type: SectionDefinitionSchema, required: false },
     },
     sections: {
       vocabularyKanji: { type: [JlptQuestionSchema], default: [] },
       grammarReading: { type: [JlptQuestionSchema], default: [] },
+      listening: { type: [JlptQuestionSchema], default: [] },
     },
     questionCount: { type: Number, required: true, min: 1 },
     source: {
