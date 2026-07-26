@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { AuthError, requirePermission } from "@/lib/auth/session";
+import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -48,7 +48,7 @@ const CreateTestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission("admin:course:write");
+    const session = await requireAuth();
     await connectMongoDB();
     const payload = CreateTestSchema.parse(await request.json());
     if (await JlptTestModel.exists({ level: payload.level, number: payload.number })) {
@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
     const listening = decorate(payload.sections.listening, "ls");
     const questionCount = vocabularyKanji.length + grammarReading.length + listening.length;
     const test = await JlptTestModel.create({
+      createdBy: session.userId,
       level: payload.level,
       number: payload.number,
       title: payload.title,
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         price: { amount: 0, currency: "VND" },
         tags: ["JLPT", payload.level, "Test", "Từ vựng + Kanji"],
         contentType: "jlpt-test",
+        ownerId: session.userId,
         jlptTest: { level: payload.level, number: payload.number, testId: test._id },
         stats: { vocabularyCount: questionCount, learnerCount: 0 },
       });

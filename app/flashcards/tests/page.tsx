@@ -1,48 +1,79 @@
 import Link from "next/link";
-import { FiArrowLeft, FiBookOpen } from "react-icons/fi";
+import { FiArrowLeft } from "react-icons/fi";
+import { AdminJlptTestsClient } from "@/app/admin/jlpt-tests/AdminJlptTestsClient";
+import { getAuthSession } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
 
 export const dynamic = "force-dynamic";
 
-export default async function JlptTestsPage() {
+const PAGE_SIZE = 9;
+
+export default async function JlptTestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; q?: string }>;
+}) {
+  const session = await getAuthSession();
+  const params = await searchParams;
+  const query = String(params.q || "").trim().slice(0, 100);
+  const requestedPage = Math.max(1, Number.parseInt(params.page || "1", 10) || 1);
+
+  if (!session) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
+        <Link className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-rose-600" href="/flashcards">
+          <FiArrowLeft /> Quay lại khóa học
+        </Link>
+        <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <h1 className="text-2xl font-black text-slate-950">Bạn chưa đăng nhập</h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Hãy đăng nhập để tạo và quản lý đề thi của bạn.</p>
+        </section>
+      </main>
+    );
+  }
+
   await connectMongoDB();
-  const tests = await JlptTestModel.find({})
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const filter = {
+    createdBy: session.userId,
+    ...(query ? {
+      $or: [
+        { title: { $regex: escapedQuery, $options: "i" } },
+        { level: query.toUpperCase() },
+      ],
+    } : {}),
+  };
+  const totalTests = await JlptTestModel.countDocuments(filter);
+  const totalPages = Math.max(1, Math.ceil(totalTests / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const tests = await JlptTestModel.find(filter)
     .select({ level: 1, number: 1, title: 1, questionCount: 1, "sections.listening": 1 })
-    .sort({ level: -1, number: 1 })
+    .sort({ updatedAt: -1, _id: -1 })
+    .skip((currentPage - 1) * PAGE_SIZE)
+    .limit(PAGE_SIZE)
     .lean();
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
-      <Link
-        className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-rose-600"
-        href="/flashcards"
-      >
+      <Link className="mb-6 inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-rose-600" href="/flashcards">
         <FiArrowLeft /> Quay lại khóa học
       </Link>
-      <h1 className="mt-6 text-4xl font-black text-slate-950">
-        Đề thi JLPT minh họa
-      </h1>
-      <p className="mt-3 text-slate-500">
-        Chọn đề và luyện riêng Từ vựng + Kanji, Ngữ pháp + Reading hoặc Nghe hiểu.
-      </p>
-      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tests.map((test) => (
-          <Link
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg transition hover:-translate-y-1 hover:border-teal-300"
-            href={`/flashcards/tests/${test.level.toLowerCase()}/${test.number}`}
-            key={test._id.toString()}
-          >
-            <FiBookOpen className="text-2xl text-teal-700" />
-            <h2 className="mt-4 text-xl font-black text-slate-950">
-              Đề thi {test.level} minh họa số {test.number}
-            </h2>
-            <p className="mt-2 text-sm font-bold text-slate-500">
-              {test.questionCount} câu · {test.sections?.listening?.length ? 3 : 2} phần thi
-            </p>
-          </Link>
-        ))}
-      </div>
+      <AdminJlptTestsClient
+        currentPage={currentPage}
+        initialTests={tests.map((test) => ({
+          id: test._id.toString(),
+          level: test.level,
+          number: test.number,
+          title: test.title,
+          questionCount: test.questionCount,
+          sectionCount: test.sections?.listening?.length ? 3 : 2,
+        }))}
+        personal
+        query={query}
+        totalPages={totalPages}
+        totalTests={totalTests}
+      />
     </main>
   );
 }

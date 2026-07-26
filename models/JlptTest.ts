@@ -45,6 +45,11 @@ const SectionDefinitionSchema = new Schema(
 
 const JlptTestSchema = new Schema(
   {
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
     level: {
       type: String,
       enum: ["N5", "N4", "N3", "N2", "N1"],
@@ -79,6 +84,7 @@ const JlptTestSchema = new Schema(
 );
 
 JlptTestSchema.index({ level: 1, number: 1 }, { unique: true });
+JlptTestSchema.index({ createdBy: 1, updatedAt: -1 });
 
 export const JlptTestModel =
   models.JlptTest || model("JlptTest", JlptTestSchema);

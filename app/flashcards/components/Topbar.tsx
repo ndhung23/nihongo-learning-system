@@ -212,9 +212,9 @@ export function Topbar({
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-150 dark:border-slate-800 dark:bg-slate-950/88">
-        <div className="mx-auto flex h-20 max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-10">
+        <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-2 px-3 sm:px-5 lg:px-8">
           <form
-            className="group hidden h-12 w-full max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm transition-all duration-150 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
+            className="group hidden h-10 w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 shadow-sm transition-all duration-150 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
             onSubmit={handleCourseSearch}
           >
             <FiSearch className="text-slate-400 transition group-focus-within:text-teal-600" />
@@ -226,19 +226,23 @@ export function Topbar({
             />
           </form>
 
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav className="hidden items-center xl:flex">
             <HeaderLink exact href="/flashcards" label={t("home")} />
             <HeaderLink href="/flashcards/discover" label={t("discover")} />
-            <HeaderLink href="/flashcards/bookmarks" label={t("bookmarks")} />
-            <HeaderLink href="/flashcards/my-vocabulary" label={t("myVocabulary")} />
+            <PracticeMenu
+              bookmarksLabel={t("bookmarks")}
+              label={t("practiceMenu")}
+              myTestsLabel={t("myTests")}
+              myVocabularyLabel={t("myVocabulary")}
+            />
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5">
             <div className="relative">
               <button
                 aria-expanded={languageOpen}
                 aria-label={t("language")}
-                className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 hover:shadow-lg hover:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 onClick={() => setLanguageOpen((open) => !open)}
                 type="button"
               >
@@ -246,7 +250,7 @@ export function Topbar({
                 {locale.toUpperCase()} <FiChevronDown className="ml-1 inline" />
               </button>
               {languageOpen && (
-                <div className="absolute right-0 top-12 z-40 w-40 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <div className="absolute right-0 top-10 z-40 w-40 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
                   {([["vi", "🇻🇳", "Tiếng Việt"], ["en", "🇬🇧", "English"]] as const).map(([value, flag, label]) => (
                     <button
                       className={`w-full rounded-xl px-3 py-2 text-left text-sm font-bold transition hover:bg-teal-50 dark:hover:bg-slate-800 ${locale === value ? "text-teal-700" : "text-slate-600 dark:text-slate-200"}`}
@@ -266,7 +270,7 @@ export function Topbar({
             </div>
             <button
               aria-label={theme === "dark" ? t("lightTheme") : t("darkTheme")}
-              className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-amber-600 hover:shadow-lg hover:shadow-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-amber-600 hover:shadow-lg hover:shadow-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               onClick={onToggleTheme}
               type="button"
             >
@@ -274,7 +278,7 @@ export function Topbar({
             </button>
             <button
               aria-label={t("feedback")}
-              className="relative grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="relative grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               onClick={() => {
                 setFeedbackOpen(true);
                 setFeedbackStatus("idle");
@@ -290,16 +294,16 @@ export function Topbar({
             {user ? (
               <div className="relative">
                 <button
-                  className="flex h-11 items-center gap-3 rounded-full bg-teal-700 pl-2 pr-4 text-sm font-black text-white ring-4 ring-teal-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-teal-600/20"
+                  className="flex h-10 items-center gap-2 rounded-full bg-teal-700 pl-1.5 pr-3 text-xs font-black text-white ring-2 ring-teal-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-teal-600/20"
                   onClick={() => setMenuOpen((value) => !value)}
                   type="button"
                 >
-                  <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-8 w-8" />
+                  <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-7 w-7" />
                   <span className="hidden sm:inline">{user.username}</span>
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-14 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/12">
+                  <div className="absolute right-0 top-12 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/12">
                     <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
                       <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-12 w-12" />
                       <div className="min-w-0 flex-1">
@@ -347,7 +351,7 @@ export function Topbar({
               </div>
             ) : (
               <button
-                className="flex h-11 items-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-black text-white shadow-xl shadow-slate-900/12 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-rose-600/20"
+                className="flex h-10 items-center gap-2 rounded-full bg-slate-950 px-4 text-xs font-black text-white shadow-xl shadow-slate-900/12 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-rose-600/20"
                 onClick={() => setLoginOpen(true)}
                 type="button"
               >
@@ -529,7 +533,7 @@ function HeaderLink({
   return (
     <Link
       aria-current={active ? "page" : undefined}
-      className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-black transition ${
+      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-black transition ${
         active
           ? "bg-slate-950 text-white shadow-md shadow-slate-950/15 dark:bg-teal-400 dark:text-slate-950"
           : "text-slate-600 hover:bg-white hover:text-teal-700 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-teal-300"
@@ -538,6 +542,67 @@ function HeaderLink({
     >
       {label}
     </Link>
+  );
+}
+
+function PracticeMenu({
+  bookmarksLabel,
+  label,
+  myTestsLabel,
+  myVocabularyLabel,
+}: Readonly<{
+  bookmarksLabel: string;
+  label: string;
+  myTestsLabel: string;
+  myVocabularyLabel: string;
+}>) {
+  const pathname = usePathname();
+  const items = [
+    { href: "/flashcards/bookmarks", label: bookmarksLabel },
+    { href: "/flashcards/my-vocabulary", label: myVocabularyLabel },
+    { href: "/flashcards/tests", label: myTestsLabel },
+  ];
+  const active = items.some(({ href }) => pathname === href || pathname.startsWith(`${href}/`));
+
+  return (
+    <div className="group relative">
+      <button
+        aria-haspopup="menu"
+        className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-black transition ${
+          active
+            ? "bg-slate-950 text-white shadow-md shadow-slate-950/15 dark:bg-teal-400 dark:text-slate-950"
+            : "text-slate-600 hover:bg-white hover:text-teal-700 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-teal-300"
+        }`}
+        type="button"
+      >
+        {label}
+        <FiChevronDown className="transition-transform group-hover:rotate-180 group-focus-within:rotate-180" />
+      </button>
+
+      <div className="invisible absolute left-1/2 top-full z-40 w-56 -translate-x-1/2 pt-2 opacity-0 transition-all duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900">
+          {items.map((item) => {
+            const itemActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return (
+              <Link
+                aria-current={itemActive ? "page" : undefined}
+                className={`block rounded-xl px-3 py-2.5 text-sm font-bold transition ${
+                  itemActive
+                    ? "bg-teal-50 text-teal-700 dark:bg-teal-400/10 dark:text-teal-300"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-teal-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-teal-300"
+                }`}
+                href={item.href}
+                key={item.href}
+                role="menuitem"
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 

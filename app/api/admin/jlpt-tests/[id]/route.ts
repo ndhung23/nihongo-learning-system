@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AuthError, requirePermission } from "@/lib/auth/session";
+import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -43,15 +43,19 @@ function invalidIdResponse() {
   return NextResponse.json({ message: "Mã đề thi không hợp lệ." }, { status: 400 });
 }
 
+function ownershipFilter(session: Awaited<ReturnType<typeof requireAuth>>, id: Types.ObjectId) {
+  return session.roles.includes("admin") ? { _id: id } : { _id: id, createdBy: new Types.ObjectId(session.userId) };
+}
+
 export async function GET(_request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
   try {
-    await requirePermission("admin:course:write");
+    const session = await requireAuth();
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
     await connectMongoDB();
     const objectId = new Types.ObjectId(id);
     const [test, deck] = await Promise.all([
-      JlptTestModel.collection.findOne({ _id: objectId }),
+      JlptTestModel.collection.findOne(ownershipFilter(session, objectId)),
       DeckModel.findOne({ "jlptTest.testId": objectId }).select("description visibility status").lean(),
     ]);
     if (!test) return NextResponse.json({ message: "Không tìm thấy đề thi." }, { status: 404 });
@@ -77,13 +81,13 @@ export async function GET(_request: Request, context: RouteContext<"/api/admin/j
 
 export async function PATCH(request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
   try {
-    await requirePermission("admin:course:write");
+    const session = await requireAuth();
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
     const payload = UpdateTestSchema.parse(await request.json());
     await connectMongoDB();
     const objectId = new Types.ObjectId(id);
-    const existing = await JlptTestModel.findById(objectId).select("level number").lean();
+    const existing = await JlptTestModel.findOne(ownershipFilter(session, objectId)).select("level number").lean();
     if (!existing) return NextResponse.json({ message: "Không tìm thấy đề thi." }, { status: 404 });
 
     const decorate = (questions: z.infer<typeof QuestionSchema>[], section: "vk" | "gr" | "ls") =>
@@ -136,5 +140,29 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
       return NextResponse.json({ message: error.issues[0]?.message || "Dữ liệu đề thi chưa hợp lệ." }, { status: 400 });
     }
     return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể cập nhật đề thi." }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
+  try {
+    const session = await requireAuth();
+    const { id } = await context.params;
+    if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
+    await connectMongoDB();
+    const objectId = new Types.ObjectId(id);
+    const test = await JlptTestModel.findOne(ownershipFilter(session, objectId)).select("_id").lean();
+    if (!test) return NextResponse.json({ message: "Không tìm thấy đề thi." }, { status: 404 });
+
+    await Promise.all([
+      JlptTestModel.deleteOne({ _id: objectId }),
+      DeckModel.deleteOne({ "jlptTest.testId": objectId }),
+    ]);
+    revalidateTag("courses", { expire: 0 });
+    return NextResponse.json({ message: "Đã xóa đề thi." });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
+    }
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể xóa đề thi." }, { status: 500 });
   }
 }

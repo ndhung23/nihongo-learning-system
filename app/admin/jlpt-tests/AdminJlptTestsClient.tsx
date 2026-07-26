@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
-import { FiBookOpen, FiCheck, FiChevronRight, FiEdit3, FiFileText, FiHelpCircle, FiImage, FiLoader, FiMusic, FiPlus, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
+import { FiBookOpen, FiCheck, FiChevronLeft, FiChevronRight, FiEdit3, FiFileText, FiHelpCircle, FiImage, FiLoader, FiMusic, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 
 type Level = "N5" | "N4" | "N3" | "N2" | "N1";
 type SectionKey = "vocabularyKanji" | "grammarReading" | "listening";
@@ -32,7 +32,21 @@ const emptyQuestion = (): Question => ({
   explanation: "",
 });
 
-export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSummary[] }) {
+export function AdminJlptTestsClient({
+  currentPage = 1,
+  initialTests,
+  personal = false,
+  query = "",
+  totalPages = 1,
+  totalTests,
+}: {
+  currentPage?: number;
+  initialTests: TestSummary[];
+  personal?: boolean;
+  query?: string;
+  totalPages?: number;
+  totalTests?: number;
+}) {
   const router = useRouter();
   const [tests, setTests] = useState(initialTests);
   const [editing, setEditing] = useState(false);
@@ -58,6 +72,21 @@ export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSumma
   const [uploadingMedia, setUploadingMedia] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
+
+  async function deleteTest(test: TestSummary) {
+    if (!window.confirm(`Xóa "${test.title}"? Thao tác này không thể hoàn tác.`)) return;
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/jlpt-tests/${test.id}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Không thể xóa đề thi.");
+      setTests((current) => current.filter((item) => item.id !== test.id));
+      setMessage("Đã xóa đề thi.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể xóa đề thi.");
+    }
+  }
 
   function openCreate() {
     const nextTestNumber = nextNumber(tests, "N5");
@@ -260,16 +289,26 @@ export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSumma
     <div className="mx-auto max-w-7xl">
       <div className="mb-7 flex flex-col gap-5 rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">Quản trị nội dung</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Đề thi JLPT</h1>
-          <p className="mt-2 text-sm text-slate-500">Tạo đề N5–N1, nhập đáp án và xuất bản thẳng lên khu luyện đề.</p>
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">{personal ? "Cá nhân" : "Quản trị nội dung"}</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{personal ? "Đề thi của tôi" : "Đề thi JLPT"}</h1>
+          <p className="mt-2 text-sm text-slate-500">{personal ? "Tạo, tìm kiếm và quản lý các đề thi của riêng bạn." : "Tạo đề N5–N1, nhập đáp án và xuất bản thẳng lên khu luyện đề."}</p>
         </div>
         <button className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-6 font-black text-white shadow-lg shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700" onClick={openCreate} type="button">
-          <FiPlus /> Tạo đề JLPT
+          <FiPlus /> Tạo đề
         </button>
       </div>
 
       {message && !editing ? <p className="mb-5 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-bold text-teal-800">{message}</p> : null}
+
+      {personal ? (
+        <form action="/flashcards/tests" className="mb-5 flex gap-3">
+          <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
+            <FiSearch className="shrink-0 text-slate-400" />
+            <input className="min-w-0 flex-1 bg-transparent font-semibold outline-none" defaultValue={query} name="q" placeholder="Tìm theo tên hoặc cấp độ..." />
+          </label>
+          <button className="h-12 rounded-2xl bg-slate-950 px-5 font-black text-white hover:bg-teal-700" type="submit">Tìm kiếm</button>
+        </form>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tests.map((test) => (
@@ -280,7 +319,7 @@ export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSumma
             </div>
             <h2 className="mt-5 text-lg font-black">{test.title}</h2>
             <p className="mt-2 text-sm font-bold text-slate-500">{test.questionCount} câu · {test.sectionCount || 2} phần thi · Có luyện full</p>
-            <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+            <div className="mt-5 grid grid-cols-[1fr_auto_auto] gap-2">
               <Link className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 font-black text-white hover:bg-teal-700" href={`/flashcards/tests/${test.level.toLowerCase()}/${test.number}`}>
                 Xem đề <FiChevronRight />
               </Link>
@@ -293,10 +332,34 @@ export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSumma
               >
                 {loadingEditId === test.id ? <FiLoader className="animate-spin" /> : <FiEdit3 />} <span className="hidden sm:inline">Sửa</span>
               </button>
+              <button
+                aria-label={`Xóa ${test.title}`}
+                className="flex h-11 items-center justify-center rounded-xl border border-rose-200 px-4 text-rose-600 hover:bg-rose-50"
+                onClick={() => void deleteTest(test)}
+                type="button"
+              >
+                <FiTrash2 />
+              </button>
             </div>
           </article>
         ))}
       </div>
+
+      {personal && tests.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <FiBookOpen className="mx-auto text-3xl text-teal-700" />
+          <h2 className="mt-3 text-xl font-black">{query ? "Không tìm thấy đề thi" : "Bạn chưa tạo đề thi nào"}</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-500">{query ? "Hãy thử một từ khóa khác." : "Nhấn “Tạo đề” để bắt đầu."}</p>
+        </section>
+      ) : null}
+
+      {personal && totalPages > 1 ? (
+        <nav aria-label="Phân trang đề thi" className="mt-8 flex items-center justify-center gap-2">
+          <PaginationLink disabled={currentPage <= 1} href={pageHref(currentPage - 1, query)} label="Trang trước"><FiChevronLeft /></PaginationLink>
+          <span className="px-3 text-sm font-black text-slate-600">Trang {currentPage}/{totalPages}{typeof totalTests === "number" ? ` · ${totalTests} đề` : ""}</span>
+          <PaginationLink disabled={currentPage >= totalPages} href={pageHref(currentPage + 1, query)} label="Trang sau"><FiChevronRight /></PaginationLink>
+        </nav>
+      ) : null}
 
       {editing ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6">
@@ -470,6 +533,20 @@ export function AdminJlptTestsClient({ initialTests }: { initialTests: TestSumma
 
 function nextNumber(tests: TestSummary[], level: Level) {
   return Math.max(0, ...tests.filter((test) => test.level === level).map((test) => test.number)) + 1;
+}
+
+function pageHref(page: number, query: string) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  params.set("page", String(page));
+  return `/flashcards/tests?${params.toString()}`;
+}
+
+function PaginationLink({ children, disabled, href, label }: { children: React.ReactNode; disabled: boolean; href: string; label: string }) {
+  const className = `grid h-10 w-10 place-items-center rounded-xl border text-slate-700 transition ${disabled ? "pointer-events-none border-slate-100 opacity-40" : "border-slate-200 bg-white hover:border-teal-300 hover:text-teal-700"}`;
+  return disabled
+    ? <span aria-disabled="true" aria-label={label} className={className}>{children}</span>
+    : <Link aria-label={label} className={className} href={href}>{children}</Link>;
 }
 
 function Field({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
