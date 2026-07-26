@@ -49,11 +49,13 @@ const katakanaKeys = hiraganaKeys.map((character) => {
 export function DictionaryPanel({
   onPinnedChange,
   pinned,
+  preferenceKey,
 }: Readonly<{
   onPinnedChange: (pinned: boolean) => void;
   pinned: boolean;
+  preferenceKey: string;
 }>) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(pinned);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -80,14 +82,10 @@ export function DictionaryPanel({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  useEffect(() => {
-    if (pinned) setOpen(true);
-  }, [pinned]);
-
   function togglePinned() {
     const nextPinned = !pinned;
     onPinnedChange(nextPinned);
-    window.localStorage.setItem("nihongo-dictionary-pinned", String(nextPinned));
+    window.localStorage.setItem(preferenceKey, String(nextPinned));
     setOpen(true);
     if (nextPinned) setExpanded(false);
   }
@@ -96,7 +94,7 @@ export function DictionaryPanel({
     setOpen(false);
     if (pinned) {
       onPinnedChange(false);
-      window.localStorage.setItem("nihongo-dictionary-pinned", "false");
+      window.localStorage.setItem(preferenceKey, "false");
     }
   }
 

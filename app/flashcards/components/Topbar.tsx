@@ -145,6 +145,7 @@ export function Topbar({
       }
 
       setUser(payload.user);
+      window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
       announceDailyProgressOwner(
         payload.user.userId || payload.user.id,
         payload.user.aiCredits,
@@ -160,6 +161,7 @@ export function Topbar({
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
+    window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
     announceDailyProgressOwner(null);
     setMenuOpen(false);
   }
