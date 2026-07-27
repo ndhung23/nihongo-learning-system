@@ -1,12 +1,13 @@
 import "server-only";
 
 import { Schema, model, models } from "mongoose";
+import { TEST_LEVELS } from "@/lib/jlptTestLevels";
 
 const JlptHighlightSuggestionSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     username: { type: String, trim: true, default: "" },
-    level: { type: String, enum: ["N5", "N4", "N3", "N2", "N1"], required: true },
+    level: { type: String, enum: TEST_LEVELS, required: true },
     testNumber: { type: Number, required: true, min: 1 },
     section: { type: String, enum: ["vocabularyKanji", "grammarReading"], required: true },
     questionId: { type: String, required: true, trim: true },

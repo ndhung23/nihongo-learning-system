@@ -1,4 +1,5 @@
 import { Schema, model, models } from "mongoose";
+import { TEST_LEVELS } from "@/lib/jlptTestLevels";
 
 const DeckSchema = new Schema(
   {
@@ -38,7 +39,7 @@ const DeckSchema = new Schema(
     jlptTest: {
       level: {
         type: String,
-        enum: ["N5", "N4", "N3", "N2", "N1"],
+        enum: TEST_LEVELS,
       },
       number: { type: Number, min: 1 },
       testId: { type: Schema.Types.ObjectId, ref: "JlptTest" },

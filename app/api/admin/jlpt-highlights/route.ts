@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requirePermission } from "@/lib/auth/session";
+import { TEST_LEVELS } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
 
 const BodySchema = z.object({
-  level: z.string().regex(/^N[1-5]$/),
+  level: z.enum(TEST_LEVELS),
   testNumber: z.number().int().positive(),
   section: z.enum(["vocabularyKanji", "grammarReading"]),
   questionId: z.string().trim().min(1),

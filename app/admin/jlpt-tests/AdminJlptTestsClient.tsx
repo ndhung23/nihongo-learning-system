@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import { FiBookOpen, FiCheck, FiChevronLeft, FiChevronRight, FiEdit3, FiFileText, FiHelpCircle, FiImage, FiLoader, FiMusic, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
+import { TEST_LEVELS, TEST_LEVEL_LABELS, type TestLevel } from "@/lib/jlptTestLevels";
 
-type Level = "N5" | "N4" | "N3" | "N2" | "N1";
+type Level = TestLevel;
 type SectionKey = "vocabularyKanji" | "grammarReading" | "listening";
 type TestSummary = { id: string; level: Level; number: number; title: string; questionCount: number; sectionCount?: number };
 type Question = {
@@ -54,8 +55,7 @@ export function AdminJlptTestsClient({
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey>("vocabularyKanji");
   const [level, setLevel] = useState<Level>("N5");
-  const [number, setNumber] = useState(nextNumber(initialTests, "N5"));
-  const [title, setTitle] = useState(`Đề thi N5 minh họa số ${nextNumber(initialTests, "N5")}`);
+  const [title, setTitle] = useState("Đề thi N5 mới");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [status, setStatus] = useState("published");
@@ -89,12 +89,10 @@ export function AdminJlptTestsClient({
   }
 
   function openCreate() {
-    const nextTestNumber = nextNumber(tests, "N5");
     setEditingId(null);
     setActiveSection("vocabularyKanji");
     setLevel("N5");
-    setNumber(nextTestNumber);
-    setTitle(`Đề thi N5 minh họa số ${nextTestNumber}`);
+    setTitle("Đề thi N5 mới");
     setDescription("");
     setVisibility("public");
     setStatus("published");
@@ -113,7 +111,6 @@ export function AdminJlptTestsClient({
       setEditingId(test.id);
       setActiveSection("vocabularyKanji");
       setLevel(result.data.level);
-      setNumber(result.data.number);
       setTitle(result.data.title);
       setDescription(result.data.description);
       setVisibility(result.data.visibility);
@@ -132,10 +129,12 @@ export function AdminJlptTestsClient({
   }
 
   function changeLevel(next: Level) {
-    const nextTestNumber = nextNumber(tests, next);
+    if (editingId) {
+      setLevel(next);
+      return;
+    }
     setLevel(next);
-    setNumber(nextTestNumber);
-    setTitle(`Đề thi ${next} minh họa số ${nextTestNumber}`);
+    setTitle(`Đề thi ${TEST_LEVEL_LABELS[next]} mới`);
   }
 
   function updateQuestion(index: number, patch: Partial<Question>) {
@@ -268,7 +267,7 @@ export function AdminJlptTestsClient({
       const response = await fetch(editingId ? `/api/admin/jlpt-tests/${editingId}` : "/api/admin/jlpt-tests", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level, number, title, description, visibility, status, sections: normalizedSections }),
+        body: JSON.stringify({ level, title, description, visibility, status, sections: normalizedSections }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Không thể tạo đề thi.");
@@ -291,7 +290,7 @@ export function AdminJlptTestsClient({
         <div>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">{personal ? "Cá nhân" : "Quản trị nội dung"}</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{personal ? "Đề thi của tôi" : "Đề thi JLPT"}</h1>
-          <p className="mt-2 text-sm text-slate-500">{personal ? "Tạo, tìm kiếm và quản lý các đề thi của riêng bạn." : "Tạo đề N5–N1, nhập đáp án và xuất bản thẳng lên khu luyện đề."}</p>
+          <p className="mt-2 text-sm text-slate-500">{personal ? "Tạo, tìm kiếm và quản lý các đề thi của riêng bạn." : "Tạo đề JLPT, trường học hoặc đề khác và xuất bản thẳng lên khu luyện đề."}</p>
         </div>
         <button className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-6 font-black text-white shadow-lg shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700" onClick={openCreate} type="button">
           <FiPlus /> Tạo đề
@@ -315,7 +314,7 @@ export function AdminJlptTestsClient({
           <article className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5" key={test.id}>
             <div className="flex items-start justify-between gap-3">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700"><FiBookOpen /></span>
-              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600">{test.level}</span>
+              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600">{TEST_LEVEL_LABELS[test.level]}</span>
             </div>
             <h2 className="mt-5 text-lg font-black">{test.title}</h2>
             <p className="mt-2 text-sm font-bold text-slate-500">{test.questionCount} câu · {test.sectionCount || 2} phần thi · Có luyện full</p>
@@ -367,7 +366,7 @@ export function AdminJlptTestsClient({
             <header className="sticky top-0 z-10 flex items-center justify-between rounded-t-[2rem] border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-600">Trình soạn đề</p>
-                <h2 className="text-xl font-black">{editingId ? "Chỉnh sửa đề thi JLPT" : "Tạo đề thi JLPT mới"}</h2>
+                <h2 className="text-xl font-black">{editingId ? "Chỉnh sửa đề thi" : "Tạo đề thi mới"}</h2>
               </div>
               <button className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl hover:bg-rose-100 hover:text-rose-600" onClick={() => setEditing(false)} type="button"><FiX /></button>
             </header>
@@ -375,12 +374,11 @@ export function AdminJlptTestsClient({
             <div className="space-y-6 p-5 sm:p-7">
               <section className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Cấp độ">
-                  <select className={inputClass} disabled={Boolean(editingId)} onChange={(event) => changeLevel(event.target.value as Level)} value={level}>
-                    {["N5", "N4", "N3", "N2", "N1"].map((item) => <option key={item}>{item}</option>)}
+                  <select className={inputClass} onChange={(event) => changeLevel(event.target.value as Level)} value={level}>
+                    {TEST_LEVELS.map((item) => <option key={item} value={item}>{TEST_LEVEL_LABELS[item]}</option>)}
                   </select>
                 </Field>
-                <Field label="Số đề"><input className={inputClass} disabled={Boolean(editingId)} min={1} onChange={(event) => setNumber(Number(event.target.value))} required type="number" value={number} /></Field>
-                <Field className="sm:col-span-2" label="Tên hiển thị"><input className={inputClass} onChange={(event) => setTitle(event.target.value)} required value={title} /></Field>
+                <Field className="lg:col-span-3" label="Tên hiển thị"><input className={inputClass} onChange={(event) => setTitle(event.target.value)} required value={title} /></Field>
                 <Field className="sm:col-span-2" label="Mô tả"><input className={inputClass} onChange={(event) => setDescription(event.target.value)} placeholder="Mô tả ngắn trên thẻ khóa học" value={description} /></Field>
                 <Field label="Phạm vi"><select className={inputClass} onChange={(event) => setVisibility(event.target.value)} value={visibility}><option value="public">Công khai</option><option value="unlisted">Chỉ ai có link</option><option value="private">Riêng tư</option></select></Field>
                 <Field label="Trạng thái"><select className={inputClass} onChange={(event) => setStatus(event.target.value)} value={status}><option value="published">Xuất bản</option><option value="draft">Bản nháp</option><option value="hidden">Ẩn</option></select></Field>
@@ -529,10 +527,6 @@ export function AdminJlptTestsClient({
       ) : null}
     </div>
   );
-}
-
-function nextNumber(tests: TestSummary[], level: Level) {
-  return Math.max(0, ...tests.filter((test) => test.level === level).map((test) => test.number)) + 1;
 }
 
 function pageHref(page: number, query: string) {

@@ -50,8 +50,9 @@ export function JlptTestClient({
   courseId,
   hasListening,
   level,
+  testTitle,
   testNumber,
-}: Readonly<{ courseId: string; hasListening: boolean; level: string; testNumber: number }>) {
+}: Readonly<{ courseId: string; hasListening: boolean; level: string; testTitle: string; testNumber: number }>) {
   const [section, setSection] = useState<PracticeMode | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -66,7 +67,7 @@ export function JlptTestClient({
   const [message, setMessage] = useState("");
   const learningVisitRecorded = useRef(false);
 
-  const title = `Đề thi ${level} minh họa số ${testNumber}`;
+  const title = testTitle;
 
   useEffect(() => {
     if (learningVisitRecorded.current) return;

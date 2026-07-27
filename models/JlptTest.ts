@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Schema, model, models } from "mongoose";
+import { TEST_LEVELS } from "@/lib/jlptTestLevels";
 
 const JlptQuestionSchema = new Schema(
   {
@@ -48,11 +49,12 @@ const JlptTestSchema = new Schema(
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: true,
       index: true,
     },
     level: {
       type: String,
-      enum: ["N5", "N4", "N3", "N2", "N1"],
+      enum: TEST_LEVELS,
       required: true,
       index: true,
     },

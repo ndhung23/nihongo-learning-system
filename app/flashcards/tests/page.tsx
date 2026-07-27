@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
 import { AdminJlptTestsClient } from "@/app/admin/jlpt-tests/AdminJlptTestsClient";
 import { getAuthSession } from "@/lib/auth/session";
+import { parseTestLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
 
@@ -35,12 +36,13 @@ export default async function JlptTestsPage({
 
   await connectMongoDB();
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const queriedLevel = parseTestLevel(query);
   const filter = {
     createdBy: session.userId,
     ...(query ? {
       $or: [
         { title: { $regex: escapedQuery, $options: "i" } },
-        { level: query.toUpperCase() },
+        { level: queriedLevel || query.toUpperCase() },
       ],
     } : {}),
   };

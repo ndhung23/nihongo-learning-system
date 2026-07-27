@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isTestLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -14,7 +15,7 @@ export default async function JlptTestPage({
   const testNumber = Number(rawTestNumber);
 
   if (
-    !/^N[1-5]$/.test(level) ||
+    !isTestLevel(level) ||
     !Number.isInteger(testNumber) ||
     testNumber < 1
   ) {
@@ -30,7 +31,7 @@ export default async function JlptTestPage({
       status: "published",
       visibility: "public",
     }).select({ _id: 1 }).lean(),
-    JlptTestModel.findOne({ level, number: testNumber }).select({ "sections.listening": 1 }).lean(),
+    JlptTestModel.findOne({ level, number: testNumber }).select({ title: 1, "sections.listening": 1 }).lean(),
   ]);
 
   if (!course) {
@@ -42,6 +43,7 @@ export default async function JlptTestPage({
       courseId={course._id.toString()}
       hasListening={Boolean(test?.sections?.listening?.length)}
       level={level}
+      testTitle={test?.title || "Đề thi"}
       testNumber={testNumber}
     />
   );

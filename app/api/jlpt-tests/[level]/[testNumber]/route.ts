@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isTestLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
 
@@ -20,7 +21,7 @@ export async function GET(
   const requestedSection = new URL(request.url).searchParams.get("section");
 
   if (
-    !/^N[1-5]$/.test(level) ||
+    !isTestLevel(level) ||
     !Number.isInteger(testNumber) ||
     testNumber < 1 ||
     !requestedSection ||

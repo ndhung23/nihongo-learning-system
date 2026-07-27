@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requireAuth } from "@/lib/auth/session";
+import { isTestLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
 
@@ -42,7 +43,7 @@ export async function POST(
     const testNumber = Number(rawTestNumber);
 
     if (
-      !/^N[1-5]$/.test(level) ||
+      !isTestLevel(level) ||
       !Number.isInteger(testNumber) ||
       testNumber < 1
     ) {

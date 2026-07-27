@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiCheck, FiChevronLeft, FiChevronRight, FiEdit3, FiX } from "react-icons/fi";
+import { TEST_LEVELS } from "@/lib/jlptTestLevels";
 
 type Question = { level: string; testNumber: number; section: "vocabularyKanji" | "grammarReading"; questionId: string; prompt: string; highlightText: string };
 type Suggestion = { id: string; level: string; testNumber: number; questionId: string; prompt: string; currentHighlightText: string; suggestedHighlightText: string; note?: string; username?: string; status: "pending" | "approved" | "rejected" };
 const PAGE_SIZE = 25;
-const levels = ["N5", "N4", "N3", "N2", "N1"];
+const levels = TEST_LEVELS;
 
 export function PaginatedHighlightsClient({ questions, suggestions }: Readonly<{ questions: Question[]; suggestions: Suggestion[] }>) {
   const router = useRouter();
@@ -32,8 +33,6 @@ export function PaginatedHighlightsClient({ questions, suggestions }: Readonly<{
   ), [questions, level, testNumber, query]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => setPage(1), [query, level, testNumber]);
-
   async function review(id: string, action: "approve" | "reject") {
     setLoading(id); setMessage("");
     const response = await fetch(`/api/admin/jlpt-highlights/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
@@ -59,7 +58,7 @@ export function PaginatedHighlightsClient({ questions, suggestions }: Readonly<{
       {!pending.length && <p className="rounded-2xl border border-dashed p-6 text-slate-500">Không có góp ý đang chờ.</p>}
     </div></section>
     <section className="mt-10"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-black">Chỉnh trực tiếp</h2><p className="mt-1 text-sm font-bold text-slate-500">Tìm thấy {filtered.length.toLocaleString("vi-VN")} câu hỏi</p></div><div className="text-right text-xs font-bold text-slate-500">{levels.map((item) => <span key={item} className="ml-2 mt-1 inline-block rounded-full bg-white px-3 py-1">{item}: {(availableTests[item] ?? []).length} đề</span>)}</div></div>
-      <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_150px_150px]"><input value={query} onChange={(event) => setQuery(event.target.value)} className="h-12 rounded-xl border border-slate-200 px-4" placeholder="Tìm nội dung hoặc mã câu hỏi..." /><select value={level} onChange={(event) => { setLevel(event.target.value); setTestNumber("all"); }} className="h-12 rounded-xl border border-slate-200 px-3 font-bold"><option value="all">Tất cả cấp độ</option>{levels.map((item) => <option key={item}>{item}</option>)}</select><select value={testNumber} onChange={(event) => setTestNumber(event.target.value)} className="h-12 rounded-xl border border-slate-200 px-3 font-bold"><option value="all">Tất cả đề</option>{testOptions.map((item) => <option value={item} key={item}>Đề {item}</option>)}</select></div>
+      <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_150px_150px]"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} className="h-12 rounded-xl border border-slate-200 px-4" placeholder="Tìm nội dung hoặc mã câu hỏi..." /><select value={level} onChange={(event) => { setLevel(event.target.value); setTestNumber("all"); setPage(1); }} className="h-12 rounded-xl border border-slate-200 px-3 font-bold"><option value="all">Tất cả cấp độ</option>{levels.map((item) => <option key={item}>{item}</option>)}</select><select value={testNumber} onChange={(event) => { setTestNumber(event.target.value); setPage(1); }} className="h-12 rounded-xl border border-slate-200 px-3 font-bold"><option value="all">Tất cả đề</option>{testOptions.map((item) => <option value={item} key={item}>Đề {item}</option>)}</select></div>
       <div className="mt-4 grid gap-3">{paginated.map((item) => { const key = `${item.level}-${item.testNumber}-${item.section}-${item.questionId}`; return <article key={key} className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-black text-teal-700">{item.level} · Đề {item.testNumber} · {item.questionId}</p><p className="mt-2 font-bold">{item.prompt}</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input value={values[key] ?? item.highlightText} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} className="h-11 flex-1 rounded-xl border border-slate-200 px-3" placeholder="Để trống nếu không highlight" /><button disabled={loading === key} onClick={() => save(item)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-black text-white disabled:opacity-50"><FiEdit3 /> Lưu</button></div></article>; })}</div>
       {!paginated.length && <p className="mt-4 rounded-2xl border border-dashed p-8 text-center font-bold text-slate-500">Không có câu hỏi phù hợp.</p>}
       <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} onPageChange={setPage} />

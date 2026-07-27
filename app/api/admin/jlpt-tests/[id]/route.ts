@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requireAuth } from "@/lib/auth/session";
+import { TEST_LEVELS, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -24,6 +25,7 @@ const QuestionSchema = z.object({
 });
 
 const UpdateTestSchema = z.object({
+  level: z.enum(TEST_LEVELS),
   title: z.string().trim().min(3).max(150),
   description: z.string().trim().max(1000).default(""),
   visibility: z.enum(["private", "public", "unlisted"]).default("public"),
@@ -89,11 +91,14 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
     const objectId = new Types.ObjectId(id);
     const existing = await JlptTestModel.findOne(ownershipFilter(session, objectId)).select("level number").lean();
     if (!existing) return NextResponse.json({ message: "Không tìm thấy đề thi." }, { status: 404 });
+    if (payload.level !== existing.level && await JlptTestModel.exists({ level: payload.level, number: existing.number })) {
+      return NextResponse.json({ message: `${payload.level} đề số ${existing.number} đã tồn tại.` }, { status: 409 });
+    }
 
     const decorate = (questions: z.infer<typeof QuestionSchema>[], section: "vk" | "gr" | "ls") =>
       questions.map((question, index) => ({
         ...question,
-        id: `${existing.level.toLowerCase()}-t${existing.number}-${section}-q${index + 1}`,
+        id: `${payload.level.toLowerCase()}-t${existing.number}-${section}-q${index + 1}`,
       }));
     const vocabularyKanji = decorate(payload.sections.vocabularyKanji, "vk");
     const grammarReading = decorate(payload.sections.grammarReading, "gr");
@@ -104,6 +109,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
       { _id: objectId },
       {
         $set: {
+          level: payload.level,
           title: payload.title,
           sections: { vocabularyKanji, grammarReading, listening },
           sectionDefinitions: {
@@ -124,13 +130,15 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
           description: payload.description,
           visibility: payload.visibility,
           status: payload.status,
+          level: testLevelToCourseLevel(payload.level),
+          "jlptTest.level": payload.level,
           "stats.vocabularyCount": questionCount,
         },
       },
     );
     revalidateTag("courses", { expire: 0 });
     return NextResponse.json({
-      data: { id, level: existing.level, number: existing.number, title: payload.title, questionCount, sectionCount: listening.length ? 3 : 2 },
+      data: { id, level: payload.level, number: existing.number, title: payload.title, questionCount, sectionCount: listening.length ? 3 : 2 },
     });
   } catch (error) {
     if (error instanceof AuthError) {

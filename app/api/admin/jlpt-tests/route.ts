@@ -1,7 +1,9 @@
 import { revalidateTag } from "next/cache";
+import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requireAuth } from "@/lib/auth/session";
+import { TEST_LEVELS, testLevelLabel, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -25,8 +27,7 @@ const QuestionSchema = z.object({
 });
 
 const CreateTestSchema = z.object({
-  level: z.enum(["N5", "N4", "N3", "N2", "N1"]),
-  number: z.coerce.number().int().min(1).max(999),
+  level: z.enum(TEST_LEVELS),
   title: z.string().trim().min(3).max(150),
   description: z.string().trim().max(1000).default(""),
   visibility: z.enum(["private", "public", "unlisted"]).default("public"),
@@ -51,11 +52,16 @@ export async function POST(request: NextRequest) {
     const session = await requireAuth();
     await connectMongoDB();
     const payload = CreateTestSchema.parse(await request.json());
-    if (await JlptTestModel.exists({ level: payload.level, number: payload.number })) {
-      return NextResponse.json({ message: `${payload.level} đề số ${payload.number} đã tồn tại.` }, { status: 409 });
+    const latestTest = await JlptTestModel.findOne({ level: payload.level })
+      .select("number")
+      .sort({ number: -1 })
+      .lean();
+    const internalNumber = (latestTest?.number || 0) + 1;
+    if (internalNumber > 999) {
+      return NextResponse.json({ message: "Nhóm đề này đã đạt giới hạn lưu trữ." }, { status: 409 });
     }
     const decorate = (questions: z.infer<typeof QuestionSchema>[], section: "vk" | "gr" | "ls") =>
-      questions.map((question, index) => ({ ...question, id: `${payload.level.toLowerCase()}-t${payload.number}-${section}-q${index + 1}` }));
+      questions.map((question, index) => ({ ...question, id: `${payload.level.toLowerCase()}-t${internalNumber}-${section}-q${index + 1}` }));
     const vocabularyKanji = decorate(payload.sections.vocabularyKanji, "vk");
     const grammarReading = decorate(payload.sections.grammarReading, "gr");
     const listening = decorate(payload.sections.listening, "ls");
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
     const test = await JlptTestModel.create({
       createdBy: session.userId,
       level: payload.level,
-      number: payload.number,
+      number: internalNumber,
       title: payload.title,
       sourceFile: "admin-editor",
       sectionDefinitions: {
@@ -76,21 +82,30 @@ export async function POST(request: NextRequest) {
       source: "private-import",
       importedAt: new Date(),
     });
+    const ownerId = new Types.ObjectId(session.userId);
+    const ownershipResult = await JlptTestModel.collection.updateOne(
+      { _id: test._id },
+      { $set: { createdBy: ownerId } },
+    );
+    if (ownershipResult.matchedCount !== 1) {
+      await JlptTestModel.deleteOne({ _id: test._id });
+      throw new Error("Không thể gán quyền sở hữu cho đề thi.");
+    }
     try {
       await DeckModel.create({
         title: payload.title,
-        slug: `de-thi-${payload.level.toLowerCase()}-minh-hoa-so-${payload.number}`,
+        slug: `de-thi-${payload.level.toLowerCase()}-${internalNumber}`,
         description: payload.description || "Luyện thi theo hai phần: Từ vựng + Kanji và Ngữ pháp + Reading.",
-        level: payload.level.toLowerCase(),
+        level: testLevelToCourseLevel(payload.level),
         languagePair: { source: "ja", target: "vi" },
         sourceType: "system",
         visibility: payload.visibility,
         status: payload.status,
         price: { amount: 0, currency: "VND" },
-        tags: ["JLPT", payload.level, "Test", "Từ vựng + Kanji"],
+        tags: ["Đề thi", testLevelLabel(payload.level), "Test", "Từ vựng + Kanji"],
         contentType: "jlpt-test",
         ownerId: session.userId,
-        jlptTest: { level: payload.level, number: payload.number, testId: test._id },
+        jlptTest: { level: payload.level, number: internalNumber, testId: test._id },
         stats: { vocabularyCount: questionCount, learnerCount: 0 },
       });
     } catch (error) {
@@ -98,7 +113,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     revalidateTag("courses", { expire: 0 });
-    return NextResponse.json({ data: { id: String(test._id), level: payload.level, number: payload.number, title: payload.title, questionCount, sectionCount: listening.length ? 3 : 2 } }, { status: 201 });
+    return NextResponse.json({ data: { id: String(test._id), level: payload.level, number: internalNumber, title: payload.title, questionCount, sectionCount: listening.length ? 3 : 2 } }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
@@ -119,7 +134,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     if ((error as { code?: number }).code === 11000) {
-      return NextResponse.json({ message: "Số đề hoặc đường dẫn đề thi đã tồn tại." }, { status: 409 });
+      return NextResponse.json({ message: "Có đề khác vừa được tạo cùng lúc. Hãy bấm lưu lại." }, { status: 409 });
     }
     return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể tạo đề thi." }, { status: 500 });
   }
