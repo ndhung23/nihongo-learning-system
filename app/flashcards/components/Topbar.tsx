@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   FiChevronDown,
+  FiAward,
   FiEye,
   FiEyeOff,
   FiLogIn,
@@ -33,6 +34,8 @@ type CurrentUser = {
   permissions?: string[];
   aiCredits?: number;
   pendingGachaTickets?: number;
+  vipUntil?: string;
+  isVip?: boolean;
 };
 
 type PublicFeedback = {
@@ -68,6 +71,7 @@ export function Topbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [languageOpen, setLanguageOpen] = useState(false);
   const [showFurigana, setShowFurigana] = useState(true);
+  const isVip = user?.isVip === true;
 
   const loadMe = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -296,24 +300,56 @@ export function Topbar({
             {user ? (
               <div className="relative">
                 <button
-                  className="flex h-10 items-center gap-2 rounded-full bg-teal-700 pl-1.5 pr-3 text-xs font-black text-white ring-2 ring-teal-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-teal-600/20"
+                  aria-label={isVip ? `Tài khoản VIP ${user.username}` : `Tài khoản ${user.username}`}
+                  className={`relative flex h-10 items-center gap-2 rounded-full pl-1.5 pr-3 text-xs font-black text-white ring-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${
+                    isVip
+                      ? "bg-gradient-to-r from-violet-700 via-fuchsia-600 to-amber-500 ring-amber-200 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/35"
+                      : "bg-teal-700 ring-teal-100 hover:shadow-teal-600/20"
+                  }`}
                   onClick={() => setMenuOpen((value) => !value)}
                   type="button"
                 >
-                  <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-7 w-7" />
+                  <UserAvatar avatarUrl={user.avatarUrl} isVip={isVip} name={user.displayName || user.username} sizeClassName="h-7 w-7" />
                   <span className="hidden sm:inline">{user.username}</span>
+                  {isVip && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-white">
+                      <FiAward aria-hidden="true" /> VIP
+                    </span>
+                  )}
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-12 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-900/12">
-                    <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
-                      <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName || user.username} sizeClassName="h-12 w-12" />
+                  <div className={`absolute right-0 top-12 w-72 overflow-hidden rounded-3xl border bg-white p-3 shadow-2xl shadow-slate-900/12 ${isVip ? "border-amber-200" : "border-slate-200"}`}>
+                    {isVip && (
+                      <div className="mb-3 flex items-center justify-between rounded-2xl bg-gradient-to-r from-violet-700 via-fuchsia-600 to-amber-500 px-4 py-3 text-white shadow-lg shadow-violet-500/20">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/75">Đặc quyền thành viên</p>
+                          <p className="mt-0.5 flex items-center gap-1.5 font-black"><FiAward /> NIHONGO VIP</p>
+                        </div>
+                        <span className="text-2xl" aria-hidden="true">✦</span>
+                      </div>
+                    )}
+                    <div className={`flex gap-3 rounded-2xl p-4 ${isVip ? "bg-amber-50/70" : "bg-slate-50"}`}>
+                      <UserAvatar avatarUrl={user.avatarUrl} isVip={isVip} name={user.displayName || user.username} sizeClassName="h-12 w-12" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-black text-slate-950">{user.displayName || user.username}</p>
+                        <p className="flex items-center gap-1.5 truncate font-black text-slate-950">
+                          <span className="truncate">{user.displayName || user.username}</span>
+                          {isVip && <FiAward className="shrink-0 text-amber-500" aria-label="VIP" />}
+                        </p>
                         <p className="mt-1 truncate text-sm text-slate-500">{user.email}</p>
                         <p className="mt-1 text-xs font-bold text-slate-400">@{user.username}</p>
                       </div>
                     </div>
+                    {isVip && (
+                      <div className="mx-1 mt-3 rounded-2xl border border-violet-100 bg-violet-50 px-3 py-2.5">
+                        <p className="text-xs font-black text-violet-800">Bạn đang là thành viên VIP ✨</p>
+                        <p className="mt-1 text-[11px] font-semibold text-violet-600">
+                          {user.vipUntil
+                            ? `Đặc quyền đến ${new Intl.DateTimeFormat("vi-VN").format(new Date(user.vipUntil))}`
+                            : "Đặc quyền VIP đang hoạt động"}
+                        </p>
+                      </div>
+                    )}
                     <div className="px-4 pt-3">
                       <div className="mt-3 flex flex-wrap gap-2">
                         {user.roles.map((role) => (
@@ -610,10 +646,12 @@ function PracticeMenu({
 
 function UserAvatar({
   avatarUrl,
+  isVip = false,
   name,
   sizeClassName,
 }: Readonly<{
   avatarUrl?: string;
+  isVip?: boolean;
   name: string;
   sizeClassName: string;
 }>) {
@@ -621,7 +659,7 @@ function UserAvatar({
   const initial = name.trim().slice(0, 1).toUpperCase() || "U";
 
   return (
-    <span className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-white/15 ${sizeClassName}`}>
+    <span className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-white/15 ${isVip ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-violet-700" : ""} ${sizeClassName}`}>
       {avatarUrl && !imageFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img alt={name} className="h-full w-full object-cover" onError={() => setImageFailed(true)} src={avatarUrl} />

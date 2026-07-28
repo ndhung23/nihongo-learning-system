@@ -27,6 +27,8 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
+  const isVip = user.roles.includes("vip") && (!user.vipUntil || user.vipUntil > new Date());
+
   return (
     <main className="min-h-screen bg-[#f6f7fb] px-4 py-8 text-slate-950 sm:px-6 lg:px-10">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(225,29,72,0.08),transparent_26%),radial-gradient(circle_at_82%_12%,rgba(20,184,166,0.12),transparent_30%)]" />
@@ -49,6 +51,8 @@ export default async function ProfilePage() {
             displayName: user.displayName,
             avatarUrl: user.avatarUrl,
             roles: user.roles,
+            vipUntil: user.vipUntil?.toISOString(),
+            isVip,
             profile: {
               gender: user.profile?.gender || "unknown",
               phone: user.profile?.phone || "",

@@ -20,6 +20,7 @@ export async function GET() {
   }
 
   const roles = user.roles.filter(isRole);
+  const isVip = roles.includes("vip") && (!user.vipUntil || user.vipUntil > new Date());
 
   return NextResponse.json({
     user: {
@@ -33,6 +34,8 @@ export async function GET() {
       permissions: getPermissionsForRoles(roles),
       aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
       pendingGachaTickets: Math.max(Number(user.pendingGachaTickets) || 0, 0),
+      vipUntil: user.vipUntil?.toISOString(),
+      isVip,
       profile: {
         gender: user.profile?.gender,
         phone: user.profile?.phone,

@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiLink, FiLock, FiSave, FiUploadCloud, FiUser, FiX } from "react-icons/fi";
+import { FiAward, FiCheck, FiLink, FiLock, FiSave, FiUploadCloud, FiUser, FiX } from "react-icons/fi";
 
 type ProfileUser = {
   id: string;
@@ -11,6 +11,8 @@ type ProfileUser = {
   displayName?: string;
   avatarUrl?: string;
   roles: string[];
+  vipUntil?: string;
+  isVip: boolean;
   profile?: {
     gender?: "male" | "female" | "other" | "unknown";
     phone?: string;
@@ -46,6 +48,7 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
   const [loading, setLoading] = useState(false);
   const [avatarMode, setAvatarMode] = useState<"upload" | "url">("upload");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const isVip = user.isVip;
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -175,9 +178,25 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
       </section>
 
       <aside className="space-y-6">
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.04]">
+        <section className={`overflow-hidden rounded-[2rem] border bg-white p-5 shadow-xl shadow-slate-900/[0.04] ${isVip ? "border-amber-200" : "border-slate-200"}`}>
+          {isVip && (
+            <div className="-mx-5 -mt-5 mb-5 bg-gradient-to-r from-violet-700 via-fuchsia-600 to-amber-500 px-5 py-4 text-white">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/70">Thành viên đặc biệt</p>
+                  <p className="mt-1 flex items-center gap-2 text-lg font-black"><FiAward /> NIHONGO VIP</p>
+                </div>
+                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">ACTIVE</span>
+              </div>
+              <p className="mt-3 text-xs font-semibold text-white/85">
+                {user.vipUntil
+                  ? `Đặc quyền của bạn có hiệu lực đến ${new Intl.DateTimeFormat("vi-VN").format(new Date(user.vipUntil))}.`
+                  : "Đặc quyền VIP của bạn đang hoạt động."}
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-3">
-            <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-3xl bg-rose-600 text-2xl font-black text-white shadow-xl shadow-rose-600/20">
+            <div className={`grid h-16 w-16 place-items-center overflow-hidden rounded-3xl text-2xl font-black text-white shadow-xl ${isVip ? "bg-violet-700 ring-4 ring-amber-200 shadow-violet-600/20" : "bg-rose-600 shadow-rose-600/20"}`}>
               {form.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img alt={form.displayName} className="h-full w-full object-cover" src={form.avatarUrl} />
@@ -186,7 +205,10 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
               )}
             </div>
             <div>
-              <p className="text-lg font-black text-slate-950">{form.displayName || user.username}</p>
+              <p className="flex items-center gap-2 text-lg font-black text-slate-950">
+                {form.displayName || user.username}
+                {isVip && <FiAward className="text-amber-500" aria-label="VIP" />}
+              </p>
               <p className="text-sm font-semibold text-slate-500">@{user.username}</p>
             </div>
           </div>
@@ -197,6 +219,12 @@ export function ProfileForm({ user }: Readonly<{ user: ProfileUser }>) {
               </span>
             ))}
           </div>
+          {isVip && (
+            <div className="mt-4 grid gap-2 rounded-2xl bg-violet-50 p-3 text-xs font-bold text-violet-800">
+              <p className="flex items-center gap-2"><FiCheck className="text-emerald-600" /> Huy hiệu VIP nổi bật trên tài khoản</p>
+              <p className="flex items-center gap-2"><FiCheck className="text-emerald-600" /> 100 lượt AI cho mỗi tháng VIP</p>
+            </div>
+          )}
         </section>
 
         <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.04]">
