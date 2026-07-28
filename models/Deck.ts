@@ -6,7 +6,11 @@ const DeckSchema = new Schema(
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, trim: true, lowercase: true },
     description: { type: String, default: "" },
-    level: { type: String, enum: ["kana", "n5", "n4", "n3", "n2", "n1", "it", "custom"], default: "custom" },
+    level: {
+      type: String,
+      enum: ["kana", "n5", "n4", "n3", "n2", "n1", "university", "high_school", "other", "it", "custom"],
+      default: "custom",
+    },
     languagePair: {
       source: { type: String, default: "ja" },
       target: { type: String, default: "vi" },

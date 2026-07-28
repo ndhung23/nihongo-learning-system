@@ -6,7 +6,7 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { VocabularyModel } from "@/models/Vocabulary";
 
-const levels = ["kana", "n5", "n4", "n3", "n2", "n1", "it", "custom"] as const;
+const levels = ["kana", "n5", "n4", "n3", "n2", "n1", "university", "high_school", "other", "it", "custom"] as const;
 const sourceTypes = ["system", "user", "ai"] as const;
 const visibilities = ["private", "public", "unlisted"] as const;
 const statuses = ["draft", "pending_review", "published", "rejected", "hidden", "archived"] as const;

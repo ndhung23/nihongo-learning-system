@@ -39,5 +39,16 @@ export function parseTestLevel(value: string) {
 }
 
 export function testLevelToCourseLevel(level: TestLevel) {
-  return level.startsWith("N") ? level.toLowerCase() : "custom";
+  const courseLevels: Record<TestLevel, string> = {
+    N5: "n5",
+    N4: "n4",
+    N3: "n3",
+    N2: "n2",
+    N1: "n1",
+    UNIVERSITY: "university",
+    HIGH_SCHOOL: "high_school",
+    OTHER: "other",
+  };
+
+  return courseLevels[level];
 }

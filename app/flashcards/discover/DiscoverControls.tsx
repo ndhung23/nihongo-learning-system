@@ -97,6 +97,9 @@ export function DiscoverControls({
         <option value="n3">JLPT N3</option>
         <option value="n2">JLPT N2</option>
         <option value="n1">JLPT N1</option>
+        <option value="university">Trường đại học</option>
+        <option value="high_school">THPT</option>
+        <option value="other">Khác</option>
       </select>
 
       <select

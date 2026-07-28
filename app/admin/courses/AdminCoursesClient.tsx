@@ -9,7 +9,7 @@ type Course = {
   title: string;
   slug: string;
   description?: string;
-  level: "kana" | "n5" | "n4" | "n3" | "n2" | "n1" | "it" | "custom";
+  level: "kana" | "n5" | "n4" | "n3" | "n2" | "n1" | "university" | "high_school" | "other" | "it" | "custom";
   sourceType: "system" | "user" | "ai";
   visibility: "private" | "public" | "unlisted";
   status: "draft" | "pending_review" | "published" | "rejected" | "hidden" | "archived";
@@ -118,6 +118,9 @@ const levelOptions = [
   ["N3", "n3"],
   ["N2", "n2"],
   ["N1", "n1"],
+  ["Trường đại học", "university"],
+  ["THPT", "high_school"],
+  ["Khác", "other"],
   ["IT", "it"],
   ["Custom", "custom"],
 ] as const;

@@ -45,7 +45,24 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
   }
 
   if (level) {
-    filter.level = level;
+    if (level === "university") {
+      filter.$and = [{ $or: [{ level: "university" }, { "jlptTest.level": "UNIVERSITY" }] }];
+    } else if (level === "high_school") {
+      filter.$and = [{ $or: [{ level: "high_school" }, { "jlptTest.level": "HIGH_SCHOOL" }] }];
+    } else if (level === "other") {
+      filter.$and = [{
+        $or: [
+          { level: "other" },
+          { "jlptTest.level": "OTHER" },
+          {
+            level: "custom",
+            "jlptTest.level": { $exists: false },
+          },
+        ],
+      }];
+    } else {
+      filter.level = level;
+    }
   }
 
   const sortDefinition: Record<string, 1 | -1> =
@@ -124,7 +141,9 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700">
                 <FiBookOpen />
               </span>
-              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black uppercase text-rose-700">{course.level}</span>
+              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black uppercase text-rose-700">
+                {formatLevel(course.jlptTest?.level || course.level)}
+              </span>
             </div>
             <h2 className="mt-5 text-xl font-black text-slate-950">{course.title}</h2>
             <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-slate-500">{course.description}</p>
@@ -296,7 +315,7 @@ function paginationItems(page: number, totalPages: number) {
 }
 
 function normalizeLevel(value: string) {
-  return ["n5", "n4", "n3", "n2", "n1"].includes(value.toLowerCase())
+  return ["n5", "n4", "n3", "n2", "n1", "university", "high_school", "other"].includes(value.toLowerCase())
     ? value.toLowerCase()
     : "";
 }
@@ -305,6 +324,20 @@ function normalizeSort(value: string) {
   return ["newest", "learners", "oldest"].includes(value)
     ? value
     : "newest";
+}
+
+function formatLevel(level?: string) {
+  const labels: Record<string, string> = {
+    university: "Trường đại học",
+    UNIVERSITY: "Trường đại học",
+    high_school: "THPT",
+    HIGH_SCHOOL: "THPT",
+    other: "Khác",
+    OTHER: "Khác",
+    custom: "Khác",
+  };
+
+  return labels[level || ""] || level?.toUpperCase() || "Khác";
 }
 
 function firstParam(value: string | string[] | undefined) {
