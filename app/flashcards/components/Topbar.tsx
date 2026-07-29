@@ -235,6 +235,7 @@ export function Topbar({
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center xl:flex">
             <HeaderLink exact href="/flashcards" label={t("home")} />
             <HeaderLink href="/flashcards/discover" label={t("discover")} />
+            <HeaderLink href="/flashcards/books" label={t("bookStore")} />
             <PracticeMenu
               bookmarksLabel={t("bookmarks")}
               label={t("practiceMenu")}
