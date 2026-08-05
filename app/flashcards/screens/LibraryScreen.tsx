@@ -106,11 +106,44 @@ export function LibraryScreen({
     (visibleCoursePage - 1) * coursePageSize,
     visibleCoursePage * coursePageSize,
   );
+  const recentCourse = learningCourses[0] || courses.find((course) => course.id === selectedCourseId);
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_340px] lg:px-10">
+    <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-4 sm:px-6 sm:py-8 lg:grid-cols-[1fr_340px] lg:px-10">
       <section className="min-w-0">
-        <div className="rounded-[2rem] border border-slate-200 bg-white/88 p-6 shadow-2xl shadow-slate-900/[0.05] backdrop-blur">
+        <div className="mb-5 lg:hidden">
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-rose-600">Học tiếp ngay</p>
+          {recentCourse ? (
+            <button className="mt-2 flex w-full items-center gap-4 rounded-3xl bg-slate-950 p-4 text-left text-white shadow-xl shadow-slate-950/15" onClick={() => openCourseStudy(recentCourse)} type="button">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-rose-500 text-xl"><FiBookOpen /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-teal-300">{isTestCourse(recentCourse) ? "Đề thi gần nhất" : "Flashcard gần nhất"}</span>
+                <span className="mt-1 block truncate font-black">{recentCourse.title}</span>
+              </span>
+              <FiChevronRight className="shrink-0" />
+            </button>
+          ) : (
+            <button className="mt-2 flex w-full items-center justify-between rounded-3xl bg-slate-950 p-4 text-left font-black text-white shadow-xl shadow-slate-950/15" onClick={() => onStudy("flashcard")} type="button">
+              <span className="inline-flex items-center gap-3"><FiBookOpen className="text-rose-400" /> Bắt đầu học Flashcard</span><FiChevronRight />
+            </button>
+          )}
+
+          <div className="mt-5 flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-950">Khám phá khóa học</h2>
+            <button className="text-sm font-black text-teal-700" onClick={scrollToDiscover} type="button">Xem tất cả</button>
+          </div>
+          <div className="mt-3 flex snap-x gap-3 overflow-x-auto pb-2">
+            {courses.slice(0, 3).map((course) => (
+              <button className="min-w-[78%] snap-start rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm" key={course.id} onClick={() => openCourseStudy(course)} type="button">
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">{course.level} · {isTestCourse(course) ? "Đề thi" : "Flashcard"}</span>
+                <span className="mt-2 block line-clamp-2 font-black text-slate-950">{course.title}</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-black text-teal-700">Học ngay <FiChevronRight /></span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="hidden rounded-[2rem] border border-slate-200 bg-white/88 p-6 shadow-2xl shadow-slate-900/[0.05] backdrop-blur lg:block">
           <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Bắt đầu hành trình tiếng Nhật</p>
@@ -147,7 +180,7 @@ export function LibraryScreen({
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-8 hidden gap-4 md:grid md:grid-cols-3">
           <ActionCard icon={FiTarget} title="Phiên hôm nay" text="1 từ đang chờ ôn theo SRS." action="Ôn tập ngay" onClick={() => onStudy("flashcard")} />
           <ActionCard icon={FiFolder} title="Khám phá khóa học" text="Chọn khóa học public như IT Japanese." action="Xem khóa học" onClick={scrollToDiscover} />
           <ActionCard icon={FiPlus} title="Tạo bộ mới" text="Tự nhập từ hoặc import từ file." action="Tạo bộ" onClick={onAdd} />

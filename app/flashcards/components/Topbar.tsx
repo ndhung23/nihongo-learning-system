@@ -11,6 +11,7 @@ import {
   FiLogIn,
   FiLogOut,
   FiMail,
+  FiMenu,
   FiMoon,
   FiSearch,
   FiSend,
@@ -49,9 +50,11 @@ const supportQrUrl = "/support-qr.png";
 export function Topbar({
   theme,
   onToggleTheme,
+  onOpenSidebar,
 }: Readonly<{
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  onOpenSidebar: () => void;
 }>) {
   const router = useRouter();
   const { locale, setLocale, t } = useLanguage();
@@ -219,6 +222,9 @@ export function Topbar({
     <>
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[#fbfaf5]/88 backdrop-blur-2xl transition-colors duration-150 dark:border-slate-800 dark:bg-slate-950/88">
         <div className="relative mx-auto flex h-16 max-w-[1500px] items-center gap-2 px-3 sm:px-5 lg:px-8">
+          <button aria-label="Mở menu" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-lg text-white shadow-lg shadow-slate-950/15 lg:hidden dark:bg-teal-400 dark:text-slate-950" onClick={onOpenSidebar} type="button">
+            <FiMenu />
+          </button>
           <form
             className="group hidden h-10 w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 shadow-sm transition-all duration-150 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 dark:border-slate-700 dark:bg-slate-900 md:flex"
             onSubmit={handleCourseSearch}

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AuthError, requireAuth } from "@/lib/auth/session";
 import { isTestLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { JlptTestModel } from "@/models/JlptTest";
@@ -35,8 +34,6 @@ export async function POST(
   context: RouteContext<"/api/jlpt-tests/[level]/[testNumber]/grade">,
 ) {
   try {
-    await requireAuth();
-
     const { level: rawLevel, testNumber: rawTestNumber } =
       await context.params;
     const level = rawLevel.toUpperCase();
@@ -134,14 +131,7 @@ export async function POST(
         },
       },
     );
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json(
-        { ok: false, message: error.message, code: error.code },
-        { status: error.code === "UNAUTHORIZED" ? 401 : 403 },
-      );
-    }
-
+  } catch {
     return NextResponse.json(
       { ok: false, message: "Không thể chấm bài lúc này." },
       { status: 500 },

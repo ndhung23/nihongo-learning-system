@@ -62,13 +62,13 @@ export function AiChatbox({ dictionaryPinned }: Readonly<{ dictionaryPinned: boo
     <>
       <button
         aria-label="Mở chatbox AI"
-        className={`fixed bottom-20 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 px-5 py-3 text-sm font-black text-white shadow-2xl shadow-fuchsia-500/35 ring-2 ring-white transition hover:-translate-y-1 hover:scale-[1.02] ${desktopPosition}`}
+        className={`fixed bottom-[4.75rem] z-40 grid h-12 w-12 place-items-center rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 text-lg font-black text-white shadow-2xl shadow-fuchsia-500/35 ring-2 ring-white transition hover:-translate-y-1 hover:scale-[1.02] sm:bottom-20 sm:flex sm:h-auto sm:w-auto sm:gap-2 sm:px-5 sm:py-3 sm:text-sm ${desktopPosition}`}
         onClick={() => setOpen(true)}
         type="button"
       >
         <span className="grid h-7 w-7 place-items-center rounded-full bg-white/20"><FiCpu /></span>
-        Hỏi AI
-        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px]">−1 lượt</span>
+        <span className="hidden sm:inline">Hỏi AI</span>
+        <span className="hidden rounded-full bg-white/20 px-2 py-0.5 text-[10px] sm:inline">−1 lượt</span>
       </button>
 
       {open && (

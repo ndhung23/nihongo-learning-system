@@ -200,8 +200,8 @@ export function DictionaryPanel({
 
   return (
     <>
-      <button aria-label="Mở tra từ điển" className={`fixed bottom-5 right-5 z-40 items-center gap-2 rounded-full bg-teal-700 px-5 py-3 text-sm font-black text-white shadow-2xl shadow-teal-700/25 transition hover:-translate-y-1 hover:bg-teal-800 ${pinned ? "hidden" : "flex"}`} onClick={() => setOpen(true)} type="button">
-        <FiBookOpen /> Tra từ <span className="hidden rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] sm:inline">Ctrl K</span>
+      <button aria-label="Mở tra từ điển" className={`fixed bottom-4 right-5 z-40 h-12 w-12 items-center justify-center rounded-full bg-teal-700 text-lg font-black text-white shadow-2xl shadow-teal-700/25 transition hover:-translate-y-1 hover:bg-teal-800 sm:bottom-5 sm:h-auto sm:w-auto sm:gap-2 sm:px-5 sm:py-3 sm:text-sm ${pinned ? "hidden" : "flex"}`} onClick={() => setOpen(true)} type="button">
+        <FiBookOpen /> <span className="hidden sm:inline">Tra từ</span> <span className="hidden rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] sm:inline">Ctrl K</span>
       </button>
       {open && !pinned && <button aria-label="Đóng từ điển" className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]" onClick={() => setOpen(false)} type="button" />}
       <aside className={`fixed bottom-0 right-0 top-0 z-50 flex w-full flex-col border-l border-slate-200 bg-[#fbfaf5] shadow-2xl transition-all duration-300 dark:border-slate-700 dark:bg-slate-950 sm:w-[390px] ${expanded && !pinned ? "sm:w-[min(760px,calc(100vw-72px))]" : ""} ${open ? "translate-x-0" : "translate-x-full"}`}>
