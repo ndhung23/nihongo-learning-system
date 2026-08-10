@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { ApiActivityIndicator } from "./ApiActivityIndicator";
 import { LanguageProvider } from "../i18n/LanguageProvider";
+import { invalidateCurrentUser, loadCurrentUser } from "../currentUserClient";
 
 const DictionaryPanel = dynamic(
   () => import("./DictionaryPanel").then((module) => module.DictionaryPanel),
@@ -27,25 +28,22 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     queueMicrotask(() => setTheme(initialTheme));
 
     async function loadDictionaryPreference() {
-      let owner = "guest";
-      try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (response.ok) {
-          const payload = await response.json() as { user?: { userId?: string; id?: string } };
-          owner = payload.user?.userId || payload.user?.id || "guest";
-        }
-      } catch {
-        owner = "guest";
-      }
+      const user = await loadCurrentUser();
+      const owner = user?.userId || user?.id || "guest";
 
       const preferenceKey = `nihongo-dictionary-pinned:${owner}`;
       setDictionaryPreferenceKey(preferenceKey);
       setDictionaryPinned(window.localStorage.getItem(preferenceKey) === "true");
     }
 
+    const handleAuthChanged = () => {
+      invalidateCurrentUser();
+      void loadDictionaryPreference();
+    };
+
     void loadDictionaryPreference();
-    window.addEventListener("nihongo-auth-changed", loadDictionaryPreference);
-    return () => window.removeEventListener("nihongo-auth-changed", loadDictionaryPreference);
+    window.addEventListener("nihongo-auth-changed", handleAuthChanged);
+    return () => window.removeEventListener("nihongo-auth-changed", handleAuthChanged);
   }, []);
 
   useEffect(() => {

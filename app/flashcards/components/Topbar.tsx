@@ -23,21 +23,7 @@ import {
 import { FcGoogle } from "react-icons/fc";
 import { announceDailyProgressOwner } from "./dailyProgressStorage";
 import { useLanguage } from "../i18n/LanguageProvider";
-
-type CurrentUser = {
-  userId?: string;
-  id?: string;
-  username: string;
-  email: string;
-  displayName?: string;
-  avatarUrl?: string;
-  roles: string[];
-  permissions?: string[];
-  aiCredits?: number;
-  pendingGachaTickets?: number;
-  vipUntil?: string;
-  isVip?: boolean;
-};
+import { invalidateCurrentUser, loadCurrentUser, type CurrentUser } from "../currentUserClient";
 
 type PublicFeedback = {
   id: string;
@@ -77,20 +63,18 @@ export function Topbar({
   const isVip = user?.isVip === true;
 
   const loadMe = useCallback(async () => {
-    const response = await fetch("/api/auth/me", { cache: "no-store" });
-
-    if (!response.ok) {
+    const currentUser = await loadCurrentUser();
+    if (!currentUser) {
       setUser(null);
       announceDailyProgressOwner(null);
       return;
     }
 
-    const payload = (await response.json()) as { user: CurrentUser };
-    setUser(payload.user);
+    setUser(currentUser);
     announceDailyProgressOwner(
-      payload.user.userId || payload.user.id,
-      payload.user.aiCredits,
-      payload.user.pendingGachaTickets,
+      currentUser.userId || currentUser.id,
+      currentUser.aiCredits,
+      currentUser.pendingGachaTickets,
     );
   }, []);
 
@@ -152,6 +136,7 @@ export function Topbar({
       }
 
       setUser(payload.user);
+      invalidateCurrentUser();
       window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
       announceDailyProgressOwner(
         payload.user.userId || payload.user.id,
@@ -168,6 +153,7 @@ export function Topbar({
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
+    invalidateCurrentUser();
     window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
     announceDailyProgressOwner(null);
     setMenuOpen(false);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { FiBookOpen, FiCheck, FiChevronLeft, FiChevronRight, FiEdit3, FiFileText, FiHelpCircle, FiImage, FiLoader, FiMusic, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 import { TEST_LEVELS, TEST_LEVEL_LABELS, type TestLevel } from "@/lib/jlptTestLevels";
 import { EmailInvitePicker } from "@/app/flashcards/components/EmailInvitePicker";
@@ -38,6 +38,7 @@ const emptyQuestion = (): Question => ({
 export function AdminJlptTestsClient({
   currentPage = 1,
   initialCreate = false,
+  initialEditId = "",
   initialTests,
   personal = false,
   query = "",
@@ -46,6 +47,7 @@ export function AdminJlptTestsClient({
 }: {
   currentPage?: number;
   initialCreate?: boolean;
+  initialEditId?: string;
   initialTests: TestSummary[];
   personal?: boolean;
   query?: string;
@@ -78,7 +80,20 @@ export function AdminJlptTestsClient({
   const [pastedImport, setPastedImport] = useState("");
   const [uploadingMedia, setUploadingMedia] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialEditOpened = useRef(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!initialEditId || initialEditOpened.current) return;
+    const test = initialTests.find((item) => item.id === initialEditId);
+    if (!test) {
+      setMessage("Không tìm thấy đề thi tương ứng.");
+      return;
+    }
+
+    initialEditOpened.current = true;
+    void openEdit(test);
+  }, [initialEditId, initialTests]);
 
   async function deleteTest(test: TestSummary) {
     if (!window.confirm(`Xóa "${test.title}"? Thao tác này không thể hoàn tác.`)) return;

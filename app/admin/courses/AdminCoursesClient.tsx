@@ -26,12 +26,18 @@ type Course = {
     learnerCount?: number;
   };
   tags?: string[];
+  jlptTest?: {
+    testId?: string;
+    level?: string;
+    number?: number;
+  };
   ownerId?: {
     _id?: string;
     username?: string;
     email?: string;
     displayName?: string;
   } | string;
+  isStatic?: boolean;
 };
 
 type Meta = {
@@ -149,11 +155,12 @@ const statusOptions = [
   ["Archived", "archived"],
 ] as const;
 
-export function AdminCoursesClient({ capabilities, courses, initialCreatePreset = "", initialOpenCourseId, meta }: Readonly<{ capabilities: { create: boolean; update: boolean; delete: boolean }; courses: Course[]; initialCreatePreset?: string; initialOpenCourseId?: string; meta: Meta }>) {
+export function AdminCoursesClient({ capabilities, courses, initialCreatePreset = "", initialOpenCourseId, listCategory = "", meta }: Readonly<{ capabilities: { create: boolean; update: boolean; delete: boolean }; courses: Course[]; initialCreatePreset?: string; initialOpenCourseId?: string; listCategory?: string; meta: Meta }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(Boolean(initialCreatePreset));
   const [form, setForm] = useState<CourseFormState>(() => createFormForPreset(initialCreatePreset));
+  const [selectedCreatePreset, setSelectedCreatePreset] = useState(initialCreatePreset);
   const [detail, setDetail] = useState<CourseDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
@@ -180,6 +187,14 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
     void openDetail(course);
   }, [courses, initialOpenCourseId]);
 
+  useEffect(() => {
+    if (!initialCreatePreset) return;
+    setSelectedCreatePreset(initialCreatePreset);
+    setForm(createFormForPreset(initialCreatePreset));
+    setError("");
+    setFormOpen(true);
+  }, [initialCreatePreset]);
+
   function updateQuery(next: Record<string, string | number>) {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -200,12 +215,20 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
   }
 
   function openCreate() {
-    setForm(emptyForm);
+    if (listCategory === "test") {
+      router.push("/admin/jlpt-tests");
+      return;
+    }
+
+    const preset = listCategory || "course";
+    setSelectedCreatePreset(preset);
+    setForm(createFormForPreset(preset));
     setError("");
     setFormOpen(true);
   }
 
   function openEdit(course: Course) {
+    setSelectedCreatePreset("");
     setForm({
       id: course._id,
       title: course.title,
@@ -223,6 +246,17 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
     });
     setError("");
     setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+
+    if (searchParams.has("create")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("create");
+      const query = params.toString();
+      router.replace(query ? `/admin/courses?${query}` : "/admin/courses");
+    }
   }
 
   async function submitCourse(event: FormEvent<HTMLFormElement>) {
@@ -259,7 +293,7 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
         return;
       }
 
-      setFormOpen(false);
+      closeForm();
       router.refresh();
     } finally {
       setLoading(false);
@@ -326,7 +360,7 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-teal-700">Admin</p>
-          <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Quản lý khóa học</h1>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{listCategory ? categoryListLabel(listCategory) : "Quản lý khóa học"}</h1>
           <p className="mt-3 max-w-2xl text-slate-500">CRUD khóa học, tìm kiếm, lọc theo loại tạo và phân trang dữ liệu từ MongoDB.</p>
         </div>
         {capabilities.create && <button
@@ -334,7 +368,7 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
           onClick={openCreate}
           type="button"
         >
-          <FiPlus /> Tạo khóa học
+          <FiPlus /> {listCategory === "test" ? "Tạo đề thi" : "Tạo khóa học"}
         </button>}
       </div>
 
@@ -391,13 +425,21 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
               <p className="mt-1">{course.stats?.learnerCount || 0} học viên</p>
             </div>
             <div className="flex gap-2 lg:justify-end">
-              <button className="flex h-9 items-center gap-1 rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100" onClick={() => openDetail(course)} title="Quản lý từ vựng" type="button">
-                <FiBookOpen /> Từ vựng
-              </button>
-              {capabilities.update && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
+              {course.isStatic ? (
+                <a className="flex h-9 items-center gap-1 rounded-xl bg-teal-50 px-3 text-xs font-black text-teal-700 transition hover:bg-teal-100" href={`/flashcards/kana/${course.slug}`} title="Xem khóa học">
+                  <FiBookOpen /> Xem
+                </a>
+              ) : course.jlptTest?.testId ? (
+                <a className="flex h-9 items-center gap-1 rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100" href={`/admin/jlpt-tests?edit=${course.jlptTest.testId}`} title="Mở trình soạn đề thi">
+                  <FiBookOpen /> Từ vựng
+                </a>
+              ) : <button className="flex h-9 items-center gap-1 rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100" onClick={() => openDetail(course)} title="Quản lý từ vựng" type="button">
+                  <FiBookOpen /> Từ vựng
+                </button>}
+              {capabilities.update && !course.isStatic && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
                 <FiEdit3 />
               </button>}
-              {capabilities.delete && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteCourse(course)} title="Xóa" type="button">
+              {capabilities.delete && !course.isStatic && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteCourse(course)} title="Xóa" type="button">
                 <FiTrash2 />
               </button>}
             </div>
@@ -431,9 +473,9 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">Course CRUD</p>
-                <h2 className="mt-2 text-3xl font-black text-slate-950">{form.id ? "Sửa khóa học" : "Tạo khóa học"}</h2>
+                <h2 className="mt-2 text-3xl font-black text-slate-950">{form.id ? "Sửa khóa học" : createPresetLabel(selectedCreatePreset)}</h2>
               </div>
-              <button className="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950" onClick={() => setFormOpen(false)} type="button">
+              <button className="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950" onClick={closeForm} type="button">
                 <FiX />
               </button>
             </div>
@@ -459,7 +501,7 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
             {error && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
 
             <div className="mt-6 flex justify-end gap-3">
-              <button className="h-12 rounded-2xl border border-slate-200 px-5 font-black text-slate-600 transition hover:bg-slate-50" onClick={() => setFormOpen(false)} type="button">
+              <button className="h-12 rounded-2xl border border-slate-200 px-5 font-black text-slate-600 transition hover:bg-slate-50" onClick={closeForm} type="button">
                 Hủy
               </button>
               <button className="h-12 rounded-2xl bg-rose-600 px-6 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:opacity-60" disabled={loading} type="submit">
@@ -985,6 +1027,26 @@ function createFormForPreset(preset: string): CourseFormState {
     ...emptyForm,
     tags: presetTags[preset] || "",
   };
+}
+
+function createPresetLabel(preset: string) {
+  return {
+    course: "Tạo khóa học thông thường",
+    basic: "Tạo khóa học cơ bản",
+    kanji: "Tạo khóa luyện viết Kanji",
+    flashcard: "Tạo bộ Flashcard",
+    roadmap: "Tạo lộ trình học",
+  }[preset] || "Tạo khóa học";
+}
+
+function categoryListLabel(category: string) {
+  return {
+    basic: "Khóa học cơ bản",
+    kanji: "Khóa luyện viết Kanji",
+    flashcard: "Danh sách Flashcard",
+    roadmap: "Lộ trình học",
+    test: "Danh sách đề thi",
+  }[category] || "Quản lý khóa học";
 }
 
 function sourceTypeLabel(type: Course["sourceType"]) {

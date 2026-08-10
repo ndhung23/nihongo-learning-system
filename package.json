@@ -8,8 +8,8 @@
     "data:add-n5-highlights": "node scripts/add-n5-question-highlights.mjs",
     "db:seed-course-learners": "node scripts/seed-course-learner-counts.mjs",
     "security:check-data": "node scripts/check-private-data.mjs",
-    "dev": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev --webpack",
-    "dev:turbo": "next dev",
+    "dev": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev",
+    "dev:webpack": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

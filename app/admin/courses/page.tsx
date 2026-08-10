@@ -2,6 +2,7 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { AdminCoursesClient } from "./AdminCoursesClient";
 import { requireAdminPage } from "@/lib/admin/page-auth";
+import { KANA_COURSES } from "@/app/flashcards/discover/KanaCourseCards";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -22,6 +23,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
   const status = firstParam(params.status);
   const initialOpenCourseId = firstParam(params.open);
   const initialCreatePreset = normalizeCreatePreset(firstParam(params.create));
+  const category = normalizeCategory(firstParam(params.category));
 
   await connectMongoDB();
 
@@ -41,17 +43,26 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
   if (sourceTypes.includes(sourceType)) filter.sourceType = sourceType;
   if (visibilities.includes(visibility)) filter.visibility = visibility;
   if (statuses.includes(status)) filter.status = status;
+  applyCategoryFilter(filter, category);
 
+  const staticCourses = getStaticCourses({ category, level, q, sourceType, status, visibility });
   const skip = (page - 1) * limit;
-  const [courses, total] = await Promise.all([
-    DeckModel.find(filter)
-      .populate("ownerId", "username email displayName")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+  const staticPageCourses = staticCourses.slice(skip, skip + limit);
+  const databaseSkip = Math.max(skip - staticCourses.length, 0);
+  const databaseLimit = Math.max(limit - staticPageCourses.length, 0);
+  const [databaseCourses, databaseTotal] = await Promise.all([
+    databaseLimit > 0
+      ? DeckModel.find(filter)
+          .populate("ownerId", "username email displayName")
+          .sort({ createdAt: -1 })
+          .skip(databaseSkip)
+          .limit(databaseLimit)
+          .lean()
+      : Promise.resolve([]),
     DeckModel.countDocuments(filter),
   ]);
+  const courses = [...staticPageCourses, ...databaseCourses];
+  const total = staticCourses.length + databaseTotal;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
@@ -79,11 +90,18 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
           learnerCount: course.stats?.learnerCount,
         },
         tags: course.tags || [],
+        jlptTest: course.jlptTest ? {
+          testId: course.jlptTest.testId ? String(course.jlptTest.testId) : undefined,
+          level: course.jlptTest.level,
+          number: course.jlptTest.number,
+        } : undefined,
         ownerId: serializeOwner(course.ownerId),
+        isStatic: "isStatic" in course ? course.isStatic : false,
       }))}
       meta={{ page: Math.min(page, totalPages), limit, total, totalPages }}
       initialOpenCourseId={initialOpenCourseId}
       initialCreatePreset={initialCreatePreset}
+      listCategory={category}
     />
   );
 }
@@ -127,4 +145,44 @@ function escapeRegex(value: string) {
 
 function normalizeCreatePreset(value: string) {
   return ["course", "basic", "kanji", "flashcard", "roadmap"].includes(value) ? value : "";
+}
+
+function normalizeCategory(value: string) {
+  return ["basic", "kanji", "flashcard", "roadmap", "test"].includes(value) ? value : "";
+}
+
+function applyCategoryFilter(filter: Record<string, unknown>, category: string) {
+  if (category === "basic") filter.tags = "Cơ bản";
+  if (category === "kanji") filter.tags = { $in: ["Kanji", "Luyện viết Kanji"] };
+  if (category === "flashcard") filter.tags = { $nin: ["roadmap", "Test", "Cơ bản", "Kanji", "Luyện viết Kanji"] };
+  if (category === "roadmap") filter.tags = "roadmap";
+  if (category === "test") filter.tags = "Test";
+}
+
+function getStaticCourses({ category, level, q, sourceType, status, visibility }: { category: string; level: string; q: string; sourceType: string; status: string; visibility: string }) {
+  if (category !== "basic") return [];
+  if (level && level !== "kana") return [];
+  if (sourceType && sourceType !== "system") return [];
+  if (status && status !== "published") return [];
+  if (visibility && visibility !== "public") return [];
+
+  const normalizedQuery = q.toLowerCase();
+  return KANA_COURSES
+    .filter((course) => !normalizedQuery || [course.title, course.description, course.slug, ...course.tags].join(" ").toLowerCase().includes(normalizedQuery))
+    .map((course) => ({
+      _id: `kana-${course.slug}`,
+      title: course.title,
+      slug: course.slug,
+      description: course.description,
+      level: "kana" as const,
+      sourceType: "system" as const,
+      visibility: "public" as const,
+      status: "published" as const,
+      languagePair: { source: "ja", target: "vi" },
+      price: { amount: 0, currency: "VND" },
+      stats: { vocabularyCount: 46, learnerCount: 0 },
+      tags: [...course.tags],
+      ownerId: undefined,
+      isStatic: true,
+    }));
 }

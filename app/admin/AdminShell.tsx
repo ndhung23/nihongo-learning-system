@@ -4,11 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  FiBarChart2, FiBookOpen, FiChevronDown, FiClipboard, FiCreditCard, FiDatabase, FiEdit3,
-  FiHome, FiKey, FiMail, FiMenu, FiMessageSquare, FiSettings, FiShield, FiUsers, FiX,
+  FiBarChart2, FiBook, FiBookOpen, FiChevronDown, FiClipboard, FiCreditCard, FiDatabase, FiEdit3,
+  FiFileText, FiHome, FiKey, FiLayers, FiMail, FiMenu, FiMessageSquare, FiPlus, FiSettings, FiShield, FiUsers, FiX,
 } from "react-icons/fi";
+import type { IconType } from "react-icons";
 
-const adminNav = [
+type AdminNavChild = { label: string; href: string; icon: IconType };
+type AdminNavItem = {
+  label: string;
+  icon: IconType;
+  permission: string;
+  href?: string;
+  id?: string;
+  children?: AdminNavChild[];
+};
+
+const adminNav: Array<{ id: string; label: string; items: AdminNavItem[] }> = [
   {
     id: "overview",
     label: "Tổng quan",
@@ -23,6 +34,19 @@ const adminNav = [
     label: "Nội dung",
     items: [
       { label: "Khóa học", href: "/admin/courses", icon: FiBookOpen, permission: "admin:course:read" },
+      {
+        id: "create-course",
+        label: "Tạo khóa học",
+        icon: FiPlus,
+        permission: "admin:course:create",
+        children: [
+          { label: "Khóa học cơ bản", href: "/admin/courses?category=basic", icon: FiBook },
+          { label: "Luyện viết Kanji", href: "/admin/courses?category=kanji", icon: FiEdit3 },
+          { label: "Khóa học Flashcard", href: "/admin/courses?category=flashcard", icon: FiFileText },
+          { label: "Khóa học lộ trình", href: "/admin/courses?category=roadmap", icon: FiLayers },
+          { label: "Đề thi", href: "/admin/courses?category=test", icon: FiClipboard },
+        ],
+      },
       { label: "Từ vựng", href: "/admin/vocabulary", icon: FiDatabase, permission: "admin:vocabulary:read" },
       { label: "Đề thi JLPT", href: "/admin/jlpt-tests", icon: FiClipboard, permission: "admin:jlpt-test:read" },
       { label: "Highlight JLPT", href: "/admin/jlpt-highlights", icon: FiEdit3, permission: "admin:jlpt-highlight:read" },
@@ -94,13 +118,20 @@ export function AdminShell({ children, permissions }: Readonly<{ children: React
 
 function AdminSidebar({ mobileOpen, onClose, pathname, permissions }: { mobileOpen: boolean; onClose: () => void; pathname: string; permissions: string[] }) {
   const visibleNav = adminNav.map((group) => ({ ...group, items: group.items.filter((item) => permissions.includes(item.permission)) })).filter((group) => group.items.length > 0);
-  const activeGroup = visibleNav.find((group) => group.items.some((item) => item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)));
+  const activeGroup = visibleNav.find((group) => group.items.some((item) => item.href && (item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href))));
   const [openGroups, setOpenGroups] = useState<string[]>(activeGroup ? [activeGroup.id] : []);
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
   function toggleGroup(groupId: string) {
     setOpenGroups((current) => current.includes(groupId)
       ? current.filter((id) => id !== groupId)
       : [...current, groupId]);
+  }
+
+  function toggleItem(itemId: string) {
+    setOpenItems((current) => current.includes(itemId)
+      ? current.filter((id) => id !== itemId)
+      : [...current, itemId]);
   }
 
   return (
@@ -133,6 +164,39 @@ function AdminSidebar({ mobileOpen, onClose, pathname, permissions }: { mobileOp
               <div className="min-h-0 space-y-1 overflow-hidden">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                if (item.children && item.id) {
+                  const expanded = openItems.includes(item.id);
+                  return (
+                    <div key={item.id}>
+                      <button
+                        aria-expanded={expanded}
+                        className="group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                        onClick={() => toggleItem(item.id!)}
+                        type="button"
+                      >
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-600 group-hover:bg-white"><Icon /></span>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        <FiChevronDown className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+                      </button>
+                      <div className={`grid transition-[grid-template-rows,opacity] duration-200 ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-60"}`}>
+                        <div className="min-h-0 overflow-hidden">
+                          <div className="ml-7 mt-1 space-y-1 border-l border-slate-200 pl-3">
+                            {item.children.map((child) => {
+                              const ChildIcon = child.icon;
+                              return (
+                                <Link className="group flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold text-slate-500 transition hover:bg-rose-50 hover:text-rose-700" href={child.href} key={child.href} onClick={onClose}>
+                                  <ChildIcon className="shrink-0" /> {child.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (!item.href) return null;
                 const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
                 return (
                   <Link

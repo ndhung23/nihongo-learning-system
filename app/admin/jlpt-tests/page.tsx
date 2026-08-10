@@ -18,7 +18,7 @@ export default async function AdminJlptTestsPage({ searchParams }: Readonly<{ se
     title: test.title,
     questionCount: test.questionCount,
     sectionCount: test.sections?.listening?.length ? 3 : 2,
-  }))} initialCreate={firstParam(params.create) === "1"} />;
+  }))} initialCreate={firstParam(params.create) === "1"} initialEditId={firstParam(params.edit)} />;
 }
 
 function firstParam(value: string | string[] | undefined) {

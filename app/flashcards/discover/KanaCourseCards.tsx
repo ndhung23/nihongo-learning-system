@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FiArrowRight, FiBookOpen, FiCheckCircle, FiUsers } from "react-icons/fi";
 
-const KANA_COURSES = [
+export const KANA_COURSES = [
   {
     slug: "hiragana", title: "Hiragana cho người mới", character: "あ",
     description: "Làm quen 46 chữ Hiragana cơ bản bằng bài luyện nhận diện và nhập romaji có chấm đáp án ngay.",

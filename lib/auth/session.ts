@@ -59,7 +59,7 @@ export function verifySessionToken(token: string): AuthSession {
   };
 }
 
-export async function getAuthSession() {
+export async function getAuthSession(options: { resolvePermissions?: boolean } = {}) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
@@ -69,7 +69,9 @@ export async function getAuthSession() {
 
   try {
     const session = verifySessionToken(token);
-    session.permissions = await getPermissionsForRoleCodes(session.roles);
+    if (options.resolvePermissions !== false) {
+      session.permissions = await getPermissionsForRoleCodes(session.roles);
+    }
     return session;
   } catch {
     return null;

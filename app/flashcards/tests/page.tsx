@@ -15,7 +15,7 @@ export default async function JlptTestsPage({
 }: {
   searchParams: Promise<{ page?: string; q?: string }>;
 }) {
-  const session = await getAuthSession();
+  const session = await getAuthSession({ resolvePermissions: false });
   const params = await searchParams;
   const query = String(params.q || "").trim().slice(0, 100);
   const requestedPage = Math.max(1, Number.parseInt(params.page || "1", 10) || 1);

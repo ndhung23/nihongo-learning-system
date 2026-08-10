@@ -18,7 +18,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
   const requestedPage = Math.max(Number(firstParam(params.page)) || 1, 1);
   const pageSize = 9;
 
-  const session = await getAuthSession();
+  const session = await getAuthSession({ resolvePermissions: false });
   const isAdmin = Boolean(session?.roles.includes("admin"));
   const adminCreateAction = getAdminCreateAction(type);
   await connectMongoDB();

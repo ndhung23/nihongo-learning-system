@@ -5,7 +5,9 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { UserModel } from "@/models/User";
 
 export async function GET() {
-  const session = await getAuthSession();
+  // Only the signed-in identity is needed here. Avoid a separate role query;
+  // response permissions are derived from the user's current roles below.
+  const session = await getAuthSession({ resolvePermissions: false });
 
   if (!session) {
     return NextResponse.json({ user: null }, { status: 401 });
@@ -13,7 +15,9 @@ export async function GET() {
 
   await connectMongoDB();
 
-  const user = await UserModel.findById(session.userId).select("-passwordHash -passwordReset").lean();
+  const user = await UserModel.findById(session.userId)
+    .select("username email displayName avatarUrl roles status aiCredits pendingGachaTickets vipUntil profile")
+    .lean();
 
   if (!user || user.status !== "active") {
     return NextResponse.json({ user: null }, { status: 401 });

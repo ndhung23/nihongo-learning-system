@@ -6,6 +6,7 @@ import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { UserModel } from "@/models/User";
+import { VocabularyModel } from "@/models/Vocabulary";
 
 const UpdateSchema = z.object({
   title: z.string().trim().min(2).max(120), description: z.string().trim().max(500).default(""),
@@ -40,5 +41,27 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/pe
     if (error instanceof AuthError) return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
     if (error instanceof z.ZodError) return NextResponse.json({ message: error.issues[0]?.message || "Dữ liệu chưa hợp lệ." }, { status: 400 });
     return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể cập nhật bộ từ." }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext<"/api/personal-decks/[id]">) {
+  try {
+    const session = await requirePermission("flashcard:update:own");
+    const { id } = await context.params;
+    if (!Types.ObjectId.isValid(id)) return NextResponse.json({ message: "ID bộ từ không hợp lệ." }, { status: 400 });
+    await connectMongoDB();
+
+    const deck = await DeckModel.findOne({ _id: id, sourceType: "user", tags: "personal" }).select("ownerId").lean();
+    if (!deck) return NextResponse.json({ message: "Không tìm thấy bộ từ." }, { status: 404 });
+    if (String(deck.ownerId) !== session.userId && !session.roles.includes("admin")) {
+      return NextResponse.json({ message: "Bạn không có quyền xóa bộ từ này." }, { status: 403 });
+    }
+
+    await VocabularyModel.deleteMany({ deckId: deck._id });
+    await DeckModel.deleteOne({ _id: deck._id });
+    return NextResponse.json({ message: "Đã xóa bộ từ." });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể xóa bộ từ." }, { status: 500 });
   }
 }
