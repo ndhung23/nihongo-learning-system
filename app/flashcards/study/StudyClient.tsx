@@ -218,7 +218,7 @@ export function StudyClient({
     }
 
     Promise.all([
-      fetch(isPersonalVocabulary ? "/api/vocabulary?scope=mine" : `/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`).then((response) => (response.ok ? response.json() : { data: [] })),
+      fetch(isPersonalVocabulary ? `/api/vocabulary?scope=mine${nextDeckId ? `&deckId=${encodeURIComponent(nextDeckId)}` : ""}` : `/api/vocabulary?deckId=${nextDeckId}&limit=1500${nextLesson !== "all" ? `&lesson=${nextLesson}` : ""}`).then((response) => (response.ok ? response.json() : { data: [] })),
       isPersonalVocabulary
         ? Promise.resolve({ data: [] })
         : fetch("/api/courses?limit=80").then((response) => (response.ok ? response.json() : { data: [] })),

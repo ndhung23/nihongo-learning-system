@@ -196,9 +196,11 @@ function toPayload(word: WordForm) {
 }
 
 export function AddWordScreen({
+  deckId,
   onBack,
   onSaved,
 }: Readonly<{
+  deckId: string;
   onBack: () => void;
   onSaved?: () => void;
 }>) {
@@ -289,7 +291,7 @@ export function AddWordScreen({
     const response = await fetch("/api/vocabulary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(toPayload(word)),
+      body: JSON.stringify({ ...toPayload(word), deckId }),
     });
 
     if (!response.ok) {

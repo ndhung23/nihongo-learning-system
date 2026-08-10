@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { Types } from "mongoose";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { VocabularyModel } from "@/models/Vocabulary";
+import { DeckModel } from "@/models/Deck";
 
 const CreateVocabularySchema = z.object({
   deckId: z.string().optional(),
@@ -78,11 +80,26 @@ export async function GET(request: NextRequest) {
       const session = await requirePermission("flashcard:read");
       await connectMongoDB();
 
+      const deckId = searchParams.get("deckId") || "";
+      if (deckId && !Types.ObjectId.isValid(deckId)) return NextResponse.json({ message: "ID bộ từ không hợp lệ." }, { status: 400 });
+      if (deckId) {
+        const deck = await DeckModel.findOne({ _id: deckId, sourceType: "user", tags: "personal" }).select("+accessPasswordHash ownerId accessMode allowedUserIds").lean();
+        if (!deck) return NextResponse.json({ message: "Không tìm thấy bộ từ." }, { status: 404 });
+        const isOwner = String(deck.ownerId) === session.userId;
+        const isInvited = (deck.allowedUserIds || []).some((id: unknown) => String(id) === session.userId);
+        const password = request.headers.get("x-content-password") || searchParams.get("password") || "";
+        const passwordAccepted = deck.accessMode === "password" && Boolean(password) && Boolean(deck.accessPasswordHash) && await bcrypt.compare(password, deck.accessPasswordHash);
+        if (!session.roles.includes("admin") && !isOwner && deck.accessMode !== "public" && !isInvited && !passwordAccepted) {
+          return NextResponse.json({ message: deck.accessMode === "password" ? "Bộ từ yêu cầu mật khẩu." : "Bạn không có quyền truy cập bộ từ này.", code: deck.accessMode === "password" ? "PASSWORD_REQUIRED" : "FORBIDDEN" }, { status: 403 });
+        }
+      }
+
       const vocabulary = await VocabularyModel.find({
         createdBy: session.userId,
         source: "user",
+        ...(deckId ? { deckId } : {}),
       })
-        .select("_id term kana romaji meaningVi partOfSpeech level examples synonyms antonyms imageUrl createdAt")
+        .select("_id deckId term kana romaji meaningVi partOfSpeech level examples synonyms antonyms imageUrl createdAt")
         .sort({ createdAt: -1 })
         .lean();
 
@@ -121,13 +138,22 @@ export async function POST(request: NextRequest) {
     await connectMongoDB();
 
     const payload = CreateVocabularySchema.parse(await request.json());
+    if (!payload.deckId || !Types.ObjectId.isValid(payload.deckId)) {
+      return NextResponse.json({ message: "Bạn cần chọn một bộ từ trước khi thêm từ." }, { status: 400 });
+    }
+    const deck = await DeckModel.findOne({ _id: payload.deckId, ...(session.roles.includes("admin") ? {} : { ownerId: session.userId }), sourceType: "user", tags: "personal" }).select("_id").lean();
+    if (!deck) {
+      return NextResponse.json({ message: "Bộ từ không tồn tại hoặc không thuộc tài khoản của bạn." }, { status: 404 });
+    }
     const vocabulary = await VocabularyModel.create({
       ...payload,
-      deckId: new Types.ObjectId(),
+      deckId: deck._id,
       createdBy: session.userId,
       source: "user",
       isPublished: false,
     });
+    const vocabularyCount = await VocabularyModel.countDocuments({ deckId: deck._id, createdBy: session.userId });
+    await DeckModel.updateOne({ _id: deck._id }, { $set: { "stats.vocabularyCount": vocabularyCount } });
     revalidateTag("vocabulary", "max");
 
     return NextResponse.json({ data: vocabulary }, { status: 201 });

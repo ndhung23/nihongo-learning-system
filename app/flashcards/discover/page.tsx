@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiUsers } from "react-icons/fi";
+import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiPlus, FiUsers } from "react-icons/fi";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { DiscoverControls } from "./DiscoverControls";
@@ -20,6 +20,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
 
   const session = await getAuthSession();
   const isAdmin = Boolean(session?.roles.includes("admin"));
+  const adminCreateAction = getAdminCreateAction(type);
   await connectMongoDB();
 
   const filter: Record<string, unknown> = {
@@ -105,6 +106,14 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isAdmin ? (
+            <Link
+              className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700"
+              href={adminCreateAction.href}
+            >
+              <FiPlus aria-hidden="true" /> {adminCreateAction.label}
+            </Link>
+          ) : null}
           <DiscoverFilter href={buildDiscoverHref({ type: "all", q, level, sort })} active={type === "all"} label="All" />
           <DiscoverFilter href={buildDiscoverHref({ type: "basic", q, level, sort })} active={type === "basic"} label="Khóa học cơ bản" />
           <DiscoverFilter href={buildDiscoverHref({ type: "kanji", q, level, sort })} active={type === "kanji"} label="Luyện viết Kanji" />
@@ -346,4 +355,16 @@ function firstParam(value: string | string[] | undefined) {
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getAdminCreateAction(type: string) {
+  const actions: Record<string, { href: string; label: string }> = {
+    basic: { href: "/admin/courses?create=basic", label: "Khóa học" },
+    flashcard: { href: "/admin/courses?create=flashcard", label: "Flashcard" },
+    kanji: { href: "/admin/courses?create=kanji", label: "Viết Kanji" },
+    roadmap: { href: "/admin/courses?create=roadmap", label: "Lộ trình" },
+    test: { href: "/admin/jlpt-tests?create=1", label: "Đề thi" },
+  };
+
+  return actions[type] || { href: "/admin/courses?create=course", label: "Khóa học" };
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { FiBookOpen, FiCheckSquare, FiEdit3, FiPlay, FiPlus, FiSquare } from "react-icons/fi";
 import { FuriganaText } from "../components/FuriganaText";
+import { PersonalDecksClient } from "./PersonalDecksClient";
 
 type PersonalVocabulary = {
   _id: string;
@@ -16,6 +17,10 @@ type PersonalVocabulary = {
 };
 
 export default function MyVocabularyPage() {
+  return <Suspense><PersonalDecksClient /></Suspense>;
+}
+
+function LegacyMyVocabularyPage() {
   const [items, setItems] = useState<PersonalVocabulary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -166,3 +171,5 @@ export default function MyVocabularyPage() {
     </div>
   );
 }
+
+void LegacyMyVocabularyPage;

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import { FiBookOpen, FiCheck, FiChevronLeft, FiChevronRight, FiEdit3, FiFileText, FiHelpCircle, FiImage, FiLoader, FiMusic, FiPlus, FiSearch, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 import { TEST_LEVELS, TEST_LEVEL_LABELS, type TestLevel } from "@/lib/jlptTestLevels";
+import { EmailInvitePicker } from "@/app/flashcards/components/EmailInvitePicker";
 
 type Level = TestLevel;
+type AccessMode = "public" | "private" | "password" | "invite";
 type SectionKey = "vocabularyKanji" | "grammarReading" | "listening";
 type TestSummary = { id: string; level: Level; number: number; title: string; questionCount: number; sectionCount?: number };
 type Question = {
@@ -35,6 +37,7 @@ const emptyQuestion = (): Question => ({
 
 export function AdminJlptTestsClient({
   currentPage = 1,
+  initialCreate = false,
   initialTests,
   personal = false,
   query = "",
@@ -42,6 +45,7 @@ export function AdminJlptTestsClient({
   totalTests,
 }: {
   currentPage?: number;
+  initialCreate?: boolean;
   initialTests: TestSummary[];
   personal?: boolean;
   query?: string;
@@ -50,7 +54,7 @@ export function AdminJlptTestsClient({
 }) {
   const router = useRouter();
   const [tests, setTests] = useState(initialTests);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialCreate);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey>("vocabularyKanji");
@@ -59,6 +63,9 @@ export function AdminJlptTestsClient({
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [status, setStatus] = useState("published");
+  const [accessMode, setAccessMode] = useState<AccessMode>("public");
+  const [password, setPassword] = useState("");
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
   const [sections, setSections] = useState<Record<SectionKey, Question[]>>({
     vocabularyKanji: [emptyQuestion()],
     grammarReading: [emptyQuestion()],
@@ -96,6 +103,9 @@ export function AdminJlptTestsClient({
     setDescription("");
     setVisibility("public");
     setStatus("published");
+    setAccessMode("public");
+    setPassword("");
+    setInvitedEmails([]);
     setSections({ vocabularyKanji: [emptyQuestion()], grammarReading: [emptyQuestion()], listening: [emptyQuestion()] });
     setMessage("");
     setEditing(true);
@@ -115,6 +125,9 @@ export function AdminJlptTestsClient({
       setDescription(result.data.description);
       setVisibility(result.data.visibility);
       setStatus(result.data.status);
+      setAccessMode(result.data.accessMode || (result.data.visibility === "public" ? "public" : "private"));
+      setPassword("");
+      setInvitedEmails(result.data.invitedEmails || []);
       setSections({
         vocabularyKanji: result.data.sections.vocabularyKanji.length ? result.data.sections.vocabularyKanji : [emptyQuestion()],
         grammarReading: result.data.sections.grammarReading.length ? result.data.sections.grammarReading : [emptyQuestion()],
@@ -267,7 +280,7 @@ export function AdminJlptTestsClient({
       const response = await fetch(editingId ? `/api/admin/jlpt-tests/${editingId}` : "/api/admin/jlpt-tests", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level, title, description, visibility, status, sections: normalizedSections }),
+        body: JSON.stringify({ level, title, description, visibility, status, accessMode, password: password || undefined, invitedEmails, sections: normalizedSections }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Không thể tạo đề thi.");
@@ -380,8 +393,10 @@ export function AdminJlptTestsClient({
                 </Field>
                 <Field className="lg:col-span-3" label="Tên hiển thị"><input className={inputClass} onChange={(event) => setTitle(event.target.value)} required value={title} /></Field>
                 <Field className="sm:col-span-2" label="Mô tả"><input className={inputClass} onChange={(event) => setDescription(event.target.value)} placeholder="Mô tả ngắn trên thẻ khóa học" value={description} /></Field>
-                <Field label="Phạm vi"><select className={inputClass} onChange={(event) => setVisibility(event.target.value)} value={visibility}><option value="public">Công khai</option><option value="unlisted">Chỉ ai có link</option><option value="private">Riêng tư</option></select></Field>
+                <Field label="Quyền truy cập"><select className={inputClass} onChange={(event) => { const mode = event.target.value as AccessMode; setAccessMode(mode); setVisibility(mode === "public" ? "public" : "private"); }} value={accessMode}><option value="public">Công khai</option><option value="private">Riêng tư</option><option value="password">Bằng mật khẩu</option><option value="invite">Chia sẻ qua email</option></select></Field>
                 <Field label="Trạng thái"><select className={inputClass} onChange={(event) => setStatus(event.target.value)} value={status}><option value="published">Xuất bản</option><option value="draft">Bản nháp</option><option value="hidden">Ẩn</option></select></Field>
+                {accessMode === "password" ? <Field className="sm:col-span-2" label={`Mật khẩu${editingId ? " (để trống nếu giữ mật khẩu cũ)" : ""}`}><input className={inputClass} minLength={editingId ? undefined : 4} onChange={(event) => setPassword(event.target.value)} required={!editingId} type="password" value={password} /></Field> : null}
+                {accessMode === "invite" ? <Field className="sm:col-span-2 lg:col-span-4" label="Người được truy cập"><EmailInvitePicker emails={invitedEmails} onChange={setInvitedEmails} /></Field> : null}
               </section>
 
               <section className="flex flex-col gap-4 rounded-[1.5rem] border border-teal-200 bg-teal-50/70 p-5 sm:flex-row sm:items-center sm:justify-between">

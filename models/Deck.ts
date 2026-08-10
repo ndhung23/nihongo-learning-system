@@ -18,6 +18,9 @@ const DeckSchema = new Schema(
     sourceType: { type: String, enum: ["system", "user", "ai"], default: "system" },
     ownerId: { type: Schema.Types.ObjectId, ref: "User" },
     visibility: { type: String, enum: ["private", "public", "unlisted"], default: "private" },
+    accessMode: { type: String, enum: ["public", "private", "password", "invite"], default: "private", index: true },
+    accessPasswordHash: { type: String, select: false },
+    allowedUserIds: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     status: {
       type: String,
       enum: ["draft", "pending_review", "published", "rejected", "hidden", "archived"],

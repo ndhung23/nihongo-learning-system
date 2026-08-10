@@ -2,11 +2,13 @@ import { revalidateTag } from "next/cache";
 import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { AuthError, requireAuth } from "@/lib/auth/session";
 import { TEST_LEVELS, testLevelLabel, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
+import { UserModel } from "@/models/User";
 
 const QuestionSchema = z.object({
   group: z.string().trim().min(1, "Nhóm câu hỏi không được để trống.").max(100),
@@ -32,6 +34,9 @@ const CreateTestSchema = z.object({
   description: z.string().trim().max(1000).default(""),
   visibility: z.enum(["private", "public", "unlisted"]).default("public"),
   status: z.enum(["draft", "published", "hidden"]).default("published"),
+  accessMode: z.enum(["public", "private", "password", "invite"]).default("public"),
+  password: z.string().min(4).max(100).optional(),
+  invitedEmails: z.array(z.string().trim().email()).max(50).default([]),
   sections: z.object({
     vocabularyKanji: z.array(QuestionSchema),
     grammarReading: z.array(QuestionSchema),
@@ -52,6 +57,14 @@ export async function POST(request: NextRequest) {
     const session = await requireAuth();
     await connectMongoDB();
     const payload = CreateTestSchema.parse(await request.json());
+    if (payload.accessMode === "password" && !payload.password) return NextResponse.json({ message: "Hãy nhập mật khẩu cho đề thi." }, { status: 400 });
+    const normalizedEmails = [...new Set(payload.invitedEmails.map((email) => email.toLowerCase()))];
+    const invitedUsers = payload.accessMode === "invite" ? await UserModel.find({ email: { $in: normalizedEmails } }).select("_id email").lean() : [];
+    const foundEmails = new Set(invitedUsers.map((user) => user.email));
+    const missingEmails = normalizedEmails.filter((email) => !foundEmails.has(email));
+    if (missingEmails.length) return NextResponse.json({ message: `Email chưa tồn tại trong hệ thống: ${missingEmails.join(", ")}` }, { status: 400 });
+    if (payload.accessMode === "invite" && !invitedUsers.length) return NextResponse.json({ message: "Hãy nhập ít nhất một email đã đăng ký." }, { status: 400 });
+    const accessPasswordHash = payload.accessMode === "password" ? await bcrypt.hash(payload.password!, 12) : undefined;
     const latestTest = await JlptTestModel.findOne({ level: payload.level })
       .select("number")
       .sort({ number: -1 })
@@ -71,6 +84,9 @@ export async function POST(request: NextRequest) {
       level: payload.level,
       number: internalNumber,
       title: payload.title,
+      accessMode: payload.accessMode,
+      accessPasswordHash,
+      allowedUserIds: invitedUsers.map((user) => user._id),
       sourceFile: "admin-editor",
       sectionDefinitions: {
         vocabularyKanji: { key: "vocabulary-kanji", title: "Từ vựng + Kanji", sourceGroups: [...new Set(vocabularyKanji.map((item) => item.group))] },
@@ -99,7 +115,10 @@ export async function POST(request: NextRequest) {
         level: testLevelToCourseLevel(payload.level),
         languagePair: { source: "ja", target: "vi" },
         sourceType: "system",
-        visibility: payload.visibility,
+        visibility: payload.accessMode === "public" ? "public" : "private",
+        accessMode: payload.accessMode,
+        accessPasswordHash,
+        allowedUserIds: invitedUsers.map((user) => user._id),
         status: payload.status,
         price: { amount: 0, currency: "VND" },
         tags: ["Đề thi", testLevelLabel(payload.level), "Test", "Từ vựng + Kanji"],

@@ -2,11 +2,13 @@ import { Types } from "mongoose";
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { AuthError, requireAuth } from "@/lib/auth/session";
 import { TEST_LEVELS, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { JlptTestModel } from "@/models/JlptTest";
+import { UserModel } from "@/models/User";
 
 const QuestionSchema = z.object({
   group: z.string().trim().min(1, "Nhóm câu hỏi không được để trống.").max(100),
@@ -30,6 +32,9 @@ const UpdateTestSchema = z.object({
   description: z.string().trim().max(1000).default(""),
   visibility: z.enum(["private", "public", "unlisted"]).default("public"),
   status: z.enum(["draft", "published", "hidden"]).default("published"),
+  accessMode: z.enum(["public", "private", "password", "invite"]).default("public"),
+  password: z.string().max(100).optional(),
+  invitedEmails: z.array(z.string().trim().email()).max(50).default([]),
   sections: z.object({
     vocabularyKanji: z.array(QuestionSchema),
     grammarReading: z.array(QuestionSchema),
@@ -58,9 +63,12 @@ export async function GET(_request: Request, context: RouteContext<"/api/admin/j
     const objectId = new Types.ObjectId(id);
     const [test, deck] = await Promise.all([
       JlptTestModel.collection.findOne(ownershipFilter(session, objectId)),
-      DeckModel.findOne({ "jlptTest.testId": objectId }).select("description visibility status").lean(),
+      DeckModel.findOne({ "jlptTest.testId": objectId }).select("description visibility status accessMode allowedUserIds").lean(),
     ]);
     if (!test) return NextResponse.json({ message: "Không tìm thấy đề thi." }, { status: 404 });
+    const invitedUsers = deck?.allowedUserIds?.length
+      ? await UserModel.find({ _id: { $in: deck.allowedUserIds } }).select("email").lean()
+      : [];
     return NextResponse.json({
       data: {
         id,
@@ -70,6 +78,8 @@ export async function GET(_request: Request, context: RouteContext<"/api/admin/j
         description: deck?.description || "",
         visibility: deck?.visibility || "public",
         status: deck?.status || "published",
+        accessMode: deck?.accessMode || (deck?.visibility === "public" ? "public" : "private"),
+        invitedEmails: invitedUsers.map((user) => user.email),
         sections: test.sections,
       },
     });
@@ -104,6 +114,15 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
     const grammarReading = decorate(payload.sections.grammarReading, "gr");
     const listening = decorate(payload.sections.listening, "ls");
     const questionCount = vocabularyKanji.length + grammarReading.length + listening.length;
+    const normalizedEmails = [...new Set(payload.invitedEmails.map((email) => email.toLowerCase()))];
+    const invitedUsers = payload.accessMode === "invite" ? await UserModel.find({ email: { $in: normalizedEmails } }).select("_id email").lean() : [];
+    const foundEmails = new Set(invitedUsers.map((user) => user.email));
+    const missingEmails = normalizedEmails.filter((email) => !foundEmails.has(email));
+    if (missingEmails.length) return NextResponse.json({ message: `Email chưa tồn tại trong hệ thống: ${missingEmails.join(", ")}` }, { status: 400 });
+    if (payload.accessMode === "invite" && !invitedUsers.length) return NextResponse.json({ message: "Hãy nhập ít nhất một email đã đăng ký." }, { status: 400 });
+    const currentTest = await JlptTestModel.findById(objectId).select("+accessPasswordHash").lean();
+    if (payload.accessMode === "password" && !payload.password && !currentTest?.accessPasswordHash) return NextResponse.json({ message: "Hãy nhập mật khẩu cho đề thi." }, { status: 400 });
+    const accessPasswordHash = payload.accessMode === "password" ? (payload.password ? await bcrypt.hash(payload.password, 12) : currentTest?.accessPasswordHash) : undefined;
 
     await JlptTestModel.updateOne(
       { _id: objectId },
@@ -118,6 +137,9 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
             listening: { key: "listening", title: "Nghe hiểu", sourceGroups: [...new Set(listening.map((item) => item.group))] },
           },
           questionCount,
+          accessMode: payload.accessMode,
+          accessPasswordHash,
+          allowedUserIds: invitedUsers.map((user) => user._id),
           importedAt: new Date(),
         },
       },
@@ -128,7 +150,10 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
         $set: {
           title: payload.title,
           description: payload.description,
-          visibility: payload.visibility,
+          visibility: payload.accessMode === "public" ? "public" : "private",
+          accessMode: payload.accessMode,
+          accessPasswordHash,
+          allowedUserIds: invitedUsers.map((user) => user._id),
           status: payload.status,
           level: testLevelToCourseLevel(payload.level),
           "jlptTest.level": payload.level,

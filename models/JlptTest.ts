@@ -60,6 +60,9 @@ const JlptTestSchema = new Schema(
     },
     number: { type: Number, required: true, min: 1 },
     title: { type: String, required: true, trim: true },
+    accessMode: { type: String, enum: ["public", "private", "password", "invite"], default: "public" },
+    accessPasswordHash: { type: String, select: false },
+    allowedUserIds: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     sourceFile: { type: String, default: "" },
     sectionDefinitions: {
       vocabularyKanji: { type: SectionDefinitionSchema, required: true },

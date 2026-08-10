@@ -19,6 +19,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
   const visibility = firstParam(params.visibility);
   const status = firstParam(params.status);
   const initialOpenCourseId = firstParam(params.open);
+  const initialCreatePreset = normalizeCreatePreset(firstParam(params.create));
 
   await connectMongoDB();
 
@@ -79,6 +80,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
       }))}
       meta={{ page: Math.min(page, totalPages), limit, total, totalPages }}
       initialOpenCourseId={initialOpenCourseId}
+      initialCreatePreset={initialCreatePreset}
     />
   );
 }
@@ -118,4 +120,8 @@ function clampNumber(value: string, min: number, max: number, fallback: number) 
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeCreatePreset(value: string) {
+  return ["course", "basic", "kanji", "flashcard", "roadmap"].includes(value) ? value : "";
 }

@@ -149,11 +149,11 @@ const statusOptions = [
   ["Archived", "archived"],
 ] as const;
 
-export function AdminCoursesClient({ courses, initialOpenCourseId, meta }: Readonly<{ courses: Course[]; initialOpenCourseId?: string; meta: Meta }>) {
+export function AdminCoursesClient({ courses, initialCreatePreset = "", initialOpenCourseId, meta }: Readonly<{ courses: Course[]; initialCreatePreset?: string; initialOpenCourseId?: string; meta: Meta }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<CourseFormState>(emptyForm);
+  const [formOpen, setFormOpen] = useState(Boolean(initialCreatePreset));
+  const [form, setForm] = useState<CourseFormState>(() => createFormForPreset(initialCreatePreset));
   const [detail, setDetail] = useState<CourseDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
@@ -971,6 +971,20 @@ function AdminInput({
       <input className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400" onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} value={value} />
     </label>
   );
+}
+
+function createFormForPreset(preset: string): CourseFormState {
+  const presetTags: Record<string, string> = {
+    basic: "Cơ bản",
+    flashcard: "Flashcard",
+    kanji: "Kanji, Luyện viết Kanji",
+    roadmap: "roadmap",
+  };
+
+  return {
+    ...emptyForm,
+    tags: presetTags[preset] || "",
+  };
 }
 
 function sourceTypeLabel(type: Course["sourceType"]) {
