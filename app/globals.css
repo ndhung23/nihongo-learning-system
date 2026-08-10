@@ -163,3 +163,13 @@ html {
 .hide-furigana ruby rp {
   display: none;
 }
+/* Roadmap rich-text editor */
+.roadmap-editor .ProseMirror { min-height: 10rem; outline: none; line-height: 1.75; }
+.roadmap-editor .ProseMirror h1 { font-size: 1.75rem; font-weight: 900; }
+.roadmap-editor .ProseMirror h2 { font-size: 1.4rem; font-weight: 850; }
+.roadmap-editor .ProseMirror h3 { font-size: 1.15rem; font-weight: 800; }
+.roadmap-editor .ProseMirror ul { list-style: disc; padding-left: 1.5rem; }
+.roadmap-editor .ProseMirror ol { list-style: decimal; padding-left: 1.5rem; }
+.roadmap-editor .ProseMirror blockquote { margin: .75rem 0; border: 2px solid #14b8a6; border-radius: .75rem; background: #f0fdfa; padding: .75rem 1rem; }
+.roadmap-editor .ProseMirror hr { margin: 1rem 0; border-color: #cbd5e1; }
+.roadmap-editor .ProseMirror code { border-radius: .3rem; background: #f1f5f9; padding: .1rem .3rem; }

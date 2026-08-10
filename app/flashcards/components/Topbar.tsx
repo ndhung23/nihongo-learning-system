@@ -592,6 +592,7 @@ function PracticeMenu({
     { href: "/flashcards/bookmarks", label: bookmarksLabel },
     { href: "/flashcards/my-vocabulary", label: myVocabularyLabel },
     { href: "/flashcards/tests", label: myTestsLabel },
+    { href: "/flashcards/roadmaps", label: "Khóa học lộ trình" },
   ];
   const active = items.some(({ href }) => pathname === href || pathname.startsWith(`${href}/`));
 

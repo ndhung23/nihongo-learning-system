@@ -1,0 +1,9 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/session";
+import { connectMongoDB } from "@/lib/mongodb";
+import { canAccessRoadmap, validRichText } from "@/lib/roadmaps";
+import { RoadmapCourseModel } from "@/models/RoadmapCourse";
+import { RoadmapLessonModel } from "@/models/RoadmapLesson";
+import { RoadmapLessonUserNoteModel } from "@/models/RoadmapLessonUserNote";
+export async function GET(_request: NextRequest, context: RouteContext<"/api/roadmaps/[id]/notes/[lessonId]">) { const session = await requireAuth(); const { id, lessonId } = await context.params; await connectMongoDB(); const course = await RoadmapCourseModel.findById(id).lean(); if (!course || !canAccessRoadmap(course, session.userId)) return NextResponse.json({ message: "Không có quyền truy cập." }, { status: 403 }); const note = await RoadmapLessonUserNoteModel.findOne({ userId: session.userId, courseId: id, lessonId }).lean(); return NextResponse.json({ data: note?.content || { type: "doc", content: [] } }); }
+export async function PUT(request: NextRequest, context: RouteContext<"/api/roadmaps/[id]/notes/[lessonId]">) { const session = await requireAuth(); const { id, lessonId } = await context.params; await connectMongoDB(); const course = await RoadmapCourseModel.findById(id).lean(); if (!course || !canAccessRoadmap(course, session.userId) || !await RoadmapLessonModel.exists({ _id: lessonId, courseId: id })) return NextResponse.json({ message: "Không có quyền truy cập." }, { status: 403 }); const { content } = await request.json(); if (!validRichText(content)) return NextResponse.json({ message: "Note không hợp lệ hoặc quá lớn." }, { status: 400 }); await RoadmapLessonUserNoteModel.updateOne({ userId: session.userId, lessonId }, { $set: { courseId: id, content } }, { upsert: true }); return NextResponse.json({ message: "Đã lưu." }); }

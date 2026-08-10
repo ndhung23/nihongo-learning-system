@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { requireAuth } from "@/lib/auth/session";
+import { connectMongoDB } from "@/lib/mongodb";
+import { requireRoadmapOwner } from "@/lib/roadmaps";
+import { RoadmapLessonModel } from "@/models/RoadmapLesson";
+export async function POST(request: NextRequest, context: RouteContext<"/api/roadmaps/[id]/lessons">) { const session = await requireAuth(); const { id } = await context.params; await connectMongoDB(); const course = await requireRoadmapOwner(id, session.userId); if (!course) return NextResponse.json({ message: "Bạn không có quyền thêm bài." }, { status: 403 }); const { title } = z.object({ title: z.string().trim().min(1).max(160) }).parse(await request.json()); const lesson = await RoadmapLessonModel.create({ courseId: id, order: course.lessonCount + 1, title }); course.lessonCount += 1; await course.save(); return NextResponse.json({ data: { ...lesson.toObject(), _id: String(lesson._id) } }, { status: 201 }); }
+export async function PATCH(request: NextRequest, context: RouteContext<"/api/roadmaps/[id]/lessons">) { const session = await requireAuth(); const { id } = await context.params; await connectMongoDB(); if (!await requireRoadmapOwner(id, session.userId)) return NextResponse.json({ message: "Bạn không có quyền sắp xếp bài." }, { status: 403 }); const { lessonIds } = z.object({ lessonIds: z.array(z.string()).max(300) }).parse(await request.json()); await Promise.all(lessonIds.map((lessonId, index) => RoadmapLessonModel.updateOne({ _id: lessonId, courseId: id }, { $set: { order: index + 1 } }))); return NextResponse.json({ message: "Đã sắp xếp." }); }
