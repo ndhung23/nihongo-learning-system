@@ -1,7 +1,9 @@
 import { connectMongoDB } from "@/lib/mongodb";
-import { roles } from "@/lib/auth/permissions";
 import { UserModel } from "@/models/User";
 import { AdminUsersClient } from "./AdminUsersClient";
+import { requireAdminPage } from "@/lib/admin/page-auth";
+import { ensureRbacSeeded } from "@/lib/auth/rbac";
+import { RoleModel } from "@/models/Role";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -9,6 +11,7 @@ const statuses = ["active", "inactive", "banned", "pending_verify"];
 const genders = ["male", "female", "other", "unknown"];
 
 export default async function AdminUsersPage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
+  const session = await requireAdminPage("admin:user:read");
   const params = await searchParams;
   const page = clampNumber(firstParam(params.page), 1, 9999, 1);
   const limit = clampNumber(firstParam(params.limit), 10, 50, 10);
@@ -18,6 +21,8 @@ export default async function AdminUsersPage({ searchParams }: Readonly<{ search
   const gender = firstParam(params.gender);
 
   await connectMongoDB();
+  await ensureRbacSeeded();
+  const availableRoles = await RoleModel.find({ isActive: true }).select("name code").sort({ isSystem: -1, name: 1 }).lean();
 
   const filter: Record<string, unknown> = {};
 
@@ -31,7 +36,7 @@ export default async function AdminUsersPage({ searchParams }: Readonly<{ search
     ];
   }
 
-  if (roles.includes(role as (typeof roles)[number])) {
+  if (availableRoles.some((item) => item.code === role)) {
     filter.roles = role;
   }
 
@@ -58,6 +63,8 @@ export default async function AdminUsersPage({ searchParams }: Readonly<{ search
   return (
     <AdminUsersClient
       meta={{ page: Math.min(page, totalPages), limit, total, totalPages }}
+      roleOptions={availableRoles.map((item) => ({ label: item.name, value: item.code }))}
+      capabilities={{ create: session.permissions.includes("admin:user:create"), update: session.permissions.includes("admin:user:update"), delete: session.permissions.includes("admin:user:delete") }}
       users={users.map((user) => ({
         _id: String(user._id),
         username: user.username,

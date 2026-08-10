@@ -1,8 +1,10 @@
 import { FiMail } from "react-icons/fi";
 import { connectMongoDB } from "@/lib/mongodb";
 import { FeedbackModel } from "@/models/Feedback";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 export default async function AdminFeedbackPage() {
+  await requireAdminPage("admin:feedback:read");
   await connectMongoDB();
 
   const feedbackItems = await FeedbackModel.find()

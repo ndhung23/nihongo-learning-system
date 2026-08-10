@@ -1,8 +1,10 @@
 import { connectMongoDB } from "@/lib/mongodb";
 import { ExampleSuggestionModel } from "@/models/ExampleSuggestion";
 import { ExampleSuggestionsClient } from "./ExampleSuggestionsClient";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 export default async function AdminExampleSuggestionsPage() {
+  await requireAdminPage("admin:example-suggestion:read");
   await connectMongoDB();
 
   const suggestions = await ExampleSuggestionModel.find()

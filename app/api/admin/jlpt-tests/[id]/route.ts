@@ -3,7 +3,7 @@ import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { AuthError, requireAuth } from "@/lib/auth/session";
+import { AuthError, requirePermission, type AuthSession } from "@/lib/auth/session";
 import { TEST_LEVELS, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
@@ -50,13 +50,13 @@ function invalidIdResponse() {
   return NextResponse.json({ message: "Mã đề thi không hợp lệ." }, { status: 400 });
 }
 
-function ownershipFilter(session: Awaited<ReturnType<typeof requireAuth>>, id: Types.ObjectId) {
+function ownershipFilter(session: AuthSession, id: Types.ObjectId) {
   return session.roles.includes("admin") ? { _id: id } : { _id: id, createdBy: new Types.ObjectId(session.userId) };
 }
 
 export async function GET(_request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
   try {
-    const session = await requireAuth();
+    const session = await requirePermission("admin:jlpt-test:read");
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
     await connectMongoDB();
@@ -93,7 +93,7 @@ export async function GET(_request: Request, context: RouteContext<"/api/admin/j
 
 export async function PATCH(request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
   try {
-    const session = await requireAuth();
+    const session = await requirePermission("admin:jlpt-test:update");
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
     const payload = UpdateTestSchema.parse(await request.json());
@@ -178,7 +178,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/admin/
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/admin/jlpt-tests/[id]">) {
   try {
-    const session = await requireAuth();
+    const session = await requirePermission("admin:jlpt-test:delete");
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) return invalidIdResponse();
     await connectMongoDB();

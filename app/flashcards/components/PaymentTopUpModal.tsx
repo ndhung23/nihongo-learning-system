@@ -27,8 +27,9 @@ export function PaymentTopUpModal({
   const [activePayment, setActivePayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [pricing, setPricing] = useState({ aiPrice: 1000, vipPrice: 20000, vipAiCredits: 100 });
   const amount = Number(amountText) || 0;
-  const benefit = kind === "ai" ? `${Math.floor(amount / 1000)} lượt AI` : `${Math.floor(amount / 20_000)} tháng VIP + ${Math.floor(amount / 20_000) * 100} lượt AI`;
+  const benefit = kind === "ai" ? `${Math.floor(amount / pricing.aiPrice)} lượt AI` : `${Math.floor(amount / pricing.vipPrice)} tháng VIP + ${Math.floor(amount / pricing.vipPrice) * pricing.vipAiCredits} lượt AI`;
   const qrUrl = useMemo(() => {
     if (!activePayment) return "";
     const query = new URLSearchParams({
@@ -41,6 +42,16 @@ export function PaymentTopUpModal({
 
   useEffect(() => {
     void loadHistory();
+    void fetch("/api/settings/public").then((response) => response.json()).then((payload: { data?: Record<string, unknown> }) => {
+      const data = payload.data || {};
+      const next = {
+        aiPrice: Math.max(Number(data.aiCreditPriceVnd ?? 1000), 1),
+        vipPrice: Math.max(Number(data.vipMonthlyPriceVnd ?? 20000), 1),
+        vipAiCredits: Math.max(Number(data.vipMonthlyAiCredits ?? 100), 0),
+      };
+      setPricing(next);
+      setAmountText(initialKind === "vip" ? String(next.vipPrice) : String(next.aiPrice * 10));
+    }).catch(() => undefined);
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
@@ -61,18 +72,18 @@ export function PaymentTopUpModal({
 
   function changeKind(nextKind: "ai" | "vip") {
     setKind(nextKind);
-    setAmountText(nextKind === "vip" ? "20000" : "10000");
+    setAmountText(nextKind === "vip" ? String(pricing.vipPrice) : String(pricing.aiPrice * 10));
     setActivePayment(null);
     setMessage("");
   }
 
   async function createPayment() {
-    if (amount < 1000 || amount % 1000 !== 0) {
-      setMessage("Số tiền tối thiểu 1.000đ và phải chia hết cho 1.000.");
+    if (kind === "ai" && (amount < pricing.aiPrice || amount % pricing.aiPrice !== 0)) {
+      setMessage(`Số tiền phải chia hết cho ${pricing.aiPrice.toLocaleString("vi-VN")}đ.`);
       return;
     }
-    if (kind === "vip" && amount % 20_000 !== 0) {
-      setMessage("VIP có giá 20.000đ mỗi tháng.");
+    if (kind === "vip" && amount % pricing.vipPrice !== 0) {
+      setMessage(`VIP có giá ${pricing.vipPrice.toLocaleString("vi-VN")}đ mỗi tháng.`);
       return;
     }
 
@@ -122,7 +133,7 @@ export function PaymentTopUpModal({
             <label className="mt-5 block">
               <span className="text-xs font-black uppercase tracking-wider text-slate-500">Số tiền chuyển khoản</span>
               <div className="mt-2 flex h-14 items-center rounded-2xl border border-slate-200 px-4 focus-within:border-teal-400">
-                <input className="min-w-0 flex-1 text-xl font-black outline-none" inputMode="numeric" min={kind === "vip" ? 20000 : 1000} onChange={(event) => setAmountText(event.target.value.replace(/\D/g, ""))} step={kind === "vip" ? 20000 : 1000} type="number" value={amountText} />
+                <input className="min-w-0 flex-1 text-xl font-black outline-none" inputMode="numeric" min={kind === "vip" ? pricing.vipPrice : pricing.aiPrice} onChange={(event) => setAmountText(event.target.value.replace(/\D/g, ""))} step={kind === "vip" ? pricing.vipPrice : pricing.aiPrice} type="number" value={amountText} />
                 <span className="font-black text-slate-400">đ</span>
               </div>
             </label>

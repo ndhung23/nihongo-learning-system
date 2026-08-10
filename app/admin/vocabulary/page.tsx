@@ -1,7 +1,9 @@
 import { connectMongoDB } from "@/lib/mongodb";
 import { VocabularyModel } from "@/models/Vocabulary";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 export default async function AdminVocabularyPage() {
+  await requireAdminPage("admin:vocabulary:read");
   await connectMongoDB();
 
   const vocabulary = await VocabularyModel.find({})

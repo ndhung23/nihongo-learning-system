@@ -1,6 +1,7 @@
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { AdminCoursesClient } from "./AdminCoursesClient";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -10,6 +11,7 @@ const visibilities = ["private", "public", "unlisted"];
 const statuses = ["draft", "pending_review", "published", "rejected", "hidden", "archived"];
 
 export default async function AdminCoursesPage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
+  const session = await requireAdminPage("admin:course:read");
   const params = await searchParams;
   const page = clampNumber(firstParam(params.page), 1, 9999, 1);
   const limit = clampNumber(firstParam(params.limit), 5, 50, 10);
@@ -54,6 +56,7 @@ export default async function AdminCoursesPage({ searchParams }: Readonly<{ sear
 
   return (
     <AdminCoursesClient
+      capabilities={{ create: session.permissions.includes("admin:course:create"), update: session.permissions.includes("admin:course:update"), delete: session.permissions.includes("admin:course:delete") }}
       courses={courses.map((course) => ({
         _id: String(course._id),
         title: course.title,

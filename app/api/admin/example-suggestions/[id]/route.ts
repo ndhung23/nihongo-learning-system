@@ -16,7 +16,7 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const session = await requirePermission("admin:course:write");
+    const session = await requirePermission("admin:example-suggestion:update");
     await connectMongoDB();
 
     const { id } = await context.params;

@@ -10,7 +10,7 @@ const BodySchema = z.object({ action: z.enum(["approve", "reject"]) });
 
 export async function PATCH(request: Request, context: RouteContext<"/api/admin/jlpt-highlights/[id]">) {
   try {
-    const session = await requirePermission("admin:course:write");
+    const session = await requirePermission("admin:jlpt-highlight:update");
     const { id } = await context.params;
     const { action } = BodySchema.parse(await request.json());
     if (!isValidObjectId(id)) return NextResponse.json({ message: "Mã góp ý không hợp lệ." }, { status: 400 });

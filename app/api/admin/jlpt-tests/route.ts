@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { AuthError, requireAuth } from "@/lib/auth/session";
+import { AuthError, requirePermission } from "@/lib/auth/session";
 import { TEST_LEVELS, testLevelLabel, testLevelToCourseLevel } from "@/lib/jlptTestLevels";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
@@ -54,7 +54,7 @@ const CreateTestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireAuth();
+    const session = await requirePermission("admin:jlpt-test:create");
     await connectMongoDB();
     const payload = CreateTestSchema.parse(await request.json());
     if (payload.accessMode === "password" && !payload.password) return NextResponse.json({ message: "Hãy nhập mật khẩu cho đề thi." }, { status: 400 });

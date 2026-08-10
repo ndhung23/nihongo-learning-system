@@ -2,8 +2,10 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { JlptHighlightSuggestionModel } from "@/models/JlptHighlightSuggestion";
 import { JlptTestModel } from "@/models/JlptTest";
 import { PaginatedHighlightsClient } from "./PaginatedHighlightsClient";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 export default async function JlptHighlightsPage() {
+  await requireAdminPage("admin:jlpt-highlight:read");
   await connectMongoDB();
   const [tests, suggestions] = await Promise.all([
     JlptTestModel.find().select({ level: 1, number: 1, sections: 1 }).sort({ level: -1, number: 1 }).lean(),

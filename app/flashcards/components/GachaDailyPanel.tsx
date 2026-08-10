@@ -28,14 +28,16 @@ const quests = [
   { id: "newWords", title: "Học 5 từ mới", target: 5, field: "newWords" },
 ] as const;
 
-const prizes = [
+type Prize = { label: string; wheelLabel: string; chance: number; kind: "ticket" | "none" | "scratch" | "ai" | "retry" | "coins"; color: string };
+
+const defaultPrizes: Prize[] = [
   { label: "+1 vé Gacha", wheelLabel: "+1 vé", chance: 25, kind: "ticket", color: "#fb7185" },
   { label: "Chúc bạn may mắn lần sau", wheelLabel: "Chúc may mắn", chance: 25, kind: "none", color: "#fbbf24" },
   { label: "Thẻ cào 100K", wheelLabel: "Thẻ 100K", chance: 0, kind: "scratch", color: "#a78bfa" },
   { label: "+1 lượt dùng API AI", wheelLabel: "+1 lượt AI", chance: 20, kind: "ai", color: "#38bdf8" },
   { label: "Cơ hội quay lại", wheelLabel: "Quay lại", chance: 15, kind: "retry", color: "#2dd4bf" },
   { label: "100 xu", wheelLabel: "100 xu", chance: 15, kind: "coins", color: "#fb923c" },
-] as const;
+];
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -94,6 +96,8 @@ function randomPercent() {
 }
 
 export function GachaDailyPanel() {
+  const [prizes, setPrizes] = useState<Prize[]>(defaultPrizes);
+  const [coinsReward, setCoinsReward] = useState(100);
   const [activeStorageKey, setActiveStorageKey] = useState(() => getDailyProgressStorageKey());
   const [dailyState, setDailyState] = useState<DailyState>(createDailyState);
   const [rotation, setRotation] = useState(0);
@@ -112,6 +116,23 @@ export function GachaDailyPanel() {
       ).length,
     [dailyState],
   );
+
+  useEffect(() => {
+    void fetch("/api/settings/public")
+      .then((response) => response.json())
+      .then((payload: { data?: Record<string, unknown> }) => {
+        const values = payload.data || {};
+        const chanceKeys = ["gachaTicketChance", "gachaNoneChance", "gachaScratchChance", "gachaAiChance", "gachaRetryChance", "gachaCoinsChance"];
+        const reward = Math.max(Number(values.gachaCoinsReward ?? 100), 0);
+        setPrizes(defaultPrizes.map((prize, index) => ({
+          ...prize,
+          chance: Number(values[chanceKeys[index]] ?? prize.chance),
+          ...(prize.kind === "coins" ? { label: `${reward} xu`, wheelLabel: `${reward} xu` } : {}),
+        })));
+        setCoinsReward(reward);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const sync = () => setDailyState(readDailyState(activeStorageKey));
@@ -250,7 +271,7 @@ export function GachaDailyPanel() {
       const next = { ...current };
       if (prize.kind === "ticket" || prize.kind === "retry") next.tickets += 1;
       if (prize.kind === "ai") next.aiCredits += 1;
-      if (prize.kind === "coins") next.coins += 100;
+      if (prize.kind === "coins") next.coins += coinsReward;
       updateDailyState(next);
       setLastPrize(prize.label);
       setResultOpen(true);

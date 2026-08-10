@@ -2,11 +2,12 @@ import bcrypt from "bcryptjs";
 import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { roles } from "@/lib/auth/permissions";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { UserModel } from "@/models/User";
 import { duplicateKeyMessage, isValidVietnamesePhone, normalizePhone, validationMessage } from "@/lib/auth/user-identity";
+import { ensureRbacSeeded } from "@/lib/auth/rbac";
+import { RoleModel } from "@/models/Role";
 
 const UpdateUserSchema = z.object({
   email: z.string().trim().email("Email không đúng định dạng.").optional(),
@@ -14,7 +15,7 @@ const UpdateUserSchema = z.object({
   displayName: z.string().optional(),
   phone: z.string().optional(),
   gender: z.enum(["male", "female", "other", "unknown"]).optional(),
-  roles: z.array(z.enum(roles)).optional(),
+  roles: z.array(z.string().trim().min(1).max(64)).min(1).optional(),
   status: z.enum(["active", "inactive", "banned", "pending_verify"]).optional(),
   addAiCredits: z.coerce.number().int().min(0).optional(),
   addGachaTickets: z.coerce.number().int().min(0).optional(),
@@ -25,11 +26,22 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePermission("admin:user:write");
+    const session = await requirePermission("admin:user:update");
     await connectMongoDB();
 
     const { id } = await params;
+    if (!Types.ObjectId.isValid(id)) return NextResponse.json({ message: "ID người dùng không hợp lệ." }, { status: 400 });
     const payload = UpdateUserSchema.parse(await request.json());
+    if (payload.roles && session.userId === id) {
+      return NextResponse.json({ message: "Bạn không thể tự thay đổi vai trò của chính mình." }, { status: 403 });
+    }
+    if (payload.roles) {
+      await ensureRbacSeeded();
+      const validRoleCount = await RoleModel.countDocuments({ code: { $in: payload.roles }, isActive: true });
+      if (validRoleCount !== new Set(payload.roles).size) {
+        return NextResponse.json({ message: "Có vai trò không tồn tại hoặc đã bị tắt." }, { status: 400 });
+      }
+    }
     const update: Record<string, unknown> = {};
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone === undefined ? undefined : normalizePhone(payload.phone);
@@ -103,10 +115,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePermission("admin:user:write");
+    const session = await requirePermission("admin:user:delete");
     await connectMongoDB();
 
     const { id } = await params;
+    if (!Types.ObjectId.isValid(id)) return NextResponse.json({ message: "ID người dùng không hợp lệ." }, { status: 400 });
+    if (session.userId === id) return NextResponse.json({ message: "Bạn không thể tự xóa tài khoản đang đăng nhập." }, { status: 403 });
+    const target = await UserModel.findById(id).select("roles status").lean();
+    if (target?.roles?.includes("admin") && target.status === "active" && await UserModel.countDocuments({ roles: "admin", status: "active" }) <= 1) {
+      return NextResponse.json({ message: "Không thể xóa quản trị viên đang hoạt động cuối cùng." }, { status: 409 });
+    }
     const deleted = await UserModel.findByIdAndDelete(id).lean();
 
     if (!deleted) {

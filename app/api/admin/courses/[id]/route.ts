@@ -92,7 +92,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:course:update");
     await connectMongoDB();
 
     const { id } = await context.params;
@@ -162,7 +162,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:course:delete");
     await connectMongoDB();
 
     const { id } = await context.params;

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   FiBarChart2, FiBookOpen, FiChevronDown, FiClipboard, FiCreditCard, FiDatabase, FiEdit3,
-  FiHome, FiMail, FiMenu, FiMessageSquare, FiUsers, FiX,
+  FiHome, FiKey, FiMail, FiMenu, FiMessageSquare, FiSettings, FiShield, FiUsers, FiX,
 } from "react-icons/fi";
 
 const adminNav = [
@@ -13,32 +13,38 @@ const adminNav = [
     id: "overview",
     label: "Tổng quan",
     items: [
-      { label: "Dashboard", href: "/admin", icon: FiBarChart2 },
-      { label: "Người dùng", href: "/admin/users", icon: FiUsers },
-      { label: "Duyệt thanh toán", href: "/admin/payments", icon: FiCreditCard },
+      { label: "Dashboard", href: "/admin", icon: FiBarChart2, permission: "admin:dashboard:read" },
+      { label: "Người dùng", href: "/admin/users", icon: FiUsers, permission: "admin:user:read" },
+      { label: "Duyệt thanh toán", href: "/admin/payments", icon: FiCreditCard, permission: "admin:payment:read" },
     ],
   },
   {
     id: "content",
     label: "Nội dung",
     items: [
-      { label: "Khóa học", href: "/admin/courses", icon: FiBookOpen },
-      { label: "Từ vựng", href: "/admin/vocabulary", icon: FiDatabase },
-      { label: "Đề thi JLPT", href: "/admin/jlpt-tests", icon: FiClipboard },
-      { label: "Highlight JLPT", href: "/admin/jlpt-highlights", icon: FiEdit3 },
+      { label: "Khóa học", href: "/admin/courses", icon: FiBookOpen, permission: "admin:course:read" },
+      { label: "Từ vựng", href: "/admin/vocabulary", icon: FiDatabase, permission: "admin:vocabulary:read" },
+      { label: "Đề thi JLPT", href: "/admin/jlpt-tests", icon: FiClipboard, permission: "admin:jlpt-test:read" },
+      { label: "Highlight JLPT", href: "/admin/jlpt-highlights", icon: FiEdit3, permission: "admin:jlpt-highlight:read" },
     ],
   },
   {
     id: "community",
     label: "Cộng đồng",
     items: [
-      { label: "Mẫu câu góp ý", href: "/admin/example-suggestions", icon: FiMessageSquare },
-      { label: "Góp ý", href: "/admin/feedback", icon: FiMail },
+      { label: "Mẫu câu góp ý", href: "/admin/example-suggestions", icon: FiMessageSquare, permission: "admin:example-suggestion:read" },
+      { label: "Góp ý", href: "/admin/feedback", icon: FiMail, permission: "admin:feedback:read" },
     ],
   },
+  { id: "master-data", label: "Master Data", items: [{ label: "Quản lý dữ liệu", href: "/admin/master-data", icon: FiDatabase, permission: "admin:master-data:read" }] },
+  { id: "system", label: "Cài đặt hệ thống", items: [
+    { label: "Vai trò & phân quyền", href: "/admin/settings/roles", icon: FiShield, permission: "admin:role:read" },
+    { label: "Phân quyền chức năng", href: "/admin/settings/permissions", icon: FiKey, permission: "admin:permission:read" },
+    { label: "Cấu hình hệ thống", href: "/admin/settings/general", icon: FiSettings, permission: "admin:settings:read" },
+  ] },
 ];
 
-export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AdminShell({ children, permissions }: Readonly<{ children: React.ReactNode; permissions: string[] }>) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -79,15 +85,16 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
       ) : null}
 
       <div className="relative grid min-h-[calc(100vh-4rem)] lg:min-h-screen lg:grid-cols-[264px_1fr]">
-        <AdminSidebar key={pathname} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} pathname={pathname} />
+        <AdminSidebar key={pathname} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} pathname={pathname} permissions={permissions} />
         <section className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</section>
       </div>
     </main>
   );
 }
 
-function AdminSidebar({ mobileOpen, onClose, pathname }: { mobileOpen: boolean; onClose: () => void; pathname: string }) {
-  const activeGroup = adminNav.find((group) => group.items.some((item) => item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)));
+function AdminSidebar({ mobileOpen, onClose, pathname, permissions }: { mobileOpen: boolean; onClose: () => void; pathname: string; permissions: string[] }) {
+  const visibleNav = adminNav.map((group) => ({ ...group, items: group.items.filter((item) => permissions.includes(item.permission)) })).filter((group) => group.items.length > 0);
+  const activeGroup = visibleNav.find((group) => group.items.some((item) => item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)));
   const [openGroups, setOpenGroups] = useState<string[]>(activeGroup ? [activeGroup.id] : []);
 
   function toggleGroup(groupId: string) {
@@ -110,7 +117,7 @@ function AdminSidebar({ mobileOpen, onClose, pathname }: { mobileOpen: boolean; 
       </div>
 
       <nav className="mt-6 flex-1 space-y-5 overflow-y-auto pr-1">
-        {adminNav.map((group) => (
+        {visibleNav.map((group) => (
           <div key={group.label}>
             <button
               aria-controls={`admin-nav-${group.id}`}

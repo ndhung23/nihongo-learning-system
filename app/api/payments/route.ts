@@ -5,6 +5,7 @@ import { AuthError, requireAuth } from "@/lib/auth/session";
 import { sendPaymentRequestAdminEmail } from "@/lib/email";
 import { connectMongoDB } from "@/lib/mongodb";
 import { PaymentRequestModel } from "@/models/PaymentRequest";
+import { SystemSettingModel } from "@/models/SystemSetting";
 
 const CreatePaymentSchema = z.object({
   kind: z.enum(["ai", "vip"]),
@@ -29,23 +30,27 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const payload = CreatePaymentSchema.parse(await request.json());
-
-    if (payload.amount % 1000 !== 0) {
-      return NextResponse.json({ message: "Số tiền phải chia hết cho 1.000đ." }, { status: 400 });
-    }
-    if (payload.kind === "vip" && payload.amount % 20_000 !== 0) {
-      return NextResponse.json({ message: "VIP có giá 20.000đ cho mỗi tháng." }, { status: 400 });
-    }
-
     await connectMongoDB();
+    const pricing = Object.fromEntries((await SystemSettingModel.find({ key: { $in: ["aiCreditPriceVnd", "vipMonthlyPriceVnd", "vipMonthlyAiCredits"] } }).lean()).map((item) => [item.key, Number(item.value)]));
+    const aiPrice = Math.max(pricing.aiCreditPriceVnd || 1000, 1);
+    const vipPrice = Math.max(pricing.vipMonthlyPriceVnd || 20000, 1);
+    const vipAiCredits = Math.max(pricing.vipMonthlyAiCredits ?? 100, 0);
+
+    if (payload.kind === "ai" && payload.amount % aiPrice !== 0) {
+      return NextResponse.json({ message: `Số tiền phải chia hết cho ${aiPrice.toLocaleString("vi-VN")}đ.` }, { status: 400 });
+    }
+    if (payload.kind === "vip" && payload.amount % vipPrice !== 0) {
+      return NextResponse.json({ message: `VIP có giá ${vipPrice.toLocaleString("vi-VN")}đ cho mỗi tháng.` }, { status: 400 });
+    }
+
     const prefix = payload.kind === "vip" ? "VIP" : "AI";
     const transferCode = `${prefix}${session.userId.slice(-4)}${randomUUID().replaceAll("-", "").slice(0, 8)}`.toUpperCase();
     const payment = await PaymentRequestModel.create({
       userId: session.userId,
       kind: payload.kind,
       amount: payload.amount,
-      aiCredits: payload.kind === "ai" ? payload.amount / 1000 : (payload.amount / 20_000) * 100,
-      vipMonths: payload.kind === "vip" ? payload.amount / 20_000 : 0,
+      aiCredits: payload.kind === "ai" ? payload.amount / aiPrice : (payload.amount / vipPrice) * vipAiCredits,
+      vipMonths: payload.kind === "vip" ? payload.amount / vipPrice : 0,
       transferCode,
     });
 

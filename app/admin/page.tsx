@@ -3,8 +3,10 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { UserModel } from "@/models/User";
 import { VocabularyModel } from "@/models/Vocabulary";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 export default async function AdminDashboardPage() {
+  await requireAdminPage("admin:dashboard:read");
   await connectMongoDB();
 
   const [userCount, activeUsers, deckCount, vocabularyCount] = await Promise.all([

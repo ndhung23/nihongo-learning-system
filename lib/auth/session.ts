@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import type { Permission, Role } from "./permissions";
-import { getPermissionsForRoles, hasPermission, isRole } from "./permissions";
+import { getPermissionsForRoles, isRole } from "./permissions";
+import { getPermissionsForRoleCodes } from "./rbac";
 
 export const AUTH_COOKIE_NAME = "nihongo_access_token";
 
@@ -67,7 +68,9 @@ export async function getAuthSession() {
   }
 
   try {
-    return verifySessionToken(token);
+    const session = verifySessionToken(token);
+    session.permissions = await getPermissionsForRoleCodes(session.roles);
+    return session;
   } catch {
     return null;
   }
@@ -86,10 +89,16 @@ export async function requireAuth() {
 export async function requirePermission(permission: Permission) {
   const session = await requireAuth();
 
-  if (!hasPermission(session.roles, permission)) {
+  if (!session.permissions.includes(permission)) {
     throw new AuthError("FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.");
   }
 
+  return session;
+}
+
+export async function requireAnyPermission(required: Permission[]) {
+  const session = await requireAuth();
+  if (!required.some((permission) => session.permissions.includes(permission))) throw new AuthError("FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.");
   return session;
 }
 

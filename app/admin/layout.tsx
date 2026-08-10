@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { AuthError, requirePermission } from "@/lib/auth/session";
+import { AuthError, requireAnyPermission } from "@/lib/auth/session";
+import { adminPermissions } from "@/lib/auth/permissions";
 import { AdminShell } from "./AdminShell";
 
 export default async function AdminLayout({
@@ -11,8 +12,10 @@ export default async function AdminLayout({
   // Admin pages depend on live MongoDB data and must never run during Vercel's build.
   await connection();
 
+  let permissions: string[];
   try {
-    await requirePermission("admin:stats:read");
+    const session = await requireAnyPermission(adminPermissions);
+    permissions = session.permissions;
   } catch (error) {
     if (error instanceof AuthError && error.code === "UNAUTHORIZED") {
       redirect("/login");
@@ -21,5 +24,5 @@ export default async function AdminLayout({
     redirect("/flashcards");
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell permissions={permissions}>{children}</AdminShell>;
 }

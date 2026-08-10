@@ -2,10 +2,12 @@ import { connectMongoDB } from "@/lib/mongodb";
 import type { TestLevel } from "@/lib/jlptTestLevels";
 import { JlptTestModel } from "@/models/JlptTest";
 import { AdminJlptTestsClient } from "./AdminJlptTestsClient";
+import { requireAdminPage } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AdminJlptTestsPage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
+  await requireAdminPage("admin:jlpt-test:read");
   const params = await searchParams;
   await connectMongoDB();
   const tests = await JlptTestModel.find({}).select("level number title questionCount sections.listening").sort({ updatedAt: -1, _id: -1 }).lean();

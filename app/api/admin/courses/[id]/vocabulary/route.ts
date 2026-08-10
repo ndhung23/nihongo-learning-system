@@ -38,7 +38,7 @@ type RouteContext = {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:read");
+    await requirePermission("admin:vocabulary:read");
     await connectMongoDB();
 
     const { id } = await context.params;
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:vocabulary:create");
     await connectMongoDB();
 
     const { id } = await context.params;

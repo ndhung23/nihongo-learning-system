@@ -31,7 +31,7 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:vocabulary:update");
     await connectMongoDB();
 
     const { id, vocabularyId } = await context.params;
@@ -63,7 +63,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:vocabulary:delete");
     await connectMongoDB();
 
     const { id, vocabularyId } = await context.params;

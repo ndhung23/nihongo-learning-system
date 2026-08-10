@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { AuthError, requirePermission } from "@/lib/auth/session";
+import { AuthError, requireAnyPermission } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,7 @@ function cloudinaryConfig() {
 
 export async function POST(request: Request) {
   try {
-    await requirePermission("admin:course:write");
+    await requireAnyPermission(["admin:course:create", "admin:course:update", "admin:jlpt-test:create", "admin:jlpt-test:update"]);
     const formData = await request.formData();
     const file = formData.get("file");
     if (!(file instanceof File)) return NextResponse.json({ message: "Vui lòng chọn tệp." }, { status: 400 });

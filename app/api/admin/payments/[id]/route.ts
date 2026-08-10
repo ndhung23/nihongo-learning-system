@@ -16,7 +16,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const admin = await requirePermission("admin:user:write");
+    const admin = await requirePermission("admin:payment:approve");
     const { id } = await params;
     const payload = ReviewSchema.parse(await request.json());
     if (!Types.ObjectId.isValid(id)) {

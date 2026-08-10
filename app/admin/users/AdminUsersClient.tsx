@@ -55,14 +55,6 @@ const emptyForm: UserFormState = {
   addGachaTickets: "0",
 };
 
-const roleOptions: Array<{ label: string; value: Role | "all" }> = [
-  { label: "Tất cả role", value: "all" },
-  { label: "User", value: "user" },
-  { label: "VIP", value: "vip" },
-  { label: "Creator", value: "creator" },
-  { label: "Admin", value: "admin" },
-];
-
 const statusOptions = [
   ["Tất cả trạng thái", "all"],
   ["Active", "active"],
@@ -79,7 +71,7 @@ const genderOptions = [
   ["Chưa rõ", "unknown"],
 ] as const;
 
-export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: AdminUser[] }>) {
+export function AdminUsersClient({ meta, users, roleOptions: availableRoles, capabilities }: Readonly<{ meta: Meta; users: AdminUser[]; roleOptions: Array<{ label: string; value: Role }>; capabilities: { create: boolean; update: boolean; delete: boolean } }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
@@ -216,13 +208,13 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Quản lý người dùng</h1>
           <p className="mt-3 text-slate-500">CRUD, tìm kiếm, lọc và phân trang tài khoản hệ thống.</p>
         </div>
-        <button
+        {capabilities.create && <button
           className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-5 font-black text-white shadow-xl shadow-rose-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-700"
           onClick={openCreate}
           type="button"
         >
           <FiPlus /> Tạo người dùng
-        </button>
+        </button>}
       </div>
 
       <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/[0.04]">
@@ -239,7 +231,7 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
             />
           </label>
           <select className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition hover:border-teal-300" defaultValue={queryState.role} onChange={(event) => updateQuery({ role: event.target.value })}>
-            {roleOptions.map((option) => (
+            {[{ label: "Tất cả role", value: "all" }, ...availableRoles].map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -292,12 +284,12 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
             <span className="w-fit rounded-full bg-teal-50 px-3 py-1 text-xs font-black text-teal-700">{user.roles.join(", ")}</span>
             <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${statusTone(user.status)}`}>{statusLabel(user.status)}</span>
             <div className="flex gap-2 lg:justify-end">
-              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(user)} title="Sửa" type="button">
+              {capabilities.update && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(user)} title="Sửa" type="button">
                 <FiEdit3 />
-              </button>
-              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteUser(user)} title="Xóa" type="button">
+              </button>}
+              {capabilities.delete && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteUser(user)} title="Xóa" type="button">
                 <FiTrash2 />
-              </button>
+              </button>}
             </div>
           </div>
         ))}
@@ -355,7 +347,7 @@ export function AdminUsersClient({ meta, users }: Readonly<{ meta: Meta; users: 
               <label>
                 <span className="mb-2 block text-sm font-black text-slate-700">Role</span>
                 <select className="h-12 w-full rounded-2xl border border-slate-200 px-4 font-semibold outline-none transition focus:border-teal-400" onChange={(event) => setForm({ ...form, role: event.target.value as Role })} value={form.role}>
-                  {roleOptions.slice(1).map((option) => (
+                  {availableRoles.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

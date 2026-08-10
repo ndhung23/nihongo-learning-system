@@ -5,7 +5,7 @@ import { PaymentRequestModel } from "@/models/PaymentRequest";
 
 export async function GET() {
   try {
-    await requirePermission("admin:user:write");
+    await requirePermission("admin:payment:read");
     await connectMongoDB();
     const payments = await PaymentRequestModel.find()
       .populate("userId", "username email displayName")

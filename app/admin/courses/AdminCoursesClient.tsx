@@ -149,7 +149,7 @@ const statusOptions = [
   ["Archived", "archived"],
 ] as const;
 
-export function AdminCoursesClient({ courses, initialCreatePreset = "", initialOpenCourseId, meta }: Readonly<{ courses: Course[]; initialCreatePreset?: string; initialOpenCourseId?: string; meta: Meta }>) {
+export function AdminCoursesClient({ capabilities, courses, initialCreatePreset = "", initialOpenCourseId, meta }: Readonly<{ capabilities: { create: boolean; update: boolean; delete: boolean }; courses: Course[]; initialCreatePreset?: string; initialOpenCourseId?: string; meta: Meta }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formOpen, setFormOpen] = useState(Boolean(initialCreatePreset));
@@ -329,13 +329,13 @@ export function AdminCoursesClient({ courses, initialCreatePreset = "", initialO
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Quản lý khóa học</h1>
           <p className="mt-3 max-w-2xl text-slate-500">CRUD khóa học, tìm kiếm, lọc theo loại tạo và phân trang dữ liệu từ MongoDB.</p>
         </div>
-        <button
+        {capabilities.create && <button
           className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-5 font-black text-white shadow-xl shadow-rose-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-700"
           onClick={openCreate}
           type="button"
         >
           <FiPlus /> Tạo khóa học
-        </button>
+        </button>}
       </div>
 
       <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/[0.04]">
@@ -394,12 +394,12 @@ export function AdminCoursesClient({ courses, initialCreatePreset = "", initialO
               <button className="flex h-9 items-center gap-1 rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100" onClick={() => openDetail(course)} title="Quản lý từ vựng" type="button">
                 <FiBookOpen /> Từ vựng
               </button>
-              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
+              {capabilities.update && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-teal-100 hover:text-teal-700" onClick={() => openEdit(course)} title="Sửa" type="button">
                 <FiEdit3 />
-              </button>
-              <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteCourse(course)} title="Xóa" type="button">
+              </button>}
+              {capabilities.delete && <button className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700" onClick={() => deleteCourse(course)} title="Xóa" type="button">
                 <FiTrash2 />
-              </button>
+              </button>}
             </div>
           </div>
         ))}

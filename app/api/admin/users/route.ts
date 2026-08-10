@@ -1,11 +1,12 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { roles } from "@/lib/auth/permissions";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { UserModel } from "@/models/User";
 import { duplicateKeyMessage, isValidVietnamesePhone, normalizePhone, validationMessage } from "@/lib/auth/user-identity";
+import { ensureRbacSeeded } from "@/lib/auth/rbac";
+import { RoleModel } from "@/models/Role";
 
 const CreateUserSchema = z.object({
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/, "Username chỉ được gồm chữ, số và dấu gạch dưới."),
@@ -14,7 +15,7 @@ const CreateUserSchema = z.object({
   displayName: z.string().optional(),
   phone: z.string().optional(),
   gender: z.enum(["male", "female", "other", "unknown"]).default("unknown"),
-  roles: z.array(z.enum(roles)).default(["user"]),
+  roles: z.array(z.string().trim().min(1).max(64)).min(1).default(["user"]),
   status: z.enum(["active", "inactive", "banned", "pending_verify"]).default("active"),
   aiCredits: z.coerce.number().int().min(0).default(1),
   gachaTickets: z.coerce.number().int().min(0).default(0),
@@ -92,10 +93,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission("admin:user:write");
+    await requirePermission("admin:user:create");
     await connectMongoDB();
 
     const payload = CreateUserSchema.parse(await request.json());
+    await ensureRbacSeeded();
+    const validRoleCount = await RoleModel.countDocuments({ code: { $in: payload.roles }, isActive: true });
+    if (validRoleCount !== new Set(payload.roles).size) {
+      return NextResponse.json({ message: "Có vai trò không tồn tại hoặc đã bị tắt." }, { status: 400 });
+    }
     const username = payload.username.trim().toLowerCase();
     const email = payload.email.trim().toLowerCase();
     const phone = normalizePhone(payload.phone);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AuthError, requireAuth } from "@/lib/auth/session";
+import { AuthError, requirePermission } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -52,7 +52,7 @@ function responseText(payload: unknown) {
 
 export async function POST(request: Request) {
   try {
-    await requireAuth();
+    await requirePermission("admin:jlpt-test:create");
     const formData = await request.formData();
     const uploadedFiles = formData.getAll("files").filter((item): item is File => item instanceof File);
     const legacyFile = formData.get("file");

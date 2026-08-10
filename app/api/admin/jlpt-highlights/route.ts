@@ -15,7 +15,7 @@ const BodySchema = z.object({
 
 export async function PATCH(request: Request) {
   try {
-    await requirePermission("admin:course:write");
+    await requirePermission("admin:jlpt-highlight:update");
     const body = BodySchema.parse(await request.json());
     await connectMongoDB();
 

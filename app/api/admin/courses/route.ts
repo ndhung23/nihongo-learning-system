@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requirePermission("admin:course:write");
+    const session = await requirePermission("admin:course:create");
     await connectMongoDB();
 
     const payload = CreateCourseSchema.parse(await request.json());
