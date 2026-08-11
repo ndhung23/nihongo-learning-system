@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { FiActivity, FiAward, FiCpu, FiDollarSign, FiGift, FiStar, FiX, FiZap } from "react-icons/fi";
 import {
   dailyAuthChangedEvent,
@@ -38,6 +38,7 @@ const defaultPrizes: Prize[] = [
   { label: "Cơ hội quay lại", wheelLabel: "Quay lại", chance: 15, kind: "retry", color: "#2dd4bf" },
   { label: "100 xu", wheelLabel: "100 xu", chance: 15, kind: "coins", color: "#fb923c" },
 ];
+const idleSpinDurationMs = 24_000;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -108,6 +109,7 @@ export function GachaDailyPanel() {
   const soundTimerRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const claimedPendingTicketsForRef = useRef("");
+  const idleSpinStartedAtRef = useRef(0);
   const readyQuestCount = useMemo(
     () =>
       quests.filter(
@@ -118,6 +120,7 @@ export function GachaDailyPanel() {
   );
 
   useEffect(() => {
+    idleSpinStartedAtRef.current = performance.now();
     void fetch("/api/settings/public")
       .then((response) => response.json())
       .then((payload: { data?: Record<string, unknown> }) => {
@@ -251,9 +254,13 @@ export function GachaDailyPanel() {
     }
 
     const prize = prizes[selectedIndex];
+    const idleOffset = idleSpinStartedAtRef.current
+      ? ((performance.now() - idleSpinStartedAtRef.current) % idleSpinDurationMs) / idleSpinDurationMs * 360
+      : 0;
+    const currentRotation = rotation + idleOffset;
     const landingRotation = 360 - (selectedIndex * 60 + 30);
-    const correction = (landingRotation - (rotation % 360) + 360) % 360;
-    const nextRotation = rotation + 360 * 6 + correction;
+    const correction = (landingRotation - (currentRotation % 360) + 360) % 360;
+    const nextRotation = currentRotation + 360 * 6 + correction;
     setLastPrize("");
     setResultOpen(false);
     setSpinning(true);
@@ -275,6 +282,7 @@ export function GachaDailyPanel() {
       updateDailyState(next);
       setLastPrize(prize.label);
       setResultOpen(true);
+      idleSpinStartedAtRef.current = performance.now();
       setSpinning(false);
       playTone(prize.kind === "none" ? 260 : 784, 0.28, 0.06);
     }, 2600);
@@ -328,12 +336,13 @@ export function GachaDailyPanel() {
         <div className="relative mx-auto mt-5 aspect-square w-full max-w-[250px]">
           <div className="absolute left-1/2 top-[-5px] z-20 h-0 w-0 -translate-x-1/2 border-x-[13px] border-t-[24px] border-x-transparent border-t-slate-950" />
           <div
-            className="h-full w-full rounded-full border-[8px] border-slate-950 shadow-xl"
+            className={`h-full w-full rounded-full border-[8px] border-slate-950 shadow-xl ${spinning ? "" : "gacha-idle-spin"}`}
             style={{
               background: `conic-gradient(${prizes.map((prize, index) => `${prize.color} ${index * 60}deg ${(index + 1) * 60}deg`).join(",")})`,
               transform: `rotate(${rotation}deg)`,
               transition: spinning ? "transform 2.6s cubic-bezier(0.12, 0.72, 0.12, 1)" : "none",
-            }}
+              "--gacha-idle-start": `${rotation}deg`,
+            } as CSSProperties}
           >
             {prizes.map((prize, index) => (
               <span
@@ -431,6 +440,19 @@ export function GachaDailyPanel() {
       {paymentKind && (
         <PaymentTopUpModal initialKind={paymentKind} onClose={() => setPaymentKind(null)} />
       )}
+      <style jsx>{`
+        .gacha-idle-spin {
+          animation: gacha-idle-spin ${idleSpinDurationMs}ms linear infinite;
+          will-change: transform;
+        }
+        @keyframes gacha-idle-spin {
+          from { transform: rotate(var(--gacha-idle-start)); }
+          to { transform: rotate(calc(var(--gacha-idle-start) + 360deg)); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .gacha-idle-spin { animation: none; }
+        }
+      `}</style>
     </aside>
   );
 }

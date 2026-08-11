@@ -18,6 +18,13 @@ const SePayPayloadSchema = z.object({
   referenceCode: z.string().nullish(),
 });
 
+export function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "SePay webhook is ready. Send payment notifications using POST.",
+  });
+}
+
 export async function POST(request: NextRequest) {
   const secret = process.env.SEPAY_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ success: false, message: "Webhook chưa được cấu hình." }, { status: 503 });
