@@ -1,8 +1,8 @@
 import { Types } from "mongoose";
 import { RoadmapCourseModel } from "@/models/RoadmapCourse";
 
-export function canAccessRoadmap(course: { ownerId: unknown; visibility: string }, userId: string) {
-  return String(course.ownerId) === userId || course.visibility === "public" || course.visibility === "unlisted";
+export function canAccessRoadmap(course: { ownerId: unknown; visibility: string }, userId?: string) {
+  return Boolean(userId && String(course.ownerId) === userId) || course.visibility === "public" || course.visibility === "unlisted";
 }
 
 export async function requireRoadmapOwner(courseId: string, userId: string) {

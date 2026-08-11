@@ -1,29 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 
-export function LoginForm() {
+const oauthErrorMessages: Record<string, string> = {
+  google_config: "Đăng nhập Google chưa được cấu hình đầy đủ.",
+  google_token: "Google từ chối xác thực máy chủ. Vui lòng kiểm tra lại Client ID, Client Secret và URL callback.",
+  google_profile: "Không thể đọc thông tin tài khoản Google. Vui lòng thử lại.",
+  google_state: "Phiên đăng nhập Google đã hết hạn. Vui lòng thử lại.",
+  account_disabled: "Tài khoản này đang bị khóa hoặc chưa được kích hoạt.",
+  google_failed: "Không thể đăng nhập bằng Google. Vui lòng thử lại.",
+};
+
+export function LoginForm({ oauthError, returnTo = "/flashcards" }: { oauthError?: string; returnTo?: string }) {
   const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => oauthError ? oauthErrorMessages[oauthError] || "" : "");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const oauthError = new URLSearchParams(window.location.search).get("error");
-    const messages: Record<string, string> = {
-      google_config: "Đăng nhập Google chưa được cấu hình đầy đủ.",
-      google_token: "Google từ chối xác thực máy chủ. Vui lòng kiểm tra lại Client ID, Client Secret và URL callback.",
-      google_profile: "Không thể đọc thông tin tài khoản Google. Vui lòng thử lại.",
-      google_state: "Phiên đăng nhập Google đã hết hạn. Vui lòng thử lại.",
-      account_disabled: "Tài khoản này đang bị khóa hoặc chưa được kích hoạt.",
-      google_failed: "Không thể đăng nhập bằng Google. Vui lòng thử lại.",
-    };
-    if (oauthError && messages[oauthError]) setError(messages[oauthError]);
-  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +39,7 @@ export function LoginForm() {
         return;
       }
 
-      router.push(payload.user.roles.includes("admin") ? "/admin" : "/flashcards");
+      router.push(returnTo);
       router.refresh();
     } finally {
       setLoading(false);
@@ -64,7 +60,7 @@ export function LoginForm() {
       <button className="h-12 w-full rounded-2xl bg-rose-600 font-black text-white shadow-xl shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:opacity-60" disabled={loading} type="submit">
         {loading ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
-      <a className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg" href="/api/auth/google">
+      <a className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg" href={`/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`}>
         <FcGoogle className="h-5 w-5" /> Đăng nhập bằng Google
       </a>
       <div className="grid grid-cols-1 gap-3 text-sm font-black sm:grid-cols-2">

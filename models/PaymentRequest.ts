@@ -17,6 +17,9 @@ const PaymentRequestSchema = new Schema(
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User" },
     reviewedAt: { type: Date },
     adminNote: { type: String, trim: true, maxlength: 500 },
+    sepayTransactionId: { type: String, unique: true, sparse: true, index: true },
+    sepayReferenceCode: { type: String, trim: true },
+    paidAt: { type: Date },
   },
   { timestamps: true },
 );

@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiPlus, FiUsers } from "react-icons/fi";
+import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiLayers, FiPlus, FiUsers } from "react-icons/fi";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
 import { DiscoverControls } from "./DiscoverControls";
 import { CourseStudyButton } from "./CourseStudyButton";
 import { getVisibleKanaCourseCount, KanaCourseCards } from "./KanaCourseCards";
 import { getAuthSession } from "@/lib/auth/session";
+import { RoadmapCourseModel } from "@/models/RoadmapCourse";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -28,9 +29,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
     visibility: "public",
   };
 
-  if (type === "roadmap") {
-    filter.tags = "roadmap";
-  } else if (type === "test") {
+  if (type === "test") {
     filter.tags = "Test";
   } else if (type === "kanji") {
     filter.tags = { $in: ["Kanji", "Luyện viết Kanji"] };
@@ -73,15 +72,33 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         ? { updatedAt: 1 }
         : { updatedAt: -1 };
 
+  const isRoadmapType = type === "roadmap";
+  const roadmapFilter: Record<string, unknown> = { visibility: "public" };
+  if (q) {
+    const pattern = new RegExp(escapeRegex(q), "i");
+    roadmapFilter.$or = [{ title: pattern }, { description: pattern }, { slug: pattern }];
+  }
+  if (level) roadmapFilter._id = { $exists: false };
+
   const kanaCourseCount = getVisibleKanaCourseCount({ level, query: q, type });
-  const [totalCourses, requestedCourses] = await Promise.all([
-    DeckModel.countDocuments(filter),
-    DeckModel.find(filter)
-      .sort(sortDefinition)
-      .skip((requestedPage - 1) * pageSize)
-      .limit(pageSize)
-      .select("title slug description level contentType jlptTest stats tags")
-      .lean(),
+  const [totalCourses, requestedCourses, requestedRoadmaps] = await Promise.all([
+    isRoadmapType ? RoadmapCourseModel.countDocuments(roadmapFilter) : DeckModel.countDocuments(filter),
+    isRoadmapType
+      ? Promise.resolve([])
+      : DeckModel.find(filter)
+          .sort(sortDefinition)
+          .skip((requestedPage - 1) * pageSize)
+          .limit(pageSize)
+          .select("title slug description level contentType jlptTest stats tags")
+          .lean(),
+    isRoadmapType
+      ? RoadmapCourseModel.find(roadmapFilter)
+          .populate("ownerId", "displayName username")
+          .sort(sort === "oldest" ? { updatedAt: 1 } : { updatedAt: -1 })
+          .skip((requestedPage - 1) * pageSize)
+          .limit(pageSize)
+          .lean()
+      : Promise.resolve([]),
   ]);
   const totalPages = Math.max(Math.ceil(totalCourses / pageSize), 1);
   const page = Math.min(requestedPage, totalPages);
@@ -93,6 +110,15 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           .skip((page - 1) * pageSize)
           .limit(pageSize)
           .select("title slug description level contentType jlptTest stats tags")
+          .lean();
+  const roadmaps =
+    !isRoadmapType || page === requestedPage
+      ? requestedRoadmaps
+      : await RoadmapCourseModel.find(roadmapFilter)
+          .populate("ownerId", "displayName username")
+          .sort(sort === "oldest" ? { updatedAt: 1 } : { updatedAt: -1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
           .lean();
 
   return (
@@ -133,6 +159,21 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
       <KanaCourseCards level={level} query={q} type={type} />
 
       <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        {roadmaps.map((roadmap) => (
+          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10" key={String(roadmap._id)}>
+            <div className="flex items-start justify-between gap-4">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700"><FiLayers /></span>
+              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black uppercase text-rose-700">Lộ trình</span>
+            </div>
+            <h2 className="mt-5 text-xl font-black text-slate-950">{roadmap.title}</h2>
+            <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-slate-500">{roadmap.description || "Chưa có mô tả."}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3 text-sm font-black">
+              <div className="rounded-2xl bg-slate-50 p-3 text-slate-700"><FiBookOpen className="mr-2 inline" /> {roadmap.lessonCount || 0} bài học</div>
+              <div className="truncate rounded-2xl bg-slate-50 p-3 text-slate-700"><FiUsers className="mr-2 inline" /> {(roadmap.ownerId as { displayName?: string; username?: string })?.displayName || (roadmap.ownerId as { username?: string })?.username || "Cộng đồng"}</div>
+            </div>
+            <Link className="mt-5 flex h-11 items-center justify-center rounded-2xl bg-slate-950 font-black text-white transition hover:-translate-y-0.5 hover:bg-rose-600" href={`/flashcards/roadmaps/${String(roadmap._id)}`}>Xem lộ trình</Link>
+          </article>
+        ))}
         {courses.map((course) => {
           const isJlptTest =
             course.contentType === "jlpt-test" &&
@@ -237,7 +278,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         </nav>
       )}
 
-      {courses.length === 0 && kanaCourseCount === 0 && (
+      {courses.length === 0 && roadmaps.length === 0 && kanaCourseCount === 0 && (
         <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center">
           <FiFilter className="mx-auto h-8 w-8 text-slate-400" />
           <p className="mt-3 font-black text-slate-950">Chưa có khóa học phù hợp.</p>

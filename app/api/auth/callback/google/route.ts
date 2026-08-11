@@ -4,6 +4,7 @@ import {
   exchangeGoogleCode,
   GoogleOAuthError,
   GOOGLE_OAUTH_STATE_COOKIE,
+  GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_VERIFIER_COOKIE,
   isValidOAuthState,
 } from "@/lib/auth/google";
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
   const clearOAuthCookies = (response: NextResponse) => {
     response.cookies.delete(GOOGLE_OAUTH_STATE_COOKIE);
     response.cookies.delete(GOOGLE_OAUTH_VERIFIER_COOKIE);
+    response.cookies.delete(GOOGLE_OAUTH_RETURN_TO_COOKIE);
     return response;
   };
 
@@ -86,10 +88,11 @@ export async function GET(request: NextRequest) {
       email: user.email,
       roles,
     });
-    const destination = new URL(
-      roles.includes("admin") ? "/admin" : "/flashcards",
-      request.url,
-    );
+    const returnTo = request.cookies.get(GOOGLE_OAUTH_RETURN_TO_COOKIE)?.value;
+    const destinationPath = returnTo?.startsWith("/") && !returnTo.startsWith("//")
+      ? returnTo
+      : roles.includes("admin") ? "/admin" : "/flashcards";
+    const destination = new URL(destinationPath, request.url);
     const response = clearOAuthCookies(NextResponse.redirect(destination));
     response.cookies.set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,

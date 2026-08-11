@@ -11,8 +11,10 @@ import {
   FiPlus,
   FiSave,
   FiSettings,
+  FiX,
 } from "react-icons/fi";
 import { RichTextEditor, type RichDoc } from "../RichTextEditor";
+import { KanaRichTextEditor } from "../KanaRichTextEditor";
 type Lesson = {
   _id: string;
   order: number;
@@ -28,6 +30,7 @@ type Course = {
   isOwner: boolean;
 };
 type Data = {
+  authenticated: boolean;
   course: Course;
   lessons: Lesson[];
   progress: { completedLessonIds: string[]; lastLessonId?: string };
@@ -42,38 +45,45 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
   const [saveState, setSaveState] = useState("");
   const [settings, setSettings] = useState(false);
   const [editingLesson, setEditingLesson] = useState(false);
+  const [loginPrompt, setLoginPrompt] = useState(false);
   const selected =
     data?.lessons.find((l) => l._id === selectedId) || data?.lessons[0];
   const videoId = useMemo(
     () => youtubeId(selected?.youtubeUrl || ""),
     [selected?.youtubeUrl],
   );
-  async function load() {
-    const r = await fetch(`/api/roadmaps/${courseId}`, { cache: "no-store" });
-    const p = await r.json();
-    if (!r.ok) {
-      setError(p.message || "Không thể tải khóa học.");
-      return;
-    }
-    setData(p.data);
-    setSelectedId(
-      (current) =>
-        current || p.data.progress.lastLessonId || p.data.lessons[0]?._id || "",
-    );
-  }
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void fetch(`/api/roadmaps/${courseId}`, { cache: "no-store" })
+      .then(async (response) => {
+        const text = await response.text();
+        const payload = text ? JSON.parse(text) : {};
+        if (!response.ok || !payload.data) throw new Error(payload.message || "Không thể tải khóa học.");
+        return payload.data as Data;
+      })
+      .then((nextData) => {
+        if (cancelled) return;
+        setData(nextData);
+        setSelectedId((current) => current || nextData.progress.lastLessonId || nextData.lessons[0]?._id || "");
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Không thể tải khóa học.");
+      });
+    return () => { cancelled = true; };
   }, [courseId]);
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || !data?.authenticated) return;
     void fetch(`/api/roadmaps/${courseId}/notes/${selectedId}`)
-      .then((r) => r.json())
+      .then(async (response) => {
+        const text = await response.text();
+        return text ? JSON.parse(text) : {};
+      })
       .then((p) => setPersonal(p.data || emptyDoc));
-  }, [courseId, selectedId]);
+  }, [courseId, data?.authenticated, selectedId]);
   useEffect(() => {
-    if (!selectedId || tab !== "mine") return;
-    setSaveState("Đang lưu...");
+    if (!selectedId || tab !== "mine" || !data?.authenticated) return;
     const timer = setTimeout(() => {
+      setSaveState("Đang lưu...");
       void fetch(`/api/roadmaps/${courseId}/notes/${selectedId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -85,7 +95,7 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
         .catch(() => setSaveState("Lỗi khi lưu"));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [courseId, personal, selectedId, tab]);
+  }, [courseId, data?.authenticated, personal, selectedId, tab]);
   async function addLesson() {
     const title = window
       .prompt("Tên bài học mới:", `Bài ${(data?.lessons.length || 0) + 1}`)
@@ -152,6 +162,10 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
   }
   async function toggleComplete() {
     if (!selected || !data) return;
+    if (!data.authenticated) {
+      setLoginPrompt(true);
+      return;
+    }
     const done = data.progress.completedLessonIds.includes(selected._id);
     const r = await fetch(`/api/roadmaps/${courseId}/progress`, {
       method: "PATCH",
@@ -226,7 +240,7 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
                   onClick={() => {
                     setSelectedId(l._id);
                     setEditingLesson(false);
-                    void fetch(`/api/roadmaps/${courseId}/progress`, {
+                    if (data.authenticated) void fetch(`/api/roadmaps/${courseId}/progress`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ lessonId: l._id }),
@@ -345,7 +359,7 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
             </button>
             <button
               className={`rounded-lg py-2 text-sm font-black ${tab === "mine" ? "bg-white shadow" : ""}`}
-              onClick={() => setTab("mine")}
+              onClick={() => data.authenticated ? setTab("mine") : setLoginPrompt(true)}
             >
               Note của tôi
             </button>
@@ -370,7 +384,7 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
                 </>
               ) : (
                 <>
-                  <RichTextEditor content={personal} onChange={setPersonal} />
+                  <KanaRichTextEditor content={personal} onChange={setPersonal} />
                   <p className="mt-2 text-right text-xs font-bold text-slate-500">
                     {saveState}
                   </p>
@@ -380,6 +394,24 @@ export function RoadmapPlayer({ courseId }: { courseId: string }) {
           )}
         </aside>
       </div>
+      {loginPrompt && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={() => setLoginPrompt(false)}>
+          <div className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-rose-600">Yêu cầu đăng nhập</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">Đăng nhập để tiếp tục</h2>
+              </div>
+              <button aria-label="Đóng" className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600" onClick={() => setLoginPrompt(false)}><FiX /></button>
+            </div>
+            <p className="mt-4 leading-6 text-slate-500">Bạn cần đăng nhập để lưu tiến độ học và sử dụng ghi chú cá nhân.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button className="h-11 rounded-xl border border-slate-200 px-5 font-black text-slate-600" onClick={() => setLoginPrompt(false)}>Để sau</button>
+              <Link className="flex h-11 items-center rounded-xl bg-rose-600 px-5 font-black text-white" href={`/login?returnTo=${encodeURIComponent(`/flashcards/roadmaps/${courseId}`)}`}>Đăng nhập</Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

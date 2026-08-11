@@ -3,6 +3,7 @@ import { z } from "zod";
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "nihongo_google_oauth_state";
 export const GOOGLE_OAUTH_VERIFIER_COOKIE = "nihongo_google_oauth_verifier";
+export const GOOGLE_OAUTH_RETURN_TO_COOKIE = "nihongo_google_oauth_return_to";
 export const GOOGLE_OAUTH_COOKIE_MAX_AGE = 10 * 60;
 
 const GoogleTokenSchema = z.object({

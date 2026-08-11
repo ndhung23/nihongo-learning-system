@@ -10,7 +10,6 @@ import {
   FiEyeOff,
   FiLogIn,
   FiLogOut,
-  FiMail,
   FiMenu,
   FiMoon,
   FiSearch,
@@ -20,6 +19,7 @@ import {
   FiUser,
   FiX,
 } from "react-icons/fi";
+import { LuBug } from "react-icons/lu";
 import { FcGoogle } from "react-icons/fc";
 import { announceDailyProgressOwner } from "./dailyProgressStorage";
 import { useLanguage } from "../i18n/LanguageProvider";
@@ -277,7 +277,7 @@ export function Topbar({
             </button>
             <button
               aria-label={t("feedback")}
-              className="relative grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:text-rose-600 hover:shadow-lg hover:shadow-rose-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="relative grid h-9 w-9 place-items-center rounded-full border border-rose-200 bg-rose-50 text-base text-rose-600 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-100 hover:shadow-lg hover:shadow-rose-500/20 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
               onClick={() => {
                 setFeedbackOpen(true);
                 setFeedbackStatus("idle");
@@ -286,7 +286,7 @@ export function Topbar({
               }}
               type="button"
             >
-              <FiMail />
+              <LuBug />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-teal-500" />
             </button>
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createGoogleAuthorization,
   GOOGLE_OAUTH_COOKIE_MAX_AGE,
+  GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_VERIFIER_COOKIE,
 } from "@/lib/auth/google";
@@ -28,6 +29,10 @@ export async function GET(request: NextRequest) {
       authorization.verifier,
       cookieOptions,
     );
+    const returnTo = request.nextUrl.searchParams.get("returnTo");
+    if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
+      response.cookies.set(GOOGLE_OAUTH_RETURN_TO_COOKIE, returnTo, cookieOptions);
+    }
     return response;
   } catch {
     return NextResponse.redirect(new URL("/login?error=google_config", request.url));

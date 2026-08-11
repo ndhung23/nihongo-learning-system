@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FiCheckCircle, FiClock, FiCopy, FiCreditCard, FiX } from "react-icons/fi";
+import { invalidateCurrentUser } from "../currentUserClient";
 
 type Payment = {
   id: string;
@@ -41,7 +42,12 @@ export function PaymentTopUpModal({
   }, [activePayment]);
 
   useEffect(() => {
-    void loadHistory();
+    void fetch("/api/payments", { cache: "no-store" }).then(async (response) => {
+      const payload = (await response.json()) as { data?: Payment[]; message?: string };
+      if (response.status === 401) throw new Error("Bạn cần đăng nhập để tạo yêu cầu nạp.");
+      if (!response.ok) throw new Error(payload.message || "Không thể tải lịch sử.");
+      setPayments(payload.data || []);
+    }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Không thể tải lịch sử."));
     void fetch("/api/settings/public").then((response) => response.json()).then((payload: { data?: Record<string, unknown> }) => {
       const data = payload.data || {};
       const next = {
@@ -57,18 +63,31 @@ export function PaymentTopUpModal({
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [initialKind, onClose]);
 
-  async function loadHistory() {
-    const response = await fetch("/api/payments", { cache: "no-store" });
-    if (response.status === 401) {
-      setMessage("Bạn cần đăng nhập để tạo yêu cầu nạp.");
-      return;
-    }
-    const payload = (await response.json()) as { data?: Payment[]; message?: string };
-    setPayments(payload.data || []);
-    if (!response.ok) setMessage(payload.message || "Không thể tải lịch sử.");
-  }
+  useEffect(() => {
+    if (!activePayment || activePayment.status !== "pending") return;
+    let cancelled = false;
+    const poll = async () => {
+      const response = await fetch("/api/payments", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { data?: Payment[] };
+      if (cancelled) return;
+      const nextPayments = payload.data || [];
+      setPayments(nextPayments);
+      const updated = nextPayments.find((payment) => payment.id === activePayment.id);
+      if (updated) {
+        setActivePayment(updated);
+        if (updated.status === "approved") {
+          invalidateCurrentUser();
+          window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
+        }
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 3000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [activePayment]);
 
   function changeKind(nextKind: "ai" | "vip") {
     setKind(nextKind);
@@ -117,7 +136,7 @@ export function PaymentTopUpModal({
       <div className="my-4 w-full max-w-3xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-rose-50 to-teal-50 p-5">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-rose-600">Thanh toán QR · Admin duyệt</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-rose-600">Thanh toán QR · Tự động xác nhận</p>
             <h2 className="mt-2 text-2xl font-black">Nạp quyền lợi tài khoản</h2>
           </div>
           <button aria-label="Đóng" className="grid h-10 w-10 place-items-center rounded-full bg-white text-slate-500" onClick={onClose} type="button"><FiX /></button>
@@ -142,7 +161,7 @@ export function PaymentTopUpModal({
               Bạn sẽ nhận: <strong>{benefit}</strong>
             </div>
             <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
-              Sau khi chuyển khoản, yêu cầu ở trạng thái chờ. Admin kiểm tra tiền vào rồi mới cộng quyền lợi.
+              Chuyển đúng số tiền và nội dung. Hệ thống sẽ tự động cộng quyền lợi sau khi ngân hàng báo tiền vào.
             </p>
             {message && <p className="mt-3 rounded-2xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{message}</p>}
             <button className="mt-4 h-12 w-full rounded-2xl bg-slate-950 font-black text-white disabled:opacity-50" disabled={loading} onClick={() => void createPayment()} type="button">
