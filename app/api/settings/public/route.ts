@@ -5,7 +5,10 @@ import { SystemSettingModel } from "@/models/SystemSetting";
 export async function GET() {
   const paymentBank = {
     paymentBankCode: process.env.PAYMENT_BANK_CODE?.trim() || "",
-    paymentBankAccount: process.env.PAYMENT_BANK_ACCOUNT?.trim() || "",
+    paymentBankAccount:
+      process.env.PAYMENT_BANK_VIRTUAL_ACCOUNT?.trim() ||
+      process.env.PAYMENT_BANK_ACCOUNT?.trim() ||
+      "",
     paymentBankAccountName: process.env.PAYMENT_BANK_ACCOUNT_NAME?.trim() || "",
   };
   try {
