@@ -29,17 +29,18 @@ export function PaymentTopUpModal({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [pricing, setPricing] = useState({ aiPrice: 1000, vipPrice: 20000, vipAiCredits: 100 });
+  const [bank, setBank] = useState({ code: "", account: "", accountName: "" });
   const amount = Number(amountText) || 0;
   const benefit = kind === "ai" ? `${Math.floor(amount / pricing.aiPrice)} lượt AI` : `${Math.floor(amount / pricing.vipPrice)} tháng VIP + ${Math.floor(amount / pricing.vipPrice) * pricing.vipAiCredits} lượt AI`;
   const qrUrl = useMemo(() => {
-    if (!activePayment) return "";
+    if (!activePayment || !bank.code || !bank.account || !bank.accountName) return "";
     const query = new URLSearchParams({
       amount: String(activePayment.amount),
       addInfo: activePayment.transferCode,
-      accountName: "NGUYEN DUY HUNG",
+      accountName: bank.accountName,
     });
-    return `https://img.vietqr.io/image/VCB-1067126804-compact2.png?${query.toString()}`;
-  }, [activePayment]);
+    return `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.account)}-compact2.png?${query.toString()}`;
+  }, [activePayment, bank]);
 
   useEffect(() => {
     void fetch("/api/payments", { cache: "no-store" }).then(async (response) => {
@@ -56,6 +57,11 @@ export function PaymentTopUpModal({
         vipAiCredits: Math.max(Number(data.vipMonthlyAiCredits ?? 100), 0),
       };
       setPricing(next);
+      setBank({
+        code: String(data.paymentBankCode || ""),
+        account: String(data.paymentBankAccount || ""),
+        accountName: String(data.paymentBankAccountName || ""),
+      });
       setAmountText(initialKind === "vip" ? String(next.vipPrice) : String(next.aiPrice * 10));
     }).catch(() => undefined);
     function closeOnEscape(event: KeyboardEvent) {
@@ -186,18 +192,20 @@ export function PaymentTopUpModal({
           </section>
 
           <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-center">
-            {activePayment ? (
+            {activePayment && qrUrl ? (
               <>
                 <p className="text-xs font-black uppercase tracking-wider text-teal-700">Quét để chuyển khoản</p>
                 <img alt={`Mã QR chuyển khoản ${activePayment.amount.toLocaleString("vi-VN")} đồng`} className="mx-auto mt-3 w-full max-w-64 rounded-2xl bg-white" src={qrUrl} />
                 <p className="mt-3 text-lg font-black">{activePayment.amount.toLocaleString("vi-VN")}đ</p>
-                <p className="mt-1 text-sm font-bold text-slate-500">VCB · 1067126804</p>
-                <p className="text-sm font-bold text-slate-500">NGUYEN DUY HUNG</p>
+                <p className="mt-1 text-sm font-bold text-slate-500">{bank.code} · {bank.account}</p>
+                <p className="text-sm font-bold text-slate-500">{bank.accountName}</p>
                 <button className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 font-mono text-sm font-black text-slate-800 shadow" onClick={() => void navigator.clipboard.writeText(activePayment.transferCode)} type="button">
                   {activePayment.transferCode} <FiCopy />
                 </button>
                 <p className="mt-3 text-xs font-bold text-rose-600">Không sửa số tiền hoặc nội dung chuyển khoản.</p>
               </>
+            ) : activePayment ? (
+              <div className="grid min-h-80 place-items-center text-sm font-bold text-rose-600">Chưa cấu hình đầy đủ thông tin ngân hàng.</div>
             ) : (
               <div className="grid min-h-80 place-items-center text-sm font-bold text-slate-400">Nhập số tiền và tạo mã QR.</div>
             )}
