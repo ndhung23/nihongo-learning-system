@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: `VIP có giá ${vipPrice.toLocaleString("vi-VN")}đ cho mỗi tháng.` }, { status: 400 });
     }
 
-    const prefix = payload.kind === "vip" ? "VIP" : "AI";
-    const transferCode = `${prefix}${session.userId.slice(-4)}${randomUUID().replaceAll("-", "").slice(0, 8)}`.toUpperCase();
+    const transferCode = `DH${session.userId.slice(-4)}${randomUUID().replaceAll("-", "").slice(0, 6)}`.toUpperCase();
     const payment = await PaymentRequestModel.create({
       userId: session.userId,
       kind: payload.kind,

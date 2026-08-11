@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectMongoDB } from "@/lib/mongodb";
@@ -22,14 +22,13 @@ export async function POST(request: NextRequest) {
   const secret = process.env.SEPAY_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ success: false, message: "Webhook chưa được cấu hình." }, { status: 503 });
 
-  const authorization = request.headers.get("authorization") || "";
-  const providedSecret = authorization.replace(/^Apikey\s+/i, "");
-  if (!safeEqual(providedSecret, secret)) {
+  const rawBody = await request.text();
+  if (!isAuthenticatedWebhook(request, rawBody, secret)) {
     return NextResponse.json({ success: false, message: "Không được phép." }, { status: 401 });
   }
 
   try {
-    const payload = SePayPayloadSchema.parse(await request.json());
+    const payload = SePayPayloadSchema.parse(JSON.parse(rawBody));
     if (payload.transferType.toLowerCase() !== "in") return acknowledged("Giao dịch không phải tiền vào.");
 
     const transactionId = String(payload.id);
@@ -92,8 +91,8 @@ export async function POST(request: NextRequest) {
 function extractTransferCode(...values: Array<string | null | undefined>) {
   for (const value of values) {
     const normalized = value?.toUpperCase().trim() || "";
-    if (/^(?:AI|VIP)[A-Z0-9]{12}$/.test(normalized)) return normalized;
-    const match = normalized.match(/(?:^|\s)((?:AI|VIP)[A-Z0-9]{12})(?=\s|$)/);
+    if (/^DH[A-Z0-9]{10}$/.test(normalized) || /^(?:AI|VIP)[A-Z0-9]{12}$/.test(normalized)) return normalized;
+    const match = normalized.match(/(?:^|\s)(DH[A-Z0-9]{10}|(?:AI|VIP)[A-Z0-9]{12})(?=\s|$)/);
     if (match?.[1]) return match[1];
   }
   return "";
@@ -103,6 +102,20 @@ function safeEqual(value: string, expected: string) {
   const left = Buffer.from(value);
   const right = Buffer.from(expected);
   return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function isAuthenticatedWebhook(request: NextRequest, rawBody: string, secret: string) {
+  const signature = request.headers.get("x-sepay-signature");
+  const timestamp = request.headers.get("x-sepay-timestamp");
+  if (signature && timestamp) {
+    const timestampSeconds = Number(timestamp);
+    if (!Number.isFinite(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) return false;
+    const expected = `sha256=${createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex")}`;
+    return safeEqual(signature, expected);
+  }
+
+  const authorization = request.headers.get("authorization") || "";
+  return safeEqual(authorization.replace(/^Apikey\s+/i, ""), secret);
 }
 
 function acknowledged(message: string) {
