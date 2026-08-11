@@ -59,7 +59,7 @@ export function PaymentTopUpModal({
       setPricing(next);
       setBank({
         code: String(data.paymentBankCode || ""),
-        account: String(data.paymentBankAccount || ""),
+        account: String(data.paymentBankVirtualAccount || data.paymentBankAccount || ""),
         accountName: String(data.paymentBankAccountName || ""),
       });
       setAmountText(initialKind === "vip" ? String(next.vipPrice) : String(next.aiPrice * 10));
