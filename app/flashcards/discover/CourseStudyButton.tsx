@@ -11,6 +11,7 @@ type Props = {
   tags: string[];
   title: string;
   vocabularyCount: number;
+  userCreated?: boolean;
 };
 
 export function CourseStudyButton({
@@ -20,12 +21,13 @@ export function CourseStudyButton({
   tags,
   title,
   vocabularyCount,
+  userCreated = false,
 }: Readonly<Props>) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const normalizedLevel = level.toLowerCase();
   const courseText = [slug, title, level, ...tags].join(" ").toLowerCase();
-  const hasLessons =
+  const hasLessons = !userCreated &&
     (normalizedLevel === "n5" || normalizedLevel === "n4") &&
     courseText.includes("minna");
   const firstLesson = normalizedLevel === "n4" ? 26 : 1;

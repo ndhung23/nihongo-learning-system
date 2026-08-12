@@ -88,7 +88,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           .sort(sortDefinition)
           .skip((requestedPage - 1) * pageSize)
           .limit(pageSize)
-          .select("title slug description level contentType jlptTest stats tags")
+          .select("title slug description level contentType jlptTest stats tags sourceType")
           .lean(),
     isRoadmapType
       ? RoadmapCourseModel.find(roadmapFilter)
@@ -108,7 +108,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           .sort(sortDefinition)
           .skip((page - 1) * pageSize)
           .limit(pageSize)
-          .select("title slug description level contentType jlptTest stats tags")
+          .select("title slug description level contentType jlptTest stats tags sourceType")
           .lean();
   const roadmaps =
     !isRoadmapType || page === requestedPage
@@ -224,6 +224,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
                 tags={(course.tags || []) as string[]}
                 title={course.title}
                 vocabularyCount={course.stats?.vocabularyCount || 0}
+                userCreated={course.sourceType === "user" || ((course.tags || []) as string[]).includes("personal")}
               />
             )}
             {isAdmin && !isJlptTest ? (
