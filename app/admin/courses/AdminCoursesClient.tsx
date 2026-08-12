@@ -302,7 +302,7 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
 
   async function deleteCourse(course: Course) {
     if (!confirm(`Xóa khóa học "${course.title}"?`)) {
-      return;
+      return false;
     }
 
     const response = await fetch(`/api/admin/courses/${course._id}`, { method: "DELETE" });
@@ -310,10 +310,11 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
     if (!response.ok) {
       const result = await response.json();
       alert(result.message || "Không thể xóa khóa học.");
-      return;
+      return false;
     }
 
     router.refresh();
+    return true;
   }
 
   async function openDetail(course: Course) {
@@ -518,6 +519,9 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
           loading={detailLoading}
           onArchive={() => quickStatus(detail.course, "archived")}
           onClose={() => setDetail(null)}
+          onDelete={async () => {
+            if (await deleteCourse(detail.course)) setDetail(null);
+          }}
           onEdit={() => {
             openEdit(detail.course);
             setDetail(null);
@@ -535,6 +539,7 @@ function CourseDetailDialog({
   loading,
   onArchive,
   onClose,
+  onDelete,
   onEdit,
   onHide,
   onPublish,
@@ -543,6 +548,7 @@ function CourseDetailDialog({
   loading: boolean;
   onArchive: () => void;
   onClose: () => void;
+  onDelete: () => void;
   onEdit: () => void;
   onHide: () => void;
   onPublish: () => void;
@@ -726,6 +732,10 @@ function CourseDetailDialog({
           </button>
           <button className="inline-flex h-11 items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-4 font-black text-teal-800 transition hover:bg-teal-100" onClick={onEdit} type="button">
             <FiEdit3 /> Sửa thông tin
+          </button>
+          {course.sourceType === "user" && (course.tags || []).includes("personal") ? <a className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 font-black text-white transition hover:bg-teal-700" href={`/flashcards/my-vocabulary?deckId=${course._id}`}><FiBookOpen /> Chế độ sửa</a> : null}
+          <button className="inline-flex h-11 items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 font-black text-rose-700 transition hover:bg-rose-100" onClick={onDelete} type="button">
+            <FiTrash2 /> Xóa khóa
           </button>
         </div>
 

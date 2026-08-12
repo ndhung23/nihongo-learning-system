@@ -177,6 +177,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Không tìm thấy khóa học." }, { status: 404 });
     }
 
+    await VocabularyModel.deleteMany({ deckId: course._id });
+
     return NextResponse.json({ data: { id } });
   } catch (error) {
     if (error instanceof AuthError) {

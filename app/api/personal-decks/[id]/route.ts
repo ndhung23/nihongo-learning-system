@@ -15,6 +15,32 @@ const UpdateSchema = z.object({
   level: z.enum(["n5", "n4", "n3", "n2", "n1", "other"]).default("other"), coinPrice: z.coerce.number().int().min(0).max(10_000_000).default(0),
 });
 
+const CopyVocabularySchema = z.object({ wordIds: z.array(z.string()).min(1).max(2000) });
+
+export async function POST(request: NextRequest, context: RouteContext<"/api/personal-decks/[id]">) {
+  try {
+    const session = await requirePermission("flashcard:create");
+    const { id } = await context.params;
+    if (!Types.ObjectId.isValid(id)) return NextResponse.json({ message: "ID bộ từ không hợp lệ." }, { status: 400 });
+    const payload = CopyVocabularySchema.parse(await request.json());
+    await connectMongoDB();
+    const targetDeck = await DeckModel.findOne({ _id: id, ownerId: session.userId, sourceType: "user", tags: "personal" }).select("_id").lean();
+    if (!targetDeck && !session.roles.includes("admin")) return NextResponse.json({ message: "Bạn không có quyền thêm từ vào bộ này." }, { status: 403 });
+    const ownedDeckIds = await DeckModel.find({ ownerId: targetDeck ? session.userId : { $exists: true }, sourceType: "user", tags: "personal", _id: { $ne: id } }).distinct("_id");
+    const sourceWords = await VocabularyModel.find({ _id: { $in: payload.wordIds.filter(Types.ObjectId.isValid) }, deckId: { $in: ownedDeckIds }, source: "user" }).lean();
+    const existingTerms = new Set(await VocabularyModel.find({ deckId: id, term: { $in: sourceWords.map((word) => word.term) } }).distinct("term"));
+    const copies = sourceWords.filter((word) => !existingTerms.has(word.term)).map((word) => { const { _id, createdAt, updatedAt, ...data } = word; void _id; void createdAt; void updatedAt; return { ...data, deckId: new Types.ObjectId(id), createdBy: targetDeck ? new Types.ObjectId(session.userId) : word.createdBy }; });
+    if (copies.length) await VocabularyModel.insertMany(copies, { ordered: false });
+    const vocabularyCount = await VocabularyModel.countDocuments({ deckId: id });
+    await DeckModel.updateOne({ _id: id }, { $set: { "stats.vocabularyCount": vocabularyCount } });
+    return NextResponse.json({ data: { copied: copies.length, skipped: sourceWords.length - copies.length, vocabularyCount } });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
+    if (error instanceof z.ZodError) return NextResponse.json({ message: "Hãy chọn ít nhất một từ hợp lệ." }, { status: 400 });
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể thêm từ có sẵn." }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext<"/api/personal-decks/[id]">) {
   try {
     const session = await requirePermission("flashcard:update:own");

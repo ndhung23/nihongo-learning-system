@@ -7,6 +7,7 @@
     "db:sync-jlpt-courses": "node scripts/sync-jlpt-test-courses.mjs",
     "data:add-n5-highlights": "node scripts/add-n5-question-highlights.mjs",
     "db:seed-course-learners": "node scripts/seed-course-learner-counts.mjs",
+    "db:import-minna-1998-personal": "node scripts/import-minna-1998-personal-lessons.mjs",
     "security:check-data": "node scripts/check-private-data.mjs",
     "dev": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev",
     "dev:webpack": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev --webpack",
