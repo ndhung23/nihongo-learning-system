@@ -4,6 +4,7 @@ import { DeckModel } from "@/models/Deck";
 import { UserModel } from "@/models/User";
 import { VocabularyModel } from "@/models/Vocabulary";
 import { requireAdminPage } from "@/lib/admin/page-auth";
+import { AdminDashboardClient, type DashboardData } from "./AdminDashboardClient";
 
 export default async function AdminDashboardPage() {
   await requireAdminPage("admin:dashboard:read");
@@ -16,6 +17,15 @@ export default async function AdminDashboardPage() {
     VocabularyModel.countDocuments(),
   ]);
 
+  const now = new Date();
+  const initialData: DashboardData = {
+    userCount, deckCount, vocabularyCount, onlineCount: activeUsers, onlineUsers: [],
+    activity: Array.from({ length: 7 }, (_, offset) => { const date = new Date(now); date.setDate(date.getDate() - (6 - offset)); return { dateKey: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date), count: 0 }; }),
+    updatedAt: now.toISOString(),
+  };
+  return <AdminDashboardClient initialData={initialData} />;
+
+  /* Legacy static dashboard retained below temporarily for layout reference. */
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
