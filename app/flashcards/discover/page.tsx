@@ -7,6 +7,7 @@ import { CourseStudyButton } from "./CourseStudyButton";
 import { getVisibleKanaCourseCount, KanaCourseCards } from "./KanaCourseCards";
 import { getAuthSession } from "@/lib/auth/session";
 import { RoadmapCourseModel } from "@/models/RoadmapCourse";
+import { UserModel } from "@/models/User";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -93,7 +94,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
           .lean(),
     isRoadmapType
       ? RoadmapCourseModel.find(roadmapFilter)
-          .populate("ownerId", "displayName username")
+          .populate({ path: "ownerId", select: "displayName username", model: UserModel })
           .sort(sort === "oldest" ? { updatedAt: 1 } : { updatedAt: -1 })
           .skip((requestedPage - 1) * pageSize)
           .limit(pageSize)
@@ -115,7 +116,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
     !isRoadmapType || page === requestedPage
       ? requestedRoadmaps
       : await RoadmapCourseModel.find(roadmapFilter)
-          .populate("ownerId", "displayName username")
+          .populate({ path: "ownerId", select: "displayName username", model: UserModel })
           .sort(sort === "oldest" ? { updatedAt: 1 } : { updatedAt: -1 })
           .skip((page - 1) * pageSize)
           .limit(pageSize)
