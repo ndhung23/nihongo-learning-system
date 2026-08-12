@@ -38,6 +38,11 @@ const CreateVocabularySchema = z.object({
   isPublished: z.boolean().default(false),
 });
 
+const ReplaceVocabularySchema = z.object({
+  deckId: z.string(),
+  words: z.array(CreateVocabularySchema.omit({ deckId: true })).min(1).max(2000),
+});
+
 const getCachedVocabulary = unstable_cache(
   async (q: string, deckId: string, lesson: string, limit: number) => {
     await connectMongoDB();
@@ -182,5 +187,37 @@ export async function POST(request: NextRequest) {
       { message: error instanceof Error ? error.message : "Unable to create vocabulary." },
       { status: 500 },
     );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await requirePermission("flashcard:create");
+    await connectMongoDB();
+    const payload = ReplaceVocabularySchema.parse(await request.json());
+    if (!Types.ObjectId.isValid(payload.deckId)) return NextResponse.json({ message: "ID bộ từ không hợp lệ." }, { status: 400 });
+    const deck = await DeckModel.findOne({ _id: payload.deckId, ...(session.roles.includes("admin") ? {} : { ownerId: session.userId }), sourceType: "user", tags: "personal" }).select("_id").lean();
+    if (!deck) return NextResponse.json({ message: "Bộ từ không tồn tại hoặc không thuộc tài khoản của bạn." }, { status: 404 });
+    const uniqueWords = [...new Map(payload.words.map((word) => [word.term.trim().normalize("NFKC"), word])).values()];
+    await VocabularyModel.bulkWrite(uniqueWords.map((word) => ({
+      updateOne: {
+        filter: { deckId: deck._id, term: word.term.trim().normalize("NFKC") },
+        update: { $set: { ...word, term: word.term.trim().normalize("NFKC"), deckId: deck._id, createdBy: session.userId, source: "user", isPublished: true } },
+        upsert: true,
+      },
+    })), { ordered: true });
+    await VocabularyModel.deleteMany({
+      deckId: deck._id,
+      createdBy: session.userId,
+      source: "user",
+      term: { $nin: uniqueWords.map((word) => word.term.trim().normalize("NFKC")) },
+    });
+    await DeckModel.updateOne({ _id: deck._id }, { $set: { "stats.vocabularyCount": uniqueWords.length } });
+    revalidateTag("vocabulary", "max");
+    return NextResponse.json({ data: { replacedCount: uniqueWords.length } });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ message: error.message, code: error.code }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
+    if (error instanceof z.ZodError) return NextResponse.json({ message: "Dữ liệu import chưa hợp lệ.", issues: error.issues }, { status: 400 });
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể ghi đè bộ từ." }, { status: 500 });
   }
 }

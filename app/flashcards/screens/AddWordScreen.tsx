@@ -378,6 +378,20 @@ export function AddWordScreen({
 
     setIsSaving(true);
     try {
+      if (showImport) {
+        const response = await fetch("/api/vocabulary", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deckId, words: words.map(toPayload) }),
+        });
+        const payload = await response.json() as { data?: { replacedCount?: number }; message?: string };
+        if (!response.ok) throw new Error(payload.message || "Không thể ghi đè bộ từ.");
+        setStatus({ tone: "success", message: `Đã thay thế toàn bộ bộ từ bằng ${payload.data?.replacedCount ?? words.length} từ mới.` });
+        setImportText("");
+        setFileWords([]);
+        onSaved?.();
+        return;
+      }
       let savedCount = 0;
       let duplicateCount = 0;
       for (const word of words) {
@@ -464,7 +478,7 @@ export function AddWordScreen({
                 <h3 className="font-black text-slate-950">Hướng dẫn tạo file import từ vựng</h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
                   Chỉ <b>từ tiếng Nhật</b> và <b>nghĩa tiếng Việt</b> là bắt buộc. Kana, romaji, từ loại và ví dụ có thể để trống.
-                  Luôn xem lại danh sách preview trước khi bấm “Import vào bộ từ”.
+                  Import sẽ thay thế toàn bộ dữ liệu hiện có trong bộ. Hãy kiểm tra preview trước khi ghi đè.
                 </p>
               </div>
               <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -640,7 +654,7 @@ export function AddWordScreen({
         disabled={isSaving}
         type="submit"
       >
-        {isSaving ? "Đang lưu..." : showImport ? "Import vào bộ từ" : vocabularyId ? "Lưu thay đổi" : "Lưu vào bộ từ"}
+        {isSaving ? "Đang lưu..." : showImport ? "Ghi đè bộ từ bằng dữ liệu mới" : vocabularyId ? "Lưu thay đổi" : "Lưu vào bộ từ"}
       </button>
     </form>
   );

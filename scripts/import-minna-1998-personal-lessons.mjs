@@ -26,8 +26,9 @@ const concurrency = Math.max(1, Math.min(5, Number(args.concurrency || 3)));
 for (let offset = 0; offset < rawLessons.length; offset += concurrency) {
   const batch = await Promise.all(rawLessons.slice(offset, offset + concurrency).map(async (lesson) => {
     const source = normalizeRows(lesson);
-    let words = Array.isArray(cache[lesson.lesson]) && cache[lesson.lesson].length === source.length ? cache[lesson.lesson] : null;
+    let words = Array.isArray(cache[lesson.lesson]) && cache[lesson.lesson].length === source.length && (args["reuse-cache"] || cache[lesson.lesson].every((word) => word.exampleJa && word.exampleVi)) ? cache[lesson.lesson] : null;
     if (!words) words = await enrichLesson(lesson.lesson, source);
+    else words = words.map((word, index) => ({ ...word, ...source[index], romaji: word.romaji, partOfSpeech: word.partOfSpeech, exampleJa: word.exampleJa, exampleVi: word.exampleVi }));
     return { ...lesson, words };
   }));
   for (const lesson of batch) {
@@ -101,13 +102,19 @@ for (const lesson of lessons) {
       upsert: true,
     },
   }));
+  await db.collection("vocabularies").deleteMany({ deckId, createdBy: user._id, sourceUrl: lesson.url, term: { $nin: lesson.words.map((word) => word.term) } });
   if (operations.length) await db.collection("vocabularies").bulkWrite(operations, { ordered: false });
   const count = await db.collection("vocabularies").countDocuments({ deckId });
   await db.collection("decks").updateOne({ _id: deckId }, { $set: { "stats.vocabularyCount": count } });
   result.push({ lesson: lesson.lesson, deckId: String(deckId), words: count });
 }
 
-console.log(JSON.stringify({ apply: true, username, decks: result.length, words: result.reduce((sum, item) => sum + item.words, 0), result }, null, 2));
+const importedDeckIds = result.map((item) => new mongoose.Types.ObjectId(item.deckId));
+const quality = {
+  withRomaji: await db.collection("vocabularies").countDocuments({ deckId: { $in: importedDeckIds }, romaji: { $type: "string", $ne: "" } }),
+  withExamples: await db.collection("vocabularies").countDocuments({ deckId: { $in: importedDeckIds }, "examples.0.ja": { $type: "string", $ne: "" }, "examples.0.vi": { $type: "string", $ne: "" } }),
+};
+console.log(JSON.stringify({ apply: true, username, decks: result.length, words: result.reduce((sum, item) => sum + item.words, 0), quality, result }, null, 2));
 await mongoose.disconnect();
 
 function normalizeRows(lesson) {
@@ -127,11 +134,11 @@ async function enrichLesson(lesson, words) {
   if (!payload?.words || payload.words.length !== words.length) throw new Error(`AI trả sai số lượng ở bài ${lesson}: ${payload?.words?.length || 0}/${words.length}`);
   return payload.words.map((word, index) => ({
     ...words[index],
-    term: clean(word.term) || words[index].term,
-    kana: clean(word.kana) || words[index].kana,
+    term: words[index].term,
+    kana: words[index].kana,
     romaji: clean(word.romaji),
     partOfSpeech: clean(word.partOfSpeech) || inferPartOfSpeech(words[index]),
-    meaningVi: clean(word.meaningVi) || words[index].meaningVi,
+    meaningVi: words[index].meaningVi,
     exampleJa: clean(word.exampleJa),
     exampleVi: clean(word.exampleVi),
   }));
@@ -141,7 +148,37 @@ async function callOpenAI(prompt) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: process.env.OPENAI_IMPORT_MODEL || "gpt-4.1-mini", temperature: 0.1, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({
+      model: process.env.OPENAI_IMPORT_MODEL || "gpt-4.1-mini",
+      temperature: 0.1,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "minna_vocabulary",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              words: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    sourceIndex: { type: "integer" }, term: { type: "string" }, kana: { type: "string" }, romaji: { type: "string" },
+                    partOfSpeech: { type: "string" }, meaningVi: { type: "string" }, exampleJa: { type: "string" }, exampleVi: { type: "string" }, audioUrl: { type: "string" },
+                  },
+                  required: ["sourceIndex", "term", "kana", "romaji", "partOfSpeech", "meaningVi", "exampleJa", "exampleVi", "audioUrl"],
+                },
+              },
+            },
+            required: ["words"],
+          },
+        },
+      },
+      messages: [{ role: "user", content: prompt }],
+    }),
     signal: AbortSignal.timeout(180_000),
   });
   if (!response.ok) {
