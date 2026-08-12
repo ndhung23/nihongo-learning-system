@@ -8,6 +8,7 @@ import { getVisibleKanaCourseCount, KanaCourseCards } from "./KanaCourseCards";
 import { getAuthSession } from "@/lib/auth/session";
 import { RoadmapCourseModel } from "@/models/RoadmapCourse";
 import { UserModel } from "@/models/User";
+import { publicDeckFilter } from "@/lib/publicDeckFilter";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -25,10 +26,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
   const adminCreateAction = getAdminCreateAction(type);
   await connectMongoDB();
 
-  const filter: Record<string, unknown> = {
-    status: "published",
-    visibility: "public",
-  };
+  const filter: Record<string, unknown> = publicDeckFilter();
 
   if (type === "test") {
     filter.tags = "Test";

@@ -5,6 +5,7 @@ import { AuthError, requireAuth } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/mongodb";
 import { CourseLearnerModel } from "@/models/CourseLearner";
 import { DeckModel } from "@/models/Deck";
+import { publicDeckFilter } from "@/lib/publicDeckFilter";
 
 export async function POST(
   _request: Request,
@@ -28,8 +29,7 @@ export async function POST(
     const userId = new Types.ObjectId(session.userId);
     const deckExists = await DeckModel.exists({
       _id: deckId,
-      status: "published",
-      visibility: "public",
+      ...publicDeckFilter(),
     });
 
     if (!deckExists) {

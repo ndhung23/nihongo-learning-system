@@ -12,6 +12,7 @@ function AddVocabularyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deckId = searchParams.get("deckId") || "";
+  const vocabularyId = searchParams.get("vocabularyId") || "";
   const returnHref = deckId ? `/flashcards/my-vocabulary?deckId=${encodeURIComponent(deckId)}` : "/flashcards/my-vocabulary";
 
   useEffect(() => {
@@ -25,6 +26,7 @@ function AddVocabularyContent() {
   return (
     <AddWordScreen
       deckId={deckId}
+      vocabularyId={vocabularyId}
       onBack={() => router.push(returnHref)}
       onSaved={() => router.push(returnHref)}
     />

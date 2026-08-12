@@ -6,10 +6,11 @@ import { invalidateCurrentUser } from "../currentUserClient";
 
 type Payment = {
   id: string;
-  kind: "ai" | "vip";
+  kind: "ai" | "vip" | "coins";
   amount: number;
   aiCredits: number;
   vipMonths: number;
+  coins: number;
   transferCode: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
@@ -22,7 +23,7 @@ export function PaymentTopUpModal({
   initialKind: "ai" | "vip";
   onClose: () => void;
 }>) {
-  const [kind, setKind] = useState<"ai" | "vip">(initialKind);
+  const [kind, setKind] = useState<"ai" | "vip" | "coins">(initialKind);
   const [amountText, setAmountText] = useState(initialKind === "vip" ? "20000" : "10000");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [activePayment, setActivePayment] = useState<Payment | null>(null);
@@ -31,7 +32,7 @@ export function PaymentTopUpModal({
   const [pricing, setPricing] = useState({ aiPrice: 1000, vipPrice: 20000, vipAiCredits: 100 });
   const [bank, setBank] = useState({ code: "", account: "", accountName: "" });
   const amount = Number(amountText) || 0;
-  const benefit = kind === "ai" ? `${Math.floor(amount / pricing.aiPrice)} lượt AI` : `${Math.floor(amount / pricing.vipPrice)} tháng VIP + ${Math.floor(amount / pricing.vipPrice) * pricing.vipAiCredits} lượt AI`;
+  const benefit = kind === "coins" ? `${amount.toLocaleString("vi-VN")} xu` : kind === "ai" ? `${Math.floor(amount / pricing.aiPrice)} lượt AI` : `${Math.floor(amount / pricing.vipPrice)} tháng VIP + ${Math.floor(amount / pricing.vipPrice) * pricing.vipAiCredits} lượt AI`;
   const qrUrl = useMemo(() => {
     if (!activePayment || !bank.code || !bank.account || !bank.accountName) return "";
     const query = new URLSearchParams({
@@ -95,9 +96,9 @@ export function PaymentTopUpModal({
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [activePayment]);
 
-  function changeKind(nextKind: "ai" | "vip") {
+  function changeKind(nextKind: "ai" | "vip" | "coins") {
     setKind(nextKind);
-    setAmountText(nextKind === "vip" ? String(pricing.vipPrice) : String(pricing.aiPrice * 10));
+    setAmountText(nextKind === "vip" ? String(pricing.vipPrice) : nextKind === "coins" ? "10000" : String(pricing.aiPrice * 10));
     setActivePayment(null);
     setMessage("");
   }
@@ -150,15 +151,16 @@ export function PaymentTopUpModal({
 
         <div className="grid gap-5 p-5 md:grid-cols-[1fr_300px]">
           <section>
-            <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+            <div className="grid grid-cols-3 rounded-2xl bg-slate-100 p-1">
               <button className={`h-11 rounded-xl font-black ${kind === "ai" ? "bg-white text-teal-700 shadow" : "text-slate-500"}`} onClick={() => changeKind("ai")} type="button">Nạp lượt AI</button>
               <button className={`h-11 rounded-xl font-black ${kind === "vip" ? "bg-white text-violet-700 shadow" : "text-slate-500"}`} onClick={() => changeKind("vip")} type="button">Nạp VIP</button>
+              <button className={`h-11 rounded-xl font-black ${kind === "coins" ? "bg-white text-amber-700 shadow" : "text-slate-500"}`} onClick={() => changeKind("coins")} type="button">Nạp xu</button>
             </div>
 
             <label className="mt-5 block">
               <span className="text-xs font-black uppercase tracking-wider text-slate-500">Số tiền chuyển khoản</span>
               <div className="mt-2 flex h-14 items-center rounded-2xl border border-slate-200 px-4 focus-within:border-teal-400">
-                <input className="min-w-0 flex-1 text-xl font-black outline-none" inputMode="numeric" min={kind === "vip" ? pricing.vipPrice : pricing.aiPrice} onChange={(event) => setAmountText(event.target.value.replace(/\D/g, ""))} step={kind === "vip" ? pricing.vipPrice : pricing.aiPrice} type="number" value={amountText} />
+                <input className="min-w-0 flex-1 text-xl font-black outline-none" inputMode="numeric" min={kind === "vip" ? pricing.vipPrice : kind === "coins" ? 1000 : pricing.aiPrice} onChange={(event) => setAmountText(event.target.value.replace(/\D/g, ""))} step={kind === "vip" ? pricing.vipPrice : kind === "coins" ? 1000 : pricing.aiPrice} type="number" value={amountText} />
                 <span className="font-black text-slate-400">đ</span>
               </div>
             </label>
@@ -180,7 +182,7 @@ export function PaymentTopUpModal({
                 {payments.map((payment) => (
                   <button className="flex w-full items-center justify-between rounded-2xl bg-slate-50 p-3 text-left" key={payment.id} onClick={() => setActivePayment(payment)} type="button">
                     <span>
-                      <span className="block text-sm font-black">{payment.kind === "vip" ? `VIP ${payment.vipMonths} tháng` : `${payment.aiCredits} lượt AI`}</span>
+                      <span className="block text-sm font-black">{payment.kind === "coins" ? `${payment.coins.toLocaleString("vi-VN")} xu` : payment.kind === "vip" ? `VIP ${payment.vipMonths} tháng` : `${payment.aiCredits} lượt AI`}</span>
                       <span className="text-xs font-bold text-slate-400">{payment.amount.toLocaleString("vi-VN")}đ · {payment.transferCode}</span>
                     </span>
                     <PaymentStatus status={payment.status} />

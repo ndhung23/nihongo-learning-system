@@ -8,6 +8,7 @@ export type CurrentUser = {
   roles: string[];
   permissions?: string[];
   aiCredits?: number;
+  coins?: number;
   pendingGachaTickets?: number;
   vipUntil?: string;
   isVip?: boolean;

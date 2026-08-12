@@ -1,0 +1,14 @@
+import { NextRequest, NextResponse } from "next/server";
+import { Types } from "mongoose";
+import { z } from "zod";
+import { AuthError, requirePermission } from "@/lib/auth/session";
+import { connectMongoDB } from "@/lib/mongodb";
+import { DeckModel } from "@/models/Deck";
+import { VocabularyModel } from "@/models/Vocabulary";
+
+const UpdateSchema = z.object({ term: z.string().trim().min(1), kana: z.string().trim().optional(), romaji: z.string().trim().optional(), partOfSpeech: z.string().trim().optional(), meaningVi: z.string().trim().min(1), examples: z.array(z.object({ ja: z.string().trim().min(1), vi: z.string().trim().optional() })).default([]), imageUrl: z.string().trim().optional() });
+
+export async function GET(_request: NextRequest, context: RouteContext<"/api/vocabulary/[id]">) { try { const session = await requirePermission("flashcard:read"); const word = await findOwned((await context.params).id, session.userId, session.roles.includes("admin")); if (!word) return NextResponse.json({ message: "Không tìm thấy từ vựng hoặc bạn không có quyền sửa." }, { status: 404 }); return NextResponse.json({ data: word }); } catch (error) { return handleError(error); } }
+export async function PATCH(request: NextRequest, context: RouteContext<"/api/vocabulary/[id]">) { try { const session = await requirePermission("flashcard:update:own"); const word = await findOwned((await context.params).id, session.userId, session.roles.includes("admin")); if (!word) return NextResponse.json({ message: "Không tìm thấy từ vựng hoặc bạn không có quyền sửa." }, { status: 404 }); Object.assign(word, UpdateSchema.parse(await request.json())); await word.save(); return NextResponse.json({ data: word }); } catch (error) { return handleError(error); } }
+async function findOwned(id: string, userId: string, isAdmin: boolean) { if (!Types.ObjectId.isValid(id)) return null; await connectMongoDB(); const word = await VocabularyModel.findOne({ _id: id, source: "user" }); if (!word?.deckId) return null; const deck = await DeckModel.findOne({ _id: word.deckId, sourceType: "user", tags: "personal" }).select("ownerId").lean(); return deck && (isAdmin || String(deck.ownerId) === userId) ? word : null; }
+function handleError(error: unknown) { if (error instanceof AuthError) return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 }); if (error instanceof z.ZodError) return NextResponse.json({ message: error.issues[0]?.message || "Dữ liệu từ vựng chưa hợp lệ." }, { status: 400 }); return NextResponse.json({ message: error instanceof Error ? error.message : "Không thể cập nhật từ vựng." }, { status: 500 }); }

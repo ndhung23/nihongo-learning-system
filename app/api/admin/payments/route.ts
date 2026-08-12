@@ -21,6 +21,7 @@ export async function GET() {
         amount: payment.amount,
         aiCredits: payment.aiCredits,
         vipMonths: payment.vipMonths,
+        coins: payment.coins || 0,
         transferCode: payment.transferCode,
         status: payment.status,
         adminNote: payment.adminNote,

@@ -42,7 +42,7 @@ export async function PATCH(
     if (!user) return NextResponse.json({ message: "Không tìm thấy người dùng." }, { status: 404 });
 
     const update: Record<string, unknown> = {
-      $inc: { aiCredits: payment.aiCredits },
+      $inc: { aiCredits: payment.aiCredits, coins: payment.coins || 0 },
       $addToSet: { processedPaymentIds: payment._id },
     };
     if (payment.kind === "vip") {

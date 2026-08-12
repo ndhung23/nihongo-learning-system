@@ -30,6 +30,7 @@ const DeckSchema = new Schema(
       amount: { type: Number, default: 0 },
       currency: { type: String, default: "VND" },
     },
+    coinPrice: { type: Number, default: 0, min: 0 },
     stats: {
       vocabularyCount: { type: Number, default: 0 },
       learnerCount: { type: Number, default: 900 },

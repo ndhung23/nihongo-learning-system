@@ -6,10 +6,11 @@ import { FiCheck, FiClock, FiRefreshCw, FiX } from "react-icons/fi";
 type Payment = {
   id: string;
   user?: { username?: string; email?: string; displayName?: string };
-  kind: "ai" | "vip";
+  kind: "ai" | "vip" | "coins";
   amount: number;
   aiCredits: number;
   vipMonths: number;
+  coins: number;
   transferCode: string;
   status: "pending" | "approved" | "rejected";
   adminNote?: string;
@@ -71,7 +72,7 @@ export function PaymentReviewClient() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Status status={payment.status} />
                   <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-black uppercase text-violet-700">
-                    {payment.kind === "vip" ? `VIP ${payment.vipMonths} tháng` : `${payment.aiCredits} lượt AI`}
+                    {payment.kind === "coins" ? `${payment.coins.toLocaleString("vi-VN")} xu` : payment.kind === "vip" ? `VIP ${payment.vipMonths} tháng` : `${payment.aiCredits} lượt AI`}
                   </span>
                 </div>
                 <h2 className="mt-3 text-lg font-black">{payment.user?.displayName || payment.user?.username || "Người dùng"}</h2>

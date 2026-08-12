@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
+import { publicDeckFilter } from "@/lib/publicDeckFilter";
 
 export type PublicCourse = {
   id: string;
@@ -24,7 +25,7 @@ export type PublicCourse = {
 export const getCachedPublicCourses = unstable_cache(
   async (sort: string, type: string, q: string, limit: number): Promise<PublicCourse[]> => {
     await connectMongoDB();
-    const filter: Record<string, unknown> = { status: "published", visibility: "public" };
+    const filter: Record<string, unknown> = publicDeckFilter();
 
     if (type === "roadmap") filter.tags = "roadmap";
     else if (type === "test") filter.tags = "Test";
@@ -64,6 +65,6 @@ export const getCachedPublicCourses = unstable_cache(
       tags: course.tags,
     }));
   },
-  ["public-courses-v3"],
+  ["public-courses-v4-personal"],
   { revalidate: 600, tags: ["courses"] },
 );

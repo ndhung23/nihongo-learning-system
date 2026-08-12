@@ -8,7 +8,7 @@ import { PaymentRequestModel } from "@/models/PaymentRequest";
 import { SystemSettingModel } from "@/models/SystemSetting";
 
 const CreatePaymentSchema = z.object({
-  kind: z.enum(["ai", "vip"]),
+  kind: z.enum(["ai", "vip", "coins"]),
   amount: z.coerce.number().int().min(1000).max(10_000_000),
 });
 
@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
       userId: session.userId,
       kind: payload.kind,
       amount: payload.amount,
-      aiCredits: payload.kind === "ai" ? payload.amount / aiPrice : (payload.amount / vipPrice) * vipAiCredits,
+      aiCredits: payload.kind === "ai" ? payload.amount / aiPrice : payload.kind === "vip" ? (payload.amount / vipPrice) * vipAiCredits : 0,
       vipMonths: payload.kind === "vip" ? payload.amount / vipPrice : 0,
+      coins: payload.kind === "coins" ? payload.amount : 0,
       transferCode,
     });
 
@@ -79,6 +80,7 @@ function serializePayment(payment: Record<string, unknown>) {
     amount: payment.amount,
     aiCredits: payment.aiCredits,
     vipMonths: payment.vipMonths,
+    coins: payment.coins,
     transferCode: payment.transferCode,
     status: payment.status,
     adminNote: payment.adminNote,

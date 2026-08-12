@@ -12,6 +12,7 @@ const UpdateSchema = z.object({
   title: z.string().trim().min(2).max(120), description: z.string().trim().max(500).default(""),
   accessMode: z.enum(["public", "private", "password", "invite"]),
   password: z.string().max(100).optional(), invitedEmails: z.array(z.string().trim().email()).max(50).default([]),
+  level: z.enum(["n5", "n4", "n3", "n2", "n1", "other"]).default("other"), coinPrice: z.coerce.number().int().min(0).max(10_000_000).default(0),
 });
 
 export async function PATCH(request: NextRequest, context: RouteContext<"/api/personal-decks/[id]">) {
@@ -32,11 +33,13 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/pe
     if (payload.accessMode === "invite" && !users.length) return NextResponse.json({ message: "Hãy nhập ít nhất một email đã đăng ký." }, { status: 400 });
     if (payload.accessMode === "password" && !payload.password && !deck.accessPasswordHash) return NextResponse.json({ message: "Hãy nhập mật khẩu cho bộ từ." }, { status: 400 });
     deck.title = payload.title; deck.description = payload.description; deck.visibility = payload.accessMode === "public" ? "public" : "private";
+    deck.level = payload.level === "other" ? "custom" : payload.level; deck.coinPrice = payload.coinPrice;
+    deck.status = payload.accessMode === "public" ? "published" : "draft";
     deck.accessMode = payload.accessMode; deck.allowedUserIds = users.map((user) => user._id);
     if (payload.accessMode === "password" && payload.password) deck.accessPasswordHash = await bcrypt.hash(payload.password, 12);
     if (payload.accessMode !== "password") deck.accessPasswordHash = undefined;
     await deck.save();
-    return NextResponse.json({ data: { _id: id, title: deck.title, description: deck.description, accessMode: deck.accessMode, invitedEmails: normalized, vocabularyCount: deck.stats?.vocabularyCount || 0 } });
+    return NextResponse.json({ data: { _id: id, title: deck.title, description: deck.description, level: payload.level, coinPrice: payload.coinPrice, accessMode: deck.accessMode, invitedEmails: normalized, vocabularyCount: deck.stats?.vocabularyCount || 0 } });
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ message: error.message }, { status: error.code === "UNAUTHORIZED" ? 401 : 403 });
     if (error instanceof z.ZodError) return NextResponse.json({ message: error.issues[0]?.message || "Dữ liệu chưa hợp lệ." }, { status: 400 });

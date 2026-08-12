@@ -16,7 +16,7 @@ export async function GET() {
   await connectMongoDB();
 
   const user = await UserModel.findById(session.userId)
-    .select("username email displayName avatarUrl roles status aiCredits pendingGachaTickets vipUntil profile")
+    .select("username email displayName avatarUrl roles status aiCredits coins pendingGachaTickets vipUntil profile")
     .lean();
 
   if (!user || user.status !== "active") {
@@ -37,6 +37,7 @@ export async function GET() {
       roles,
       permissions: getPermissionsForRoles(roles),
       aiCredits: typeof user.aiCredits === "number" ? user.aiCredits : 1,
+      coins: Math.max(Number(user.coins) || 0, 0),
       pendingGachaTickets: Math.max(Number(user.pendingGachaTickets) || 0, 0),
       vipUntil: user.vipUntil?.toISOString(),
       isVip,

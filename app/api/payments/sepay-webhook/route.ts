@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (!user) throw new Error("Không tìm thấy người dùng của yêu cầu thanh toán.");
 
     const userUpdate: Record<string, unknown> = {
-      $inc: { aiCredits: payment.aiCredits },
+      $inc: { aiCredits: payment.aiCredits, coins: payment.coins || 0 },
       $addToSet: { processedPaymentIds: payment._id },
     };
     if (payment.kind === "vip") {

@@ -42,7 +42,10 @@ const getCachedVocabulary = unstable_cache(
   async (q: string, deckId: string, lesson: string, limit: number) => {
     await connectMongoDB();
 
-    const filter: Record<string, unknown> = { source: { $ne: "user" } };
+    const isPublicPersonalDeck = deckId
+      ? Boolean(await DeckModel.exists({ _id: deckId, sourceType: "user", tags: "personal", visibility: "public", accessMode: "public" }))
+      : false;
+    const filter: Record<string, unknown> = isPublicPersonalDeck ? { source: "user" } : { source: { $ne: "user" } };
 
     if (deckId) {
       filter.deckId = deckId;
@@ -67,7 +70,7 @@ const getCachedVocabulary = unstable_cache(
 
     return JSON.parse(JSON.stringify(vocabulary));
   },
-  ["public-vocabulary-v4-images"],
+  ["public-vocabulary-v5-personal-decks"],
   { revalidate: 300, tags: ["vocabulary"] },
 );
 
@@ -81,6 +84,7 @@ export async function GET(request: NextRequest) {
       await connectMongoDB();
 
       const deckId = searchParams.get("deckId") || "";
+      let vocabularyOwnerId = session.userId;
       if (deckId && !Types.ObjectId.isValid(deckId)) return NextResponse.json({ message: "ID bộ từ không hợp lệ." }, { status: 400 });
       if (deckId) {
         const deck = await DeckModel.findOne({ _id: deckId, sourceType: "user", tags: "personal" }).select("+accessPasswordHash ownerId accessMode allowedUserIds").lean();
@@ -92,10 +96,11 @@ export async function GET(request: NextRequest) {
         if (!session.roles.includes("admin") && !isOwner && deck.accessMode !== "public" && !isInvited && !passwordAccepted) {
           return NextResponse.json({ message: deck.accessMode === "password" ? "Bộ từ yêu cầu mật khẩu." : "Bạn không có quyền truy cập bộ từ này.", code: deck.accessMode === "password" ? "PASSWORD_REQUIRED" : "FORBIDDEN" }, { status: 403 });
         }
+        vocabularyOwnerId = String(deck.ownerId);
       }
 
       const vocabulary = await VocabularyModel.find({
-        createdBy: session.userId,
+        createdBy: vocabularyOwnerId,
         source: "user",
         ...(deckId ? { deckId } : {}),
       })
@@ -167,6 +172,10 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: "Invalid vocabulary payload.", issues: error.issues }, { status: 400 });
+    }
+
+    if (error && typeof error === "object" && "code" in error && (error as { code?: number }).code === 11000) {
+      return NextResponse.json({ message: "Từ này đã tồn tại trong bộ từ.", code: "DUPLICATE_WORD" }, { status: 409 });
     }
 
     return NextResponse.json(

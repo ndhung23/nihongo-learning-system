@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { FiAlertCircle, FiArrowLeft, FiBookmark, FiCheckCircle, FiFileText, FiHelpCircle, FiUploadCloud, FiX, FiZap } from "react-icons/fi";
 import { FormField } from "../components/FormField";
 import { RomajiKanaInput } from "../components/RomajiKanaInput";
@@ -197,10 +197,12 @@ function toPayload(word: WordForm) {
 
 export function AddWordScreen({
   deckId,
+  vocabularyId = "",
   onBack,
   onSaved,
 }: Readonly<{
   deckId: string;
+  vocabularyId?: string;
   onBack: () => void;
   onSaved?: () => void;
 }>) {
@@ -215,6 +217,15 @@ export function AddWordScreen({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isImportingFiles, setIsImportingFiles] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!vocabularyId) return;
+    void fetch(`/api/vocabulary/${encodeURIComponent(vocabularyId)}`, { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { data?: { term?: string; kana?: string; romaji?: string; partOfSpeech?: string; meaningVi?: string; examples?: Array<{ ja?: string; vi?: string }>; imageUrl?: string }; message?: string };
+      if (!response.ok || !payload.data) throw new Error(payload.message || "Không thể tải từ vựng.");
+      setForm({ term: payload.data.term || "", kana: payload.data.kana || "", romaji: payload.data.romaji || "", partOfSpeech: payload.data.partOfSpeech || "", meaningVi: payload.data.meaningVi || "", exampleJa: payload.data.examples?.[0]?.ja || "", exampleVi: payload.data.examples?.[0]?.vi || "", imageUrl: payload.data.imageUrl || "" });
+    }).catch((error: unknown) => setStatus({ tone: "error", message: error instanceof Error ? error.message : "Không thể tải từ vựng." }));
+  }, [vocabularyId]);
 
   const parsedRows = useMemo(
     () => parsePastedContent(importText),
@@ -288,16 +299,18 @@ export function AddWordScreen({
   };
 
   const saveWord = async (word: WordForm) => {
-    const response = await fetch("/api/vocabulary", {
-      method: "POST",
+    const response = await fetch(vocabularyId ? `/api/vocabulary/${encodeURIComponent(vocabularyId)}` : "/api/vocabulary", {
+      method: vocabularyId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...toPayload(word), deckId }),
+      body: JSON.stringify({ ...toPayload(word), ...(!vocabularyId ? { deckId } : {}) }),
     });
 
     if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as { message?: string; code?: string } | null;
+      if (response.status === 409 || data?.code === "DUPLICATE_WORD") return false;
       throw new Error(data?.message || "Không thể lưu từ vựng.");
     }
+    return true;
   };
 
   const suggestWithAi = async () => {
@@ -365,13 +378,19 @@ export function AddWordScreen({
 
     setIsSaving(true);
     try {
+      let savedCount = 0;
+      let duplicateCount = 0;
       for (const word of words) {
-        await saveWord(word);
+        const saved = await saveWord(word);
+        if (saved) savedCount += 1;
+        else duplicateCount += 1;
       }
 
       setStatus({
-        tone: "success",
-        message: showImport ? `Đã import ${words.length} từ vào bộ từ riêng.` : "Đã lưu từ mới vào bộ từ riêng.",
+        tone: showImport || savedCount ? "success" : "error",
+        message: showImport
+          ? `Đã thêm ${savedCount} từ${duplicateCount ? `, bỏ qua ${duplicateCount} từ đã tồn tại` : ""}.`
+          : savedCount ? "Đã lưu từ mới vào bộ từ riêng." : "Từ này đã tồn tại trong bộ từ.",
       });
       setForm(emptyForm);
       setImportText("");
@@ -392,7 +411,7 @@ export function AddWordScreen({
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Tạo dữ liệu học</p>
-          <h1 className="mt-2 text-4xl font-black">Thêm từ mới</h1>
+          <h1 className="mt-2 text-4xl font-black">{vocabularyId ? "Sửa từ vựng" : "Thêm từ mới"}</h1>
         </div>
         <button
           className="inline-flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-3 font-black text-indigo-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-100"
@@ -524,7 +543,7 @@ export function AddWordScreen({
               <p className="text-xs font-black uppercase tracking-wider text-slate-500">Preview import</p>
               <div className="mt-4 max-h-96 space-y-3 overflow-auto pr-2">
                 {validRows.length ? (
-                  validRows.slice(0, 20).map((row) => (
+                  validRows.map((row) => (
                     <div key={`${row.lineNumber}-${row.raw}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-black text-slate-950">{row.word?.term}</p>
@@ -621,7 +640,7 @@ export function AddWordScreen({
         disabled={isSaving}
         type="submit"
       >
-        {isSaving ? "Đang lưu..." : showImport ? "Import vào bộ từ" : "Lưu vào bộ từ"}
+        {isSaving ? "Đang lưu..." : showImport ? "Import vào bộ từ" : vocabularyId ? "Lưu thay đổi" : "Lưu vào bộ từ"}
       </button>
     </form>
   );

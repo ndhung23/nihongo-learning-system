@@ -77,7 +77,7 @@ export async function sendPaymentRequestAdminEmail({
 }: {
   username: string;
   userEmail: string;
-  kind: "ai" | "vip";
+  kind: "ai" | "vip" | "coins";
   amount: number;
   transferCode: string;
   createdAt: Date;
@@ -86,7 +86,7 @@ export async function sendPaymentRequestAdminEmail({
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || config.user;
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   const reviewUrl = `${appUrl}/admin/payments`;
-  const benefit = kind === "vip" ? "Nâng cấp VIP" : "Nạp lượt AI";
+  const benefit = kind === "coins" ? "Nạp xu" : kind === "vip" ? "Nâng cấp VIP" : "Nạp lượt AI";
   const formattedAmount = `${amount.toLocaleString("vi-VN")}đ`;
   const formattedTime = createdAt.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
   const transporter = nodemailer.createTransport({
