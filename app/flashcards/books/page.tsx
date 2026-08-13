@@ -5,6 +5,8 @@ import {
   FiFeather,
   FiShield,
 } from "react-icons/fi";
+import { connectMongoDB } from "@/lib/mongodb";
+import { AffiliateProductModel } from "@/models/AffiliateProduct";
 
 const books = [
   {
@@ -30,7 +32,14 @@ const books = [
   },
 ] as const;
 
-export default function BookStorePage() {
+export default async function BookStorePage() {
+  await connectMongoDB();
+  const databaseProducts = await AffiliateProductModel.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 }).lean();
+  const visibleBooks = databaseProducts.length ? databaseProducts.map((product) => ({
+    title: product.title, description: product.description, level: product.level,
+    accent: ({ rose: "from-rose-500 to-orange-400", teal: "from-teal-500 to-cyan-400", violet: "from-violet-600 to-fuchsia-500", amber: "from-amber-400 to-orange-500", blue: "from-blue-500 to-cyan-400" } as Record<string, string>)[product.accent] || "from-rose-500 to-orange-400",
+    href: product.affiliateUrl, imageUrl: product.imageUrl, price: product.price,
+  })) : books.map((book) => ({ ...book, imageUrl: "", price: undefined as number | undefined }));
   return (
     <div className="mx-auto min-h-[calc(100vh-4rem)] max-w-[1500px] px-4 py-10 sm:px-6 lg:px-10">
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900">
@@ -53,18 +62,17 @@ export default function BookStorePage() {
       </section>
 
       <div className="mt-8 grid gap-5 md:grid-cols-3">
-        {books.map((book) => (
+        {visibleBooks.map((book) => (
           <article
             className="group flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-900/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900"
             key={book.title}
           >
-            <div className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${book.accent} text-2xl text-white shadow-lg`}>
-              <FiBookOpen aria-hidden="true" />
-            </div>
+            {book.imageUrl ? <img alt={book.title} className="aspect-[16/10] w-full rounded-2xl object-cover" src={book.imageUrl} /> : <div className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${book.accent} text-2xl text-white shadow-lg`}><FiBookOpen aria-hidden="true" /></div>}
             <span className="mt-5 w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {book.level}
             </span>
             <h2 className="mt-3 text-xl font-black text-slate-950 dark:text-white">{book.title}</h2>
+            {typeof book.price === "number" ? <p className="mt-2 text-lg font-black text-orange-600">{book.price.toLocaleString("vi-VN")}đ</p> : null}
             <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
               {book.description}
             </p>
@@ -84,6 +92,7 @@ export default function BookStorePage() {
             )}
           </article>
         ))}
+        {!visibleBooks.length ? <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center font-bold text-slate-500">Sản phẩm đang được cập nhật. Vui lòng quay lại sau.</div> : null}
       </div>
 
       <aside className="mt-8 flex flex-col gap-4 rounded-3xl border border-teal-200 bg-teal-50 p-5 sm:flex-row sm:items-center dark:border-teal-400/20 dark:bg-teal-400/10">

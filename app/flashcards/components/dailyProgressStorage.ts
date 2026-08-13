@@ -1,5 +1,7 @@
 const userMarkerKey = "nihongo-daily-progress-user";
-export const dailyAuthChangedEvent = "nihongo-auth-changed";
+// This event only synchronizes the local daily/Gacha owner. It must stay
+// separate from `nihongo-auth-changed`, which triggers an account refetch.
+export const dailyAuthChangedEvent = "nihongo-daily-owner-changed";
 
 export function getDailyProgressStorageKey(userId?: string | null) {
   return `nihongo-daily-progress:${userId || "guest"}`;
@@ -14,6 +16,7 @@ export function announceDailyProgressOwner(
   userId?: string | null,
   aiCredits?: number,
   pendingGachaTickets?: number,
+  coins?: number,
 ) {
   if (typeof window === "undefined") return;
   if (userId) window.localStorage.setItem(userMarkerKey, userId);
@@ -21,7 +24,7 @@ export function announceDailyProgressOwner(
 
   window.dispatchEvent(
     new CustomEvent(dailyAuthChangedEvent, {
-      detail: { storageKey: getDailyProgressStorageKey(userId), aiCredits, pendingGachaTickets },
+      detail: { storageKey: getDailyProgressStorageKey(userId), aiCredits, pendingGachaTickets, coins },
     }),
   );
 }

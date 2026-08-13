@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCheckCircle, FiClock, FiCopy, FiCreditCard, FiX } from "react-icons/fi";
 import { invalidateCurrentUser } from "../currentUserClient";
 
@@ -31,6 +31,7 @@ export function PaymentTopUpModal({
   const [message, setMessage] = useState("");
   const [pricing, setPricing] = useState({ aiPrice: 1000, vipPrice: 20000, vipAiCredits: 100 });
   const [bank, setBank] = useState({ code: "", account: "", accountName: "" });
+  const onCloseRef = useRef(onClose);
   const amount = Number(amountText) || 0;
   const benefit = kind === "coins" ? `${amount.toLocaleString("vi-VN")} xu` : kind === "ai" ? `${Math.floor(amount / pricing.aiPrice)} lượt AI` : `${Math.floor(amount / pricing.vipPrice)} tháng VIP + ${Math.floor(amount / pricing.vipPrice) * pricing.vipAiCredits} lượt AI`;
   const qrUrl = useMemo(() => {
@@ -44,11 +45,20 @@ export function PaymentTopUpModal({
   }, [activePayment, bank]);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     void fetch("/api/payments", { cache: "no-store" }).then(async (response) => {
       const payload = (await response.json()) as { data?: Payment[]; message?: string };
       if (response.status === 401) throw new Error("Bạn cần đăng nhập để tạo yêu cầu nạp.");
       if (!response.ok) throw new Error(payload.message || "Không thể tải lịch sử.");
-      setPayments(payload.data || []);
+      const nextPayments = payload.data || [];
+      setPayments(nextPayments);
+      if (nextPayments.some((payment) => payment.status === "approved")) {
+        invalidateCurrentUser();
+        window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
+      }
     }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Không thể tải lịch sử."));
     void fetch("/api/settings/public").then((response) => response.json()).then((payload: { data?: Record<string, unknown> }) => {
       const data = payload.data || {};
@@ -66,11 +76,11 @@ export function PaymentTopUpModal({
       setAmountText(initialKind === "vip" ? String(next.vipPrice) : String(next.aiPrice * 10));
     }).catch(() => undefined);
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [initialKind, onClose]);
+  }, [initialKind]);
 
   useEffect(() => {
     if (!activePayment || activePayment.status !== "pending") return;

@@ -8,6 +8,7 @@ import {
   resolveDailyProgressStorageKey,
 } from "./dailyProgressStorage";
 import { PaymentTopUpModal } from "./PaymentTopUpModal";
+import { loadCurrentUser } from "../currentUserClient";
 
 type DailyState = {
   date: string;
@@ -101,6 +102,7 @@ export function GachaDailyPanel() {
   const [coinsReward, setCoinsReward] = useState(100);
   const [activeStorageKey, setActiveStorageKey] = useState(() => getDailyProgressStorageKey());
   const [dailyState, setDailyState] = useState<DailyState>(createDailyState);
+  const [accountCoins, setAccountCoins] = useState(0);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [lastPrize, setLastPrize] = useState("");
@@ -144,12 +146,14 @@ export function GachaDailyPanel() {
         storageKey?: string;
         aiCredits?: number;
         pendingGachaTickets?: number;
+        coins?: number;
       }>).detail;
       if (detail?.storageKey) {
         if (typeof detail.aiCredits === "number") {
           const accountState = readDailyState(detail.storageKey);
           saveDailyState(detail.storageKey, { ...accountState, aiCredits: detail.aiCredits });
         }
+        setAccountCoins(Math.max(Number(detail.coins) || 0, 0));
         setActiveStorageKey(detail.storageKey);
         if (
           Number(detail.pendingGachaTickets) > 0 &&
@@ -160,7 +164,10 @@ export function GachaDailyPanel() {
         }
       }
     };
-    void resolveDailyProgressStorageKey().then(setActiveStorageKey);
+    void Promise.all([resolveDailyProgressStorageKey(), loadCurrentUser()]).then(([storageKey, user]) => {
+      setActiveStorageKey(storageKey);
+      setAccountCoins(Math.max(Number(user?.coins) || 0, 0));
+    });
     sync();
     window.addEventListener("storage", sync);
     window.addEventListener("nihongo-daily-progress-updated", sync);
@@ -303,7 +310,7 @@ export function GachaDailyPanel() {
 
         <div className="mt-4 grid grid-cols-3 gap-2">
           <Stat icon={<FiActivity />} label="Streak" value={`${dailyState.streak} ngày`} />
-          <Stat icon={<FiDollarSign />} label="Xu" value={dailyState.coins} />
+          <Stat icon={<FiDollarSign />} label="Xu" value={dailyState.coins + accountCoins} />
           <Stat icon={<FiCpu />} label="Lượt AI" value={dailyState.aiCredits} />
         </div>
 

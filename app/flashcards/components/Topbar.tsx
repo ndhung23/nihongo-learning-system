@@ -75,12 +75,19 @@ export function Topbar({
       currentUser.userId || currentUser.id,
       currentUser.aiCredits,
       currentUser.pendingGachaTickets,
+      currentUser.coins,
     );
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadMe();
+    const handleAuthChanged = () => {
+      invalidateCurrentUser();
+      void loadMe();
+    };
+    window.addEventListener("nihongo-auth-changed", handleAuthChanged);
+    return () => window.removeEventListener("nihongo-auth-changed", handleAuthChanged);
   }, [loadMe]);
 
   useEffect(() => {
@@ -142,6 +149,7 @@ export function Topbar({
         payload.user.userId || payload.user.id,
         payload.user.aiCredits,
         payload.user.pendingGachaTickets,
+        payload.user.coins,
       );
       setLoginOpen(false);
       setMenuOpen(false);

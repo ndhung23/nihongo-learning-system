@@ -65,10 +65,22 @@ export async function POST(request: NextRequest) {
       userUpdate.$addToSet = { processedPaymentIds: payment._id, roles: "vip" };
     }
 
-    await UserModel.updateOne(
+    const entitlementResult = await UserModel.updateOne(
       { _id: payment.userId, processedPaymentIds: { $ne: payment._id } },
       userUpdate,
+      // A cached model from an older deployment must not silently strip a new
+      // benefit field (for example `coins`) while still marking it processed.
+      { strict: false },
     );
+    if (entitlementResult.matchedCount !== 1) {
+      const alreadyFulfilled = await UserModel.exists({
+        _id: payment.userId,
+        processedPaymentIds: payment._id,
+      });
+      if (!alreadyFulfilled) {
+        throw new Error("Không thể cộng quyền lợi vào tài khoản người dùng.");
+      }
+    }
 
     await PaymentRequestModel.updateOne(
       { _id: payment._id, status: "pending" },

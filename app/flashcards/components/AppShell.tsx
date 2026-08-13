@@ -6,7 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { ApiActivityIndicator } from "./ApiActivityIndicator";
 import { LanguageProvider } from "../i18n/LanguageProvider";
-import { invalidateCurrentUser, loadCurrentUser } from "../currentUserClient";
+import { loadCurrentUser } from "../currentUserClient";
 
 const DictionaryPanel = dynamic(
   () => import("./DictionaryPanel").then((module) => module.DictionaryPanel),
@@ -37,7 +37,6 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     }
 
     const handleAuthChanged = () => {
-      invalidateCurrentUser();
       void loadDictionaryPreference();
     };
 

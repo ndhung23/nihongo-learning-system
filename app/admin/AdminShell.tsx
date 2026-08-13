@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   FiBarChart2, FiBook, FiBookOpen, FiChevronDown, FiClipboard, FiCreditCard, FiDatabase, FiEdit3,
-  FiFileText, FiHome, FiKey, FiLayers, FiMail, FiMenu, FiMessageSquare, FiPlus, FiSettings, FiShield, FiUsers, FiX,
+  FiFileText, FiHome, FiKey, FiLayers, FiMail, FiMenu, FiMessageSquare, FiPlus, FiSettings, FiShield, FiShoppingBag, FiUsers, FiX,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 
@@ -34,6 +34,7 @@ const adminNav: Array<{ id: string; label: string; items: AdminNavItem[] }> = [
     label: "Nội dung",
     items: [
       { label: "Khóa học", href: "/admin/courses", icon: FiBookOpen, permission: "admin:course:read" },
+      { label: "Sản phẩm Shopee", href: "/admin/affiliate-products", icon: FiShoppingBag, permission: "admin:affiliate-product:read" },
       {
         id: "create-course",
         label: "Tạo khóa học",

@@ -52,10 +52,23 @@ export async function PATCH(
       update.$addToSet = { processedPaymentIds: payment._id, roles: "vip" };
     }
 
-    await UserModel.updateOne(
+    const entitlementResult = await UserModel.updateOne(
       { _id: payment.userId, processedPaymentIds: { $ne: payment._id } },
       update,
+      // Keep payment fulfillment working across rolling/hot deployments where an
+      // older cached Mongoose model may not know about a newly added benefit field.
+      { strict: false },
     );
+    if (entitlementResult.matchedCount !== 1) {
+      const alreadyFulfilled = await UserModel.exists({
+        _id: payment.userId,
+        processedPaymentIds: payment._id,
+      });
+      if (!alreadyFulfilled) {
+        throw new Error("Không thể cộng quyền lợi vào tài khoản người dùng.");
+      }
+    }
+
     await PaymentRequestModel.updateOne(
       { _id: payment._id, status: "pending" },
       { $set: { status: "approved", reviewedBy: admin.userId, reviewedAt: new Date(), adminNote: payload.note } },
