@@ -16,6 +16,15 @@ type Payment = {
   createdAt: string;
 };
 
+async function readJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!(response.headers.get("content-type") || "").includes("application/json")) {
+    return { message: response.status === 404
+      ? "Máy chủ chưa nhận API thanh toán. Hãy khởi động lại máy chủ phát triển."
+      : fallbackMessage } as T;
+  }
+  return response.json() as Promise<T>;
+}
+
 export function PaymentTopUpModal({
   initialKind,
   onClose,
@@ -50,7 +59,7 @@ export function PaymentTopUpModal({
 
   useEffect(() => {
     void fetch("/api/payments", { cache: "no-store" }).then(async (response) => {
-      const payload = (await response.json()) as { data?: Payment[]; message?: string };
+      const payload = await readJsonResponse<{ data?: Payment[]; message?: string }>(response, "Không thể tải lịch sử giao dịch.");
       if (response.status === 401) throw new Error("Bạn cần đăng nhập để tạo yêu cầu nạp.");
       if (!response.ok) throw new Error(payload.message || "Không thể tải lịch sử.");
       const nextPayments = payload.data || [];
@@ -60,7 +69,7 @@ export function PaymentTopUpModal({
         window.dispatchEvent(new CustomEvent("nihongo-auth-changed"));
       }
     }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Không thể tải lịch sử."));
-    void fetch("/api/settings/public").then((response) => response.json()).then((payload: { data?: Record<string, unknown> }) => {
+    void fetch("/api/settings/public").then((response) => readJsonResponse<{ data?: Record<string, unknown> }>(response, "Không thể tải cấu hình thanh toán.")).then((payload) => {
       const data = payload.data || {};
       const next = {
         aiPrice: Math.max(Number(data.aiCreditPriceVnd ?? 1000), 1),
@@ -88,7 +97,7 @@ export function PaymentTopUpModal({
     const poll = async () => {
       const response = await fetch("/api/payments", { cache: "no-store" });
       if (!response.ok) return;
-      const payload = (await response.json()) as { data?: Payment[] };
+      const payload = await readJsonResponse<{ data?: Payment[] }>(response, "Không thể kiểm tra giao dịch.");
       if (cancelled) return;
       const nextPayments = payload.data || [];
       setPayments(nextPayments);
@@ -130,7 +139,7 @@ export function PaymentTopUpModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind, amount }),
     });
-    const payload = (await response.json()) as { data?: Payment; message?: string };
+    const payload = await readJsonResponse<{ data?: Payment; message?: string }>(response, "Không thể tạo mã QR.");
     if (response.ok && payload.data) {
       setActivePayment(payload.data);
       setPayments((current) => [payload.data as Payment, ...current]);

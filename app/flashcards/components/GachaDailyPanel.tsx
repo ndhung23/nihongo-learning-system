@@ -39,7 +39,7 @@ const defaultPrizes: Prize[] = [
   { label: "Cơ hội quay lại", wheelLabel: "Quay lại", chance: 15, kind: "retry", color: "#2dd4bf" },
   { label: "100 xu", wheelLabel: "100 xu", chance: 15, kind: "coins", color: "#fb923c" },
 ];
-const idleSpinDurationMs = 24_000;
+const idleSpinDurationMs = 18_000;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -340,8 +340,9 @@ export function GachaDailyPanel() {
           <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-600">Vòng quay Gacha</p>
           <p className="mt-1 text-sm font-bold text-slate-500">Mỗi lượt quay sử dụng 1 vé</p>
         </div>
-        <div className="relative mx-auto mt-5 aspect-square w-full max-w-[250px]">
-          <div className="absolute left-1/2 top-[-5px] z-20 h-0 w-0 -translate-x-1/2 border-x-[13px] border-t-[24px] border-x-transparent border-t-slate-950" />
+        <div className={`gacha-wheel-stage relative mx-auto mt-5 aspect-square w-full max-w-[250px] ${spinning ? "is-spinning" : ""}`}>
+          <div className="gacha-wheel-glow absolute -inset-2 rounded-full" />
+          <div className="gacha-pointer absolute left-1/2 top-[-5px] z-20 h-0 w-0 -translate-x-1/2 border-x-[13px] border-t-[24px] border-x-transparent border-t-slate-950" />
           <div
             className={`h-full w-full rounded-full border-[8px] border-slate-950 shadow-xl ${spinning ? "" : "gacha-idle-spin"}`}
             style={{
@@ -364,7 +365,7 @@ export function GachaDailyPanel() {
             ))}
           </div>
           <button
-            className="absolute left-1/2 top-1/2 z-10 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-white bg-slate-950 text-sm font-black text-white shadow-xl disabled:bg-slate-400"
+            className={`gacha-spin-button absolute left-1/2 top-1/2 z-10 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-white bg-slate-950 text-sm font-black text-white shadow-xl transition hover:scale-105 disabled:bg-slate-400 ${!spinning && dailyState.tickets > 0 ? "is-ready" : ""}`}
             disabled={spinning || dailyState.tickets < 1}
             onClick={spin}
             type="button"
@@ -452,12 +453,52 @@ export function GachaDailyPanel() {
           animation: gacha-idle-spin ${idleSpinDurationMs}ms linear infinite;
           will-change: transform;
         }
+        .gacha-wheel-glow {
+          background: conic-gradient(from 0deg, #fb7185, #fbbf24, #2dd4bf, #38bdf8, #a78bfa, #fb7185);
+          filter: blur(11px);
+          opacity: .3;
+          animation: gacha-glow 3.2s ease-in-out infinite;
+        }
+        .gacha-pointer {
+          transform-origin: 50% 4px;
+          animation: gacha-pointer-idle 1.8s ease-in-out infinite;
+          filter: drop-shadow(0 4px 3px rgb(15 23 42 / .28));
+        }
+        .gacha-wheel-stage.is-spinning .gacha-pointer {
+          animation: gacha-pointer-tick .12s ease-in-out infinite alternate;
+        }
+        .gacha-spin-button.is-ready {
+          animation: gacha-button-pulse 1.8s ease-in-out infinite;
+        }
+        .gacha-spin-button::after {
+          content: "";
+          position: absolute;
+          inset: 7px;
+          border-radius: 999px;
+          border: 1px solid rgb(255 255 255 / .18);
+        }
         @keyframes gacha-idle-spin {
           from { transform: rotate(var(--gacha-idle-start)); }
           to { transform: rotate(calc(var(--gacha-idle-start) + 360deg)); }
         }
+        @keyframes gacha-glow {
+          0%, 100% { opacity: .22; transform: scale(.98) rotate(0deg); }
+          50% { opacity: .48; transform: scale(1.035) rotate(12deg); }
+        }
+        @keyframes gacha-pointer-idle {
+          0%, 100% { transform: translateX(-50%) rotate(-2deg); }
+          50% { transform: translateX(-50%) rotate(2deg); }
+        }
+        @keyframes gacha-pointer-tick {
+          from { transform: translateX(-50%) rotate(-10deg); }
+          to { transform: translateX(-50%) rotate(10deg); }
+        }
+        @keyframes gacha-button-pulse {
+          0%, 100% { box-shadow: 0 12px 25px rgb(15 23 42 / .25), 0 0 0 0 rgb(139 92 246 / .28); }
+          50% { box-shadow: 0 14px 30px rgb(15 23 42 / .32), 0 0 0 10px rgb(139 92 246 / 0); }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .gacha-idle-spin { animation: none; }
+          .gacha-idle-spin, .gacha-wheel-glow, .gacha-pointer, .gacha-spin-button.is-ready { animation: none; }
         }
       `}</style>
     </aside>

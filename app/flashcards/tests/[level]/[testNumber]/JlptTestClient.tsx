@@ -78,6 +78,16 @@ export function JlptTestClient({
     );
   }, [courseId]);
 
+  useEffect(() => {
+    if (!summary) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    });
+  }, [summary]);
+
   async function startSection(nextSection: PracticeMode) {
     setLoading(true);
     setMessage("");
@@ -444,12 +454,12 @@ export function JlptTestClient({
             const isCorrect = result?.correctIndex === optionIndex;
             const isWrongSelection = Boolean(result) && selected && !isCorrect;
             const tone = isCorrect
-              ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+              ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-100"
               : isWrongSelection
-                ? "border-rose-500 bg-rose-50 text-rose-900"
+                ? "border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/70 dark:text-rose-100"
                 : selected
-                  ? "border-blue-500 bg-blue-50 text-blue-900"
-                  : "border-slate-200 bg-white text-slate-800 hover:border-teal-300";
+                  ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/70 dark:text-blue-100"
+                  : "border-slate-200 bg-white text-slate-800 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
             return (
               <button
@@ -472,8 +482,8 @@ export function JlptTestClient({
           <div
             className={`mt-5 rounded-xl p-4 font-bold ${
               result.correct
-                ? "bg-emerald-50 text-emerald-800"
-                : "bg-rose-50 text-rose-800"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200"
+                : "border border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950/80 dark:text-rose-200"
             }`}
           >
             {summary
@@ -482,7 +492,7 @@ export function JlptTestClient({
                 : "Chưa đúng"
               : `Đáp án đúng: ${question.options[result.correctIndex]}`}
             {result.explanation && (
-              <p className="mt-2 text-sm font-semibold text-slate-600">
+              <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-200">
                 {result.explanation}
               </p>
             )}
@@ -636,7 +646,7 @@ function FullTestView({
           <button className="inline-flex items-center gap-2 text-sm font-black text-rose-600" onClick={onLeave} type="button">
             <FiArrowLeft /> Chọn phần khác
           </button>
-          <h1 className="mt-2 text-2xl font-black text-slate-950">{title} · Luyện full</h1>
+          <h1 className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{title} · Luyện full</h1>
           <p className="mt-1 text-sm font-bold text-slate-500">
             Làm toàn bộ {questions.length} câu hỏi trong một lần.
           </p>
@@ -645,7 +655,7 @@ function FullTestView({
       </div>
 
       {summary && (
-        <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 font-black text-emerald-800">
+        <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 font-black text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200">
           <FiCheck className="mr-2 inline" />
           Kết quả: {summary.correct}/{summary.total} câu đúng · {summary.percentage}%
         </section>
@@ -659,20 +669,20 @@ function FullTestView({
 
             return (
               <article
-                className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+                className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6"
                 id={`full-question-${questionIndex + 1}`}
                 key={question.id}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-teal-700">{question.group}</p>
+                  <p className="text-sm font-black text-teal-700 dark:text-teal-300">{question.group}</p>
                   <span className="text-sm font-black text-slate-500">Câu {questionIndex + 1}</span>
                 </div>
                 {question.instruction && (
-                  <p className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700">
+                  <p className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
                     {question.instruction}
                   </p>
                 )}
-                <h2 className="mt-5 whitespace-pre-wrap text-lg font-black leading-8 text-slate-950">
+                <h2 className="mt-5 whitespace-pre-wrap text-lg font-black leading-8 text-slate-950 dark:text-white">
                   <HighlightedPrompt highlightText={question.highlightText} prompt={question.prompt} />
                 </h2>
                 <QuestionMedia question={question} />
@@ -689,12 +699,12 @@ function FullTestView({
                     const correct = result?.correctIndex === optionIndex;
                     const wrong = Boolean(result) && selected && !correct;
                     const tone = correct
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-100"
                       : wrong
-                        ? "border-rose-500 bg-rose-50 text-rose-900"
+                        ? "border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/70 dark:text-rose-100"
                         : selected
-                          ? "border-blue-500 bg-blue-50 text-blue-900"
-                          : "border-slate-200 hover:border-teal-400";
+                          ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/70 dark:text-blue-100"
+                          : "border-slate-200 text-slate-800 hover:border-teal-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
                     return (
                       <button
                         className={`flex min-h-12 items-center gap-3 rounded-xl border px-4 text-left font-bold transition ${tone}`}
@@ -712,9 +722,9 @@ function FullTestView({
                   })}
                 </div>
                 {result && (
-                  <div className={`mt-4 rounded-xl p-4 font-bold ${result.correct ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+                  <div className={`mt-4 rounded-xl border p-4 font-bold ${result.correct ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200" : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950/80 dark:text-rose-200"}`}>
                     {result.correct ? "Chính xác" : `Đáp án đúng: ${question.options[result.correctIndex]}`}
-                    {result.explanation && <p className="mt-2 text-sm font-semibold text-slate-600">{result.explanation}</p>}
+                    {result.explanation && <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-200">{result.explanation}</p>}
                   </div>
                 )}
               </article>
@@ -722,8 +732,8 @@ function FullTestView({
           })}
         </div>
 
-        <aside className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border-2 border-teal-500 bg-teal-50/90 p-4 shadow-lg">
-          <div className="flex items-center justify-center gap-2 text-lg font-black text-slate-800">
+        <aside className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border-2 border-teal-500 bg-teal-50/95 p-4 shadow-lg dark:bg-slate-900/95">
+          <div className="flex items-center justify-center gap-2 text-lg font-black text-slate-800 dark:text-white">
             <FiClock className="text-teal-600" />
             {minutes}:{String(seconds).padStart(2, "0")}
           </div>
@@ -737,13 +747,13 @@ function FullTestView({
               {submitting ? "Đang chấm..." : "Nộp bài"}
             </button>
           )}
-          <p className="mt-3 text-center text-xs font-bold text-slate-500">
+          <p className="mt-3 text-center text-xs font-bold text-slate-500 dark:text-slate-300">
             {answeredCount}/{questions.length} câu đã trả lời
           </p>
           <div className="mt-4 space-y-4">
             {groups.map((group) => (
               <div key={group.label}>
-                <p className="mb-2 text-xs font-black text-teal-800">{group.label}</p>
+                <p className="mb-2 text-xs font-black text-teal-800 dark:text-teal-300">{group.label}</p>
                 <div className="flex flex-wrap gap-2">
                   {group.questions.map((question) => {
                     const index = questions.findIndex((item) => item.id === question.id);
@@ -751,8 +761,8 @@ function FullTestView({
                     const tone = result
                       ? result.correct ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
                       : answers[question.id] !== undefined
-                        ? "border-blue-600 bg-blue-100 text-blue-800"
-                        : "border-slate-300 bg-white text-slate-700";
+                        ? "border-blue-600 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                        : "border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100";
                     return (
                       <button
                         className={`grid h-9 w-9 place-items-center rounded-full border text-xs font-black ${tone}`}
