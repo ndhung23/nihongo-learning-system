@@ -6,17 +6,16 @@ import type { StudyMode } from "../types";
 import { ActionCard } from "../components/Cards";
 import { GachaDailyPanel } from "../components/GachaDailyPanel";
 import type { PublicCourse } from "@/lib/publicCourses";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 export function LibraryScreen({
   initialCourses,
   onAdd,
-  onManage,
   onStudy,
   onTest,
 }: Readonly<{
   initialCourses?: PublicCourse[];
   onAdd: () => void;
-  onManage: () => void;
   onStudy: (mode?: StudyMode, deckId?: string, lesson?: string) => void;
   onTest: (level?: string, number?: number) => void;
 }>) {
@@ -26,9 +25,11 @@ export function LibraryScreen({
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [lessonPickerCourse, setLessonPickerCourse] = useState<PublicCourse | null>(null);
   const discoverRef = useRef<HTMLDivElement | null>(null);
+  const { translate } = useLanguage();
 
   useEffect(() => {
-    setSelectedCourseId(window.localStorage.getItem("selectedCourseId"));
+    const savedCourseId = window.localStorage.getItem("selectedCourseId");
+    queueMicrotask(() => setSelectedCourseId(savedCourseId));
 
     if (!initialCourses?.length) {
       void fetch("/api/courses?sort=newest&limit=24")
@@ -143,7 +144,7 @@ export function LibraryScreen({
           </div>
         </div>
 
-        <div className="hidden rounded-[2rem] border border-slate-200 bg-white/88 p-6 shadow-2xl shadow-slate-900/[0.05] backdrop-blur lg:block">
+        <div className="hidden rounded-[2rem] border border-slate-200 bg-white/88 p-6 shadow-2xl shadow-slate-900/[0.05] backdrop-blur lg:block" data-scroll-reveal>
           <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Bắt đầu hành trình tiếng Nhật</p>
@@ -180,14 +181,14 @@ export function LibraryScreen({
           </div>
         </div>
 
-        <div className="mt-8 hidden gap-4 md:grid md:grid-cols-3">
-          <ActionCard icon={FiTarget} title="Phiên hôm nay" text="1 từ đang chờ ôn theo SRS." action="Ôn tập ngay" onClick={() => onStudy("flashcard")} />
-          <ActionCard icon={FiFolder} title="Khám phá khóa học" text="Chọn khóa học public như IT Japanese." action="Xem khóa học" onClick={scrollToDiscover} />
-          <ActionCard icon={FiPlus} title="Tạo bộ mới" text="Tự nhập từ hoặc import từ file." action="Tạo bộ" onClick={onAdd} />
+        <div className="mt-8 hidden gap-4 md:grid md:grid-cols-3" data-scroll-reveal-stagger>
+          <div data-scroll-reveal-item style={{ "--scroll-reveal-delay": "0ms" } as React.CSSProperties}><ActionCard icon={FiTarget} title="Phiên hôm nay" text="1 từ đang chờ ôn theo SRS." action="Ôn tập ngay" onClick={() => onStudy("flashcard")} /></div>
+          <div data-scroll-reveal-item style={{ "--scroll-reveal-delay": "90ms" } as React.CSSProperties}><ActionCard icon={FiFolder} title="Khám phá khóa học" text="Chọn khóa học public như IT Japanese." action="Xem khóa học" onClick={scrollToDiscover} /></div>
+          <div data-scroll-reveal-item style={{ "--scroll-reveal-delay": "180ms" } as React.CSSProperties}><ActionCard icon={FiPlus} title="Tạo bộ mới" text="Tự nhập từ hoặc import từ file." action="Tạo bộ" onClick={onAdd} /></div>
         </div>
 
         <div className="mt-10 scroll-mt-28" ref={discoverRef}>
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-4" data-scroll-reveal>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Khám phá khóa học</p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Chọn khóa học để bắt đầu</h2>
@@ -201,6 +202,7 @@ export function LibraryScreen({
 
           <div
             className="mt-6 grid gap-5 lg:grid-cols-2"
+            data-scroll-reveal-stagger
             data-testid="library-course-grid"
           >
             {courses.length > 0 ? (
@@ -212,7 +214,9 @@ export function LibraryScreen({
                     className={`rounded-[1.75rem] border bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${
                       isSelected ? "border-teal-400 ring-4 ring-teal-100" : "border-slate-200 hover:border-rose-300"
                     }`}
+                    data-scroll-reveal-item
                     key={course.id}
+                    style={{ "--scroll-reveal-delay": `${(paginatedCourses.indexOf(course) % 2) * 90}ms` } as React.CSSProperties}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
@@ -220,7 +224,7 @@ export function LibraryScreen({
                         <h3 className="mt-2 text-xl font-black text-slate-950">{course.title}</h3>
                       </div>
                       <span className="shrink-0 rounded-2xl bg-rose-50 px-3 py-2 text-center text-sm font-black text-rose-700">
-                        {course.stats?.vocabularyCount || 0} {isTestCourse(course) ? "câu" : "từ"}
+                        {translate(`${course.stats?.vocabularyCount || 0} ${isTestCourse(course) ? "câu" : "từ"}`)}
                       </span>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
@@ -233,7 +237,7 @@ export function LibraryScreen({
                     </div>
                     <p className="mt-4 inline-flex items-center gap-2 text-sm font-black text-slate-500">
                       <FiUsers className="text-teal-700" />
-                      {course.stats?.learnerCount || 900} học viên
+                      {translate(`${course.stats?.learnerCount || 900} học viên`)}
                     </p>
                     <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
                       <button
@@ -310,23 +314,25 @@ export function LibraryScreen({
           )}
         </div>
 
-        <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
+        <div className="mt-10 flex flex-wrap items-end justify-between gap-4" data-scroll-reveal>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-teal-700">Tủ sách cá nhân</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Bộ từ đang học</h2>
           </div>
           <span className="rounded-full bg-teal-50 px-4 py-2 text-sm font-black text-teal-800">
-            {learningCourses.length} khóa đang học
+            {translate(`${learningCourses.length} khóa đang học`)}
           </span>
         </div>
 
         <div
           className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+          data-scroll-reveal-stagger
           data-testid="learning-course-grid"
         >
           {learningCourses.map((course) => (
             <article
               className="group overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/[0.05] transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl"
+              data-scroll-reveal-item
               key={course.id}
             >
               <div className="h-2 bg-gradient-to-r from-teal-500 to-sky-500" />
@@ -341,9 +347,8 @@ export function LibraryScreen({
                   {course.title}
                 </h3>
                 <p className="mt-3 text-sm font-semibold text-slate-500">
-                  {course.stats?.vocabularyCount || 0}{" "}
-                  {isTestCourse(course) ? "câu hỏi" : "từ vựng"} ·{" "}
-                  {course.stats?.learnerCount || 0} học viên
+                  {translate(`${course.stats?.vocabularyCount || 0} ${isTestCourse(course) ? "câu hỏi" : "từ vựng"}`)} ·{" "}
+                  {translate(`${course.stats?.learnerCount || 0} học viên`)}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {(course.tags || []).slice(0, 4).map((tag) => (
@@ -376,7 +381,7 @@ export function LibraryScreen({
               </p>
             </div>
           )}
-          <button className="group min-h-72 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/70 p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-teal-400 hover:bg-white hover:shadow-2xl hover:shadow-teal-500/10" onClick={onAdd} type="button">
+          <button className="group min-h-72 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/70 p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-teal-400 hover:bg-white hover:shadow-2xl hover:shadow-teal-500/10" data-scroll-reveal-item onClick={onAdd} type="button">
             <span className="mx-auto mt-16 grid h-16 w-16 place-items-center rounded-2xl bg-teal-50 text-3xl text-teal-700 transition-all duration-300 group-hover:scale-110 group-hover:bg-teal-600 group-hover:text-white">
               <FiPlus />
             </span>
@@ -392,7 +397,7 @@ export function LibraryScreen({
           <div className="w-full max-w-2xl rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/20">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">Từ vựng {lessonPickerCourse.level.toUpperCase()}</p>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">{translate(`Từ vựng ${lessonPickerCourse.level.toUpperCase()}`)}</p>
                 <h3 className="mt-2 text-2xl font-black text-slate-950">Chọn bài để bắt đầu</h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">{lessonPickerCourse.title}</p>
               </div>
@@ -411,9 +416,9 @@ export function LibraryScreen({
               type="button"
             >
               <span className="inline-flex items-center gap-3">
-                <FiBookOpen /> Học tất cả bài {getLessonNumbers(lessonPickerCourse)[0]}-{getLessonNumbers(lessonPickerCourse).at(-1)}
+                <FiBookOpen /> {translate(`Học tất cả bài ${getLessonNumbers(lessonPickerCourse)[0]}-${getLessonNumbers(lessonPickerCourse).at(-1)}`)}
               </span>
-              <span>{lessonPickerCourse.stats?.vocabularyCount || 0} từ</span>
+              <span>{translate(`${lessonPickerCourse.stats?.vocabularyCount || 0} từ`)}</span>
             </button>
 
             <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-7">
@@ -427,7 +432,7 @@ export function LibraryScreen({
                     onClick={() => startLesson(lesson)}
                     type="button"
                   >
-                    Bài {lesson}
+                    {translate(`Bài ${lesson}`)}
                   </button>
                 );
               })}

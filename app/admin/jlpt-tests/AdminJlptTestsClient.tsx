@@ -87,7 +87,7 @@ export function AdminJlptTestsClient({
     if (!initialEditId || initialEditOpened.current) return;
     const test = initialTests.find((item) => item.id === initialEditId);
     if (!test) {
-      setMessage("Không tìm thấy đề thi tương ứng.");
+      queueMicrotask(() => setMessage("Không tìm thấy đề thi tương ứng."));
       return;
     }
 
@@ -314,7 +314,7 @@ export function AdminJlptTestsClient({
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-7 flex flex-col gap-5 rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-7 flex flex-col gap-5 rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-slate-900/5 sm:flex-row sm:items-center sm:justify-between" data-scroll-reveal>
         <div>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-600">{personal ? "Cá nhân" : "Quản trị nội dung"}</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{personal ? "Đề thi của tôi" : "Đề thi JLPT"}</h1>
@@ -328,7 +328,7 @@ export function AdminJlptTestsClient({
       {message && !editing ? <p className="mb-5 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 font-bold text-teal-800">{message}</p> : null}
 
       {personal ? (
-        <form action="/flashcards/tests" className="mb-5 flex gap-3">
+        <form action="/flashcards/tests" className="mb-5 flex gap-3" data-scroll-reveal>
           <label className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
             <FiSearch className="shrink-0 text-slate-400" />
             <input className="min-w-0 flex-1 bg-transparent font-semibold outline-none" defaultValue={query} name="q" placeholder="Tìm theo tên hoặc cấp độ..." />
@@ -337,9 +337,9 @@ export function AdminJlptTestsClient({
         </form>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-scroll-reveal-stagger>
         {tests.map((test) => (
-          <article className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5" key={test.id}>
+          <article className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-900/5" data-scroll-reveal-item key={test.id}>
             <div className="flex items-start justify-between gap-3">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700"><FiBookOpen /></span>
               <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600">{TEST_LEVEL_LABELS[test.level]}</span>
@@ -373,7 +373,7 @@ export function AdminJlptTestsClient({
       </div>
 
       {personal && tests.length === 0 ? (
-        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center" data-scroll-reveal>
           <FiBookOpen className="mx-auto text-3xl text-teal-700" />
           <h2 className="mt-3 text-xl font-black">{query ? "Không tìm thấy đề thi" : "Bạn chưa tạo đề thi nào"}</h2>
           <p className="mt-2 text-sm font-semibold text-slate-500">{query ? "Hãy thử một từ khóa khác." : "Nhấn “Tạo đề” để bắt đầu."}</p>
@@ -381,7 +381,7 @@ export function AdminJlptTestsClient({
       ) : null}
 
       {personal && totalPages > 1 ? (
-        <nav aria-label="Phân trang đề thi" className="mt-8 flex items-center justify-center gap-2">
+        <nav aria-label="Phân trang đề thi" className="mt-8 flex items-center justify-center gap-2" data-scroll-reveal>
           <PaginationLink disabled={currentPage <= 1} href={pageHref(currentPage - 1, query)} label="Trang trước"><FiChevronLeft /></PaginationLink>
           <span className="px-3 text-sm font-black text-slate-600">Trang {currentPage}/{totalPages}{typeof totalTests === "number" ? ` · ${totalTests} đề` : ""}</span>
           <PaginationLink disabled={currentPage >= totalPages} href={pageHref(currentPage + 1, query)} label="Trang sau"><FiChevronRight /></PaginationLink>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { FiArrowRight, FiBookOpen, FiCheckCircle, FiUsers } from "react-icons/fi";
 
 export const KANA_COURSES = [
@@ -25,9 +26,14 @@ export function KanaCourseCards(props: Readonly<Props>) {
   if (!courses.length) return null;
 
   return (
-    <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-      {courses.map((course) => (
-        <article className="group overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10" key={course.slug}>
+    <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3" data-scroll-reveal-stagger>
+      {courses.map((course, index) => (
+        <article
+          className="group overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10"
+          data-scroll-reveal-item
+          key={course.slug}
+          style={{ "--scroll-reveal-delay": `${index * 90}ms` } as CSSProperties}
+        >
           <div className={`flex items-center justify-between bg-gradient-to-br ${course.accent} p-5 text-white`}>
             <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/20 text-4xl font-black backdrop-blur" lang="ja">{course.character}</span>
             <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black uppercase backdrop-blur">Nhập môn</span>

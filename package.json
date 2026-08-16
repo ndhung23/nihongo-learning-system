@@ -1,6 +1,7 @@
 {
   "name": "nihongo-learning-system",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "db:import-jlpt-tests": "node scripts/import-jlpt-tests-to-mongodb.mjs",
@@ -13,7 +14,11 @@
     "dev:webpack": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:i18n": "eslint app/flashcards/i18n/core.js app/flashcards/i18n/LanguageProvider.tsx app/flashcards/components/AppShell.tsx app/flashcards/components/DictionaryPanel.tsx app/flashcards/components/GachaDailyPanel.tsx app/flashcards/components/AiChatbox.tsx app/flashcards/components/PaymentTopUpModal.tsx app/flashcards/screens/LibraryScreen.tsx app/flashcards/discover/page.tsx app/flashcards/bookmarks/page.tsx app/flashcards/kana/[script]/KanaQuiz.tsx app/flashcards/roadmaps/RoadmapsClient.tsx app/flashcards/tests/page.tsx tests/i18n.test.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:i18n": "node --test tests/i18n.test.mjs",
+    "check:i18n": "npm run test:i18n && npm run lint:i18n && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

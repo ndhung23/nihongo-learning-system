@@ -5,8 +5,10 @@ import Link from "next/link";
 import { FiBookmark, FiCheckSquare, FiCompass, FiPlay, FiSearch, FiSquare, FiTrash2 } from "react-icons/fi";
 import { readVocabularyBookmarks, type VocabularyBookmark, writeVocabularyBookmarks } from "../bookmarkStorage";
 import { FuriganaText } from "../components/FuriganaText";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 export default function BookmarksPage() {
+  const { translate } = useLanguage();
   const [bookmarks, setBookmarks] = useState<VocabularyBookmark[]>([]);
   const [query, setQuery] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -67,7 +69,7 @@ export default function BookmarksPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4" data-scroll-reveal>
         <div>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-teal-700">Cá nhân</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Bookmark của tôi</h1>
@@ -85,7 +87,7 @@ export default function BookmarksPage() {
       </div>
 
       {bookmarks.length === 0 ? (
-        <section className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-10 text-center shadow-xl shadow-slate-900/[0.04]">
+        <section className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-10 text-center shadow-xl shadow-slate-900/[0.04]" data-scroll-reveal>
           <FiBookmark className="mx-auto h-10 w-10 text-rose-500" />
           <h2 className="mt-4 text-2xl font-black text-slate-950">Chưa có bookmark</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">Bấm “Bookmark từ” trong màn học hoặc danh sách từ vựng để lưu lại.</p>
@@ -95,12 +97,12 @@ export default function BookmarksPage() {
         </section>
       ) : (
         <>
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3" data-scroll-reveal>
             <button className="flex items-center gap-2 font-black text-slate-700 transition hover:text-teal-700" onClick={toggleAllVisible} type="button">
               {allVisibleSelected ? <FiCheckSquare /> : <FiSquare />} {allVisibleSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
             </button>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-slate-500">Đã chọn {selectedKeys.length} từ</span>
+              <span className="text-sm font-bold text-slate-500">{translate(`Đã chọn ${selectedKeys.length} từ`)}</span>
               {selectedKeys.length > 0 && (
                 <Link
                   className="inline-flex h-11 items-center gap-2 rounded-2xl bg-teal-600 px-5 font-black text-white shadow-lg shadow-teal-600/15 transition hover:-translate-y-0.5 hover:bg-teal-700"
@@ -112,12 +114,13 @@ export default function BookmarksPage() {
               )}
             </div>
           </div>
-          <section className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <section className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3" data-scroll-reveal-stagger>
           {filteredBookmarks.map((bookmark) => (
             <article
               className={`relative cursor-pointer rounded-[1.5rem] border bg-white p-5 shadow-xl shadow-slate-900/[0.04] transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-teal-500/10 ${
                 selectedKeys.includes(bookmark.key) ? "border-teal-500 ring-4 ring-teal-500/10" : "border-slate-200 hover:border-teal-300"
               }`}
+              data-scroll-reveal-item
               key={bookmark.key}
               onClick={() => toggleSelection(bookmark.key)}
             >
@@ -161,7 +164,7 @@ export default function BookmarksPage() {
       )}
 
       {bookmarks.length > 0 && filteredBookmarks.length === 0 ? (
-        <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center font-bold text-slate-500">
+        <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center font-bold text-slate-500" data-scroll-reveal>
           Không tìm thấy bookmark phù hợp.
         </div>
       ) : null}

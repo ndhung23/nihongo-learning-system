@@ -9,6 +9,7 @@ import {
 } from "./dailyProgressStorage";
 import { PaymentTopUpModal } from "./PaymentTopUpModal";
 import { loadCurrentUser } from "../currentUserClient";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 type DailyState = {
   date: string;
@@ -98,6 +99,7 @@ function randomPercent() {
 }
 
 export function GachaDailyPanel() {
+  const { translate } = useLanguage();
   const [prizes, setPrizes] = useState<Prize[]>(defaultPrizes);
   const [coinsReward, setCoinsReward] = useState(100);
   const [activeStorageKey, setActiveStorageKey] = useState(() => getDailyProgressStorageKey());
@@ -301,7 +303,7 @@ export function GachaDailyPanel() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-rose-600">Phần thưởng Gacha</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">{dailyState.tickets} vé Gacha</h3>
+            <h3 className="mt-2 text-2xl font-black text-slate-950">{translate(`${dailyState.tickets} vé Gacha`)}</h3>
           </div>
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-2xl text-amber-600">
             <FiGift />

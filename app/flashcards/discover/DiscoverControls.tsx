@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { FiSearch, FiX } from "react-icons/fi";
 
@@ -66,7 +66,11 @@ export function DiscoverControls({
   const hasFilters = Boolean(query || level || sort !== "newest");
 
   return (
-    <div className="mt-6 grid gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/[0.04] lg:grid-cols-[minmax(280px,1fr)_170px_220px_auto]">
+    <div
+      className="mt-6 grid gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/[0.04] lg:grid-cols-[minmax(280px,1fr)_170px_220px_auto]"
+      data-scroll-reveal
+      style={{ "--scroll-reveal-delay": "90ms" } as CSSProperties}
+    >
       <label className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition focus-within:border-teal-300 focus-within:bg-white">
         <FiSearch className="text-slate-400" />
         <input

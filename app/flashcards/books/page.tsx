@@ -5,6 +5,7 @@ import {
   FiFeather,
   FiShield,
 } from "react-icons/fi";
+import type { CSSProperties } from "react";
 import { connectMongoDB } from "@/lib/mongodb";
 import { AffiliateProductModel } from "@/models/AffiliateProduct";
 
@@ -42,7 +43,7 @@ export default async function BookStorePage() {
   })) : books.map((book) => ({ ...book, imageUrl: "", price: undefined as number | undefined }));
   return (
     <div className="mx-auto min-h-[calc(100vh-4rem)] max-w-[1500px] px-4 py-10 sm:px-6 lg:px-10">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900" data-scroll-reveal>
         <div className="grid gap-8 bg-gradient-to-br from-amber-50 via-white to-teal-50 p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center dark:from-amber-400/10 dark:via-slate-900 dark:to-teal-400/10">
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-amber-700 dark:text-amber-400">
@@ -61,11 +62,13 @@ export default async function BookStorePage() {
         </div>
       </section>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-3">
-        {visibleBooks.map((book) => (
+      <div className="mt-8 grid gap-5 md:grid-cols-3" data-scroll-reveal-stagger>
+        {visibleBooks.map((book, index) => (
           <article
             className="group flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-900/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            data-scroll-reveal-item
             key={book.title}
+            style={{ "--scroll-reveal-delay": `${(index % 3) * 90}ms` } as CSSProperties}
           >
             {book.imageUrl ? <img alt={book.title} className="aspect-[16/10] w-full rounded-2xl object-cover" src={book.imageUrl} /> : <div className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${book.accent} text-2xl text-white shadow-lg`}><FiBookOpen aria-hidden="true" /></div>}
             <span className="mt-5 w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -92,10 +95,10 @@ export default async function BookStorePage() {
             )}
           </article>
         ))}
-        {!visibleBooks.length ? <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center font-bold text-slate-500">Sản phẩm đang được cập nhật. Vui lòng quay lại sau.</div> : null}
+        {!visibleBooks.length ? <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center font-bold text-slate-500" data-scroll-reveal-item>Sản phẩm đang được cập nhật. Vui lòng quay lại sau.</div> : null}
       </div>
 
-      <aside className="mt-8 flex flex-col gap-4 rounded-3xl border border-teal-200 bg-teal-50 p-5 sm:flex-row sm:items-center dark:border-teal-400/20 dark:bg-teal-400/10">
+      <aside className="mt-8 flex flex-col gap-4 rounded-3xl border border-teal-200 bg-teal-50 p-5 sm:flex-row sm:items-center dark:border-teal-400/20 dark:bg-teal-400/10" data-scroll-reveal>
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-teal-600 text-xl text-white">
           <FiShield aria-hidden="true" />
         </span>

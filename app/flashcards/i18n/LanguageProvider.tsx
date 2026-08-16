@@ -1,121 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getMessage,
+  isSupportedLocale,
+  messages,
+  resolveLocale,
+  STORAGE_KEY,
+  translateUiText,
+} from "./core";
 
 export type AppLocale = "vi" | "en";
-
-const STORAGE_KEY = "nihongo-language";
-
-const messages = {
-  vi: {
-    searchCourses: "Tìm tên khóa học...",
-    home: "Trang chủ",
-    discover: "Khám phá",
-    bookStore: "Cửa hàng sách",
-    bookmarks: "Bookmark của tôi",
-    myVocabulary: "Từ vựng riêng tôi",
-    myTests: "Đề thi của tôi",
-    practiceMenu: "Luyện Tập",
-    profile: "Hồ sơ cá nhân",
-    admin: "Quản trị hệ thống",
-    logout: "Đăng xuất",
-    login: "Đăng nhập",
-    lightTheme: "Đổi sang giao diện sáng",
-    darkTheme: "Đổi sang giao diện tối",
-    feedback: "Gửi góp ý",
-    library: "Thư viện",
-    addWord: "Thêm từ",
-    practice: "Luyện tập",
-    readingPractice: "Luyện đọc",
-    testPractice: "Luyện đề thi",
-    vocabularyPractice: "Luyện từ vựng",
-    list: "Danh sách",
-    coinShop: "Cửa hàng xu",
-    todayStreak: "Streak hôm nay",
-    streakDescription: "Giữ 12 ngày liên tiếp. Hoàn thành 10 từ nữa để nhận thêm điểm nước.",
-    totalWords: "Tổng từ",
-    wordsToLearn: "Cần học",
-    wordsToReview: "Cần ôn",
-    currentWord: "Từ đang học",
-    viewVocabulary: "Xem từ vựng",
-    meaningMode: "Chọn nghĩa",
-    meaningModeHint: "Nhật sang Việt",
-    typingMode: "Gõ từ",
-    typingModeHint: "Việt sang Nhật",
-    sentenceMode: "Đặt câu",
-    sentenceModeHint: "Tự viết ví dụ",
-    flashcardHint: "Lật thẻ nhớ",
-    vietnameseMeaning: "Nghĩa tiếng Việt",
-    close: "Đóng",
-    language: "Ngôn ngữ",
-    newWord: "Từ mới",
-    tapToFlip: "Bấm để lật",
-    front: "Mặt trước",
-    back: "Mặt sau",
-    tapToReturn: "Bấm để quay lại",
-    meaning: "Nghĩa",
-    known: "Đã thuộc",
-    listen: "Nghe",
-    continue: "Tiếp tục",
-    bookmarkWord: "Bookmark từ",
-    bookmarked: "Đã bookmark",
-    learnWithAi: "Học sâu hơn với AI",
-  },
-  en: {
-    searchCourses: "Search courses...",
-    home: "Home",
-    discover: "Discover",
-    bookStore: "Book store",
-    bookmarks: "My bookmarks",
-    myVocabulary: "My vocabulary",
-    myTests: "My tests",
-    practiceMenu: "Practice",
-    profile: "My profile",
-    admin: "System administration",
-    logout: "Log out",
-    login: "Log in",
-    lightTheme: "Switch to light mode",
-    darkTheme: "Switch to dark mode",
-    feedback: "Send feedback",
-    library: "Library",
-    addWord: "Add words",
-    practice: "Practice",
-    readingPractice: "Reading practice",
-    testPractice: "Practice tests",
-    vocabularyPractice: "Vocabulary practice",
-    list: "Word lists",
-    coinShop: "Coin shop",
-    todayStreak: "Today's streak",
-    streakDescription: "Keep your 12-day streak. Complete 10 more words to earn bonus points.",
-    totalWords: "Total words",
-    wordsToLearn: "To learn",
-    wordsToReview: "To review",
-    currentWord: "Current word",
-    viewVocabulary: "View vocabulary",
-    meaningMode: "Choose meaning",
-    meaningModeHint: "Japanese to Vietnamese",
-    typingMode: "Type the word",
-    typingModeHint: "Vietnamese to Japanese",
-    sentenceMode: "Make a sentence",
-    sentenceModeHint: "Write your own example",
-    flashcardHint: "Flip and remember",
-    vietnameseMeaning: "Vietnamese meaning",
-    close: "Close",
-    language: "Language",
-    newWord: "New word",
-    tapToFlip: "Tap to flip",
-    front: "Front",
-    back: "Back",
-    tapToReturn: "Tap to return",
-    meaning: "Meaning",
-    known: "I know this",
-    listen: "Listen",
-    continue: "Continue",
-    bookmarkWord: "Bookmark word",
-    bookmarked: "Bookmarked",
-    learnWithAi: "Learn more with AI",
-  },
-} as const;
 
 export type MessageKey = keyof typeof messages.vi;
 
@@ -123,36 +18,198 @@ type LanguageContextValue = {
   locale: AppLocale;
   setLocale: (locale: AppLocale) => void;
   t: (key: MessageKey) => string;
+  translate: (value: string) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
+const localizedAttributes = ["aria-label", "alt", "placeholder", "title"] as const;
 
-export function LanguageProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [locale, setLocaleState] = useState<AppLocale>("vi");
+type LocalizedValue = { source: string; rendered: string; translatable: boolean };
+
+function canTranslateTextNode(node: Text) {
+  const parent = node.parentElement;
+  return Boolean(parent && !parent.closest("script, style, noscript, [data-i18n-ignore], [contenteditable='true']"));
+}
+
+function LegacyUiTranslator({ locale }: Readonly<{ locale: AppLocale }>) {
+  const textValues = useRef(new WeakMap<Text, LocalizedValue>());
+  const attributeValues = useRef(new WeakMap<Element, Map<string, LocalizedValue>>());
 
   useEffect(() => {
-    const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-    const browserLocale = window.navigator.language.toLowerCase().startsWith("en") ? "en" : "vi";
-    const initialLocale = savedLocale === "en" || savedLocale === "vi" ? savedLocale : browserLocale;
-    queueMicrotask(() => setLocaleState(initialLocale));
+    const root = document.querySelector("[data-i18n-root]");
+    if (!root) return;
+
+    function translateTextNode(node: Text) {
+      if (!canTranslateTextNode(node)) return;
+      const current = node.data;
+      const previous = textValues.current.get(node);
+      const source = previous && current === previous.rendered ? previous.source : current;
+      const translatable = previous && current === previous.rendered
+        ? previous.translatable
+        : translateUiText(source, "en") !== source;
+      const rendered = translatable ? translateUiText(source, locale) : source;
+
+      textValues.current.set(node, { source, rendered, translatable });
+      if (current !== rendered) node.data = rendered;
+    }
+
+    function translateAttribute(element: Element, attribute: string) {
+      if (!attribute || element.closest("[data-i18n-ignore]")) return;
+      const current = element.getAttribute(attribute);
+      if (!current) return;
+
+      let values = attributeValues.current.get(element);
+      if (!values) {
+        values = new Map();
+        attributeValues.current.set(element, values);
+      }
+
+      const previous = values.get(attribute);
+      const source = previous && current === previous.rendered ? previous.source : current;
+      const translatable = previous && current === previous.rendered
+        ? previous.translatable
+        : translateUiText(source, "en") !== source;
+      const rendered = translatable ? translateUiText(source, locale) : source;
+
+      values.set(attribute, { source, rendered, translatable });
+      if (current !== rendered) element.setAttribute(attribute, rendered);
+    }
+
+    function translateElement(element: Element) {
+      for (const attribute of localizedAttributes) translateAttribute(element, attribute);
+
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        translateTextNode(node as Text);
+        node = walker.nextNode();
+      }
+
+      const selector = localizedAttributes.map((attribute) => `[${attribute}]`).join(",");
+      for (const descendant of element.querySelectorAll(selector)) {
+        for (const attribute of localizedAttributes) translateAttribute(descendant, attribute);
+      }
+    }
+
+    translateElement(root);
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "characterData") {
+          translateTextNode(mutation.target as Text);
+          continue;
+        }
+        if (mutation.type === "attributes") {
+          translateAttribute(mutation.target as Element, mutation.attributeName || "");
+          continue;
+        }
+        for (const addedNode of mutation.addedNodes) {
+          if (addedNode.nodeType === Node.TEXT_NODE) translateTextNode(addedNode as Text);
+          if (addedNode.nodeType === Node.ELEMENT_NODE) translateElement(addedNode as Element);
+        }
+      }
+    });
+
+    observer.observe(root, {
+      attributeFilter: [...localizedAttributes],
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, [locale]);
+
+  return null;
+}
+
+function persistLocaleCookie(locale: AppLocale) {
+  document.cookie = `${STORAGE_KEY}=${locale}; path=/; max-age=31536000; samesite=lax`;
+}
+
+export function LanguageProvider({ children, initialLocale }: Readonly<{ children: React.ReactNode; initialLocale: AppLocale }>) {
+  const [locale, setLocaleState] = useState<AppLocale>(initialLocale);
+  const [legacyTranslatorReady, setLegacyTranslatorReady] = useState(false);
+
+  useEffect(() => {
+    let savedLocale: string | null = null;
+    try {
+      savedLocale = window.localStorage.getItem(STORAGE_KEY);
+    } catch {
+      // Storage can be disabled; switching still works for the current tab.
+    }
+    const resolvedLocale = resolveLocale(savedLocale, window.navigator.language) as AppLocale;
+    if (resolvedLocale === initialLocale) return;
+
+    const timeout = window.setTimeout(() => {
+      persistLocaleCookie(resolvedLocale);
+      setLocaleState(resolvedLocale);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [initialLocale]);
+
+  useEffect(() => {
+    const windowWithIdleCallback = window as typeof window & {
+      cancelIdleCallback?: (handle: number) => void;
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+    };
+    if (windowWithIdleCallback.requestIdleCallback) {
+      const handle = windowWithIdleCallback.requestIdleCallback(
+        () => setLegacyTranslatorReady(true),
+        { timeout: 1_500 },
+      );
+      return () => windowWithIdleCallback.cancelIdleCallback?.(handle);
+    }
+
+    const timeout = window.setTimeout(() => setLegacyTranslatorReady(true), 100);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    document.documentElement.dataset.locale = locale;
   }, [locale]);
+
+  useEffect(() => {
+    function syncLocale(event: StorageEvent) {
+      if (event.key === STORAGE_KEY && isSupportedLocale(event.newValue)) {
+        const nextLocale = event.newValue as AppLocale;
+        persistLocaleCookie(nextLocale);
+        setLocaleState(nextLocale);
+      }
+    }
+
+    window.addEventListener("storage", syncLocale);
+    return () => window.removeEventListener("storage", syncLocale);
+  }, []);
 
   const value = useMemo<LanguageContextValue>(() => ({
     locale,
     setLocale(nextLocale) {
-      window.localStorage.setItem(STORAGE_KEY, nextLocale);
+      if (!isSupportedLocale(nextLocale)) return;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, nextLocale);
+      } catch {
+        // Keep the selection in memory when storage is unavailable.
+      }
+      persistLocaleCookie(nextLocale);
       setLocaleState(nextLocale);
     },
     t(key) {
-      return messages[locale][key];
+      return getMessage(locale, key);
+    },
+    translate(text) {
+      return translateUiText(text, locale);
     },
   }), [locale]);
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+      {legacyTranslatorReady && <LegacyUiTranslator locale={locale} />}
+    </LanguageContext.Provider>
+  );
 }
 
 export function useLanguage() {
@@ -163,4 +220,9 @@ export function useLanguage() {
   }
 
   return context;
+}
+
+export function LocalizedText({ text }: Readonly<{ text: string }>) {
+  const { translate } = useLanguage();
+  return <>{translate(text)}</>;
 }

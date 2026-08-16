@@ -33,7 +33,7 @@ export function PaymentReviewClient() {
   }
 
   useEffect(() => {
-    void loadPayments();
+    queueMicrotask(() => void loadPayments());
   }, []);
 
   async function review(id: string, action: "approve" | "reject") {

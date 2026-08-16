@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { FiBookOpen, FiChevronLeft, FiChevronRight, FiEdit3, FiFilter, FiLayers, FiPlus, FiUsers } from "react-icons/fi";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DeckModel } from "@/models/Deck";
@@ -9,6 +10,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { RoadmapCourseModel } from "@/models/RoadmapCourse";
 import { UserModel } from "@/models/User";
 import { publicDeckFilter } from "@/lib/publicDeckFilter";
+import { LocalizedText } from "../i18n/LanguageProvider";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -123,14 +125,18 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+        <div data-scroll-reveal-item>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-600">Khám phá</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Các khóa học</h1>
           <p className="mt-3 max-w-2xl text-slate-500">
-            {totalCourses + kanaCourseCount} khóa học phù hợp · Mặc định hiển thị khóa mới nhất trước.
+            <LocalizedText text={`${totalCourses + kanaCourseCount} khóa học phù hợp · Mặc định hiển thị khóa mới nhất trước.`} />
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          data-scroll-reveal-item
+          style={{ "--scroll-reveal-delay": "90ms" } as CSSProperties}
+        >
           {isAdmin ? (
             <Link
               className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-rose-600/20 transition hover:-translate-y-0.5 hover:bg-rose-700"
@@ -157,9 +163,14 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
 
       <KanaCourseCards level={level} query={q} type={type} />
 
-      <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-        {roadmaps.map((roadmap) => (
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10" key={String(roadmap._id)}>
+      <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3" data-scroll-reveal-stagger>
+        {roadmaps.map((roadmap, index) => (
+          <article
+            className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10"
+            data-scroll-reveal-item
+            key={String(roadmap._id)}
+            style={{ "--scroll-reveal-delay": `${(index % 3) * 90}ms` } as CSSProperties}
+          >
             <div className="flex items-start justify-between gap-4">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700"><FiLayers /></span>
               <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black uppercase text-rose-700">Lộ trình</span>
@@ -167,13 +178,13 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
             <h2 className="mt-5 text-xl font-black text-slate-950">{roadmap.title}</h2>
             <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-slate-500">{roadmap.description || "Chưa có mô tả."}</p>
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm font-black">
-              <div className="rounded-2xl bg-slate-50 p-3 text-slate-700"><FiBookOpen className="mr-2 inline" /> {roadmap.lessonCount || 0} bài học</div>
+              <div className="rounded-2xl bg-slate-50 p-3 text-slate-700"><FiBookOpen className="mr-2 inline" /> <LocalizedText text={`${roadmap.lessonCount || 0} bài học`} /></div>
               <div className="truncate rounded-2xl bg-slate-50 p-3 text-slate-700"><FiUsers className="mr-2 inline" /> {(roadmap.ownerId as { displayName?: string; username?: string })?.displayName || (roadmap.ownerId as { username?: string })?.username || "Cộng đồng"}</div>
             </div>
             <Link className="mt-5 flex h-11 items-center justify-center rounded-2xl bg-slate-950 font-black text-white transition hover:-translate-y-0.5 hover:bg-rose-600" href={`/flashcards/roadmaps/${String(roadmap._id)}`}>Xem lộ trình</Link>
           </article>
         ))}
-        {courses.map((course) => {
+        {courses.map((course, index) => {
           const isJlptTest =
             course.contentType === "jlpt-test" &&
             course.jlptTest?.level &&
@@ -185,7 +196,12 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
               : `/flashcards/study?mode=flashcard&deckId=${String(course._id)}`;
 
           return (
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10" key={String(course._id)}>
+          <article
+            className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/[0.05] transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-500/10"
+            data-scroll-reveal-item
+            key={String(course._id)}
+            style={{ "--scroll-reveal-delay": `${((roadmaps.length + index) % 3) * 90}ms` } as CSSProperties}
+          >
             <div className="flex items-start justify-between gap-4">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-50 text-xl text-teal-700">
                 <FiBookOpen />
@@ -203,10 +219,10 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm font-black">
               <div className="rounded-2xl bg-slate-50 p-3 text-slate-700">
-                <FiUsers className="mr-2 inline" /> {course.stats?.learnerCount || 0} học viên
+                <FiUsers className="mr-2 inline" /> <LocalizedText text={`${course.stats?.learnerCount || 0} học viên`} />
               </div>
               <div className="rounded-2xl bg-slate-50 p-3 text-slate-700">
-                {course.stats?.vocabularyCount || 0} {isJlptTest ? "câu" : "từ"}
+                <LocalizedText text={`${course.stats?.vocabularyCount || 0} ${isJlptTest ? "câu" : "từ"}`} />
               </div>
             </div>
             {isJlptTest || course.slug === "n5-test-ngu-phap-tu-vung-doc-hieu" ? (
@@ -244,6 +260,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
         <nav
           aria-label="Phân trang khóa học"
           className="mt-8 flex flex-wrap items-center justify-center gap-2"
+          data-scroll-reveal
         >
           <PaginationLink
             disabled={page === 1}
@@ -279,7 +296,7 @@ export default async function DiscoverPage({ searchParams }: Readonly<{ searchPa
       )}
 
       {courses.length === 0 && roadmaps.length === 0 && kanaCourseCount === 0 && (
-        <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center">
+        <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center" data-scroll-reveal>
           <FiFilter className="mx-auto h-8 w-8 text-slate-400" />
           <p className="mt-3 font-black text-slate-950">Chưa có khóa học phù hợp.</p>
           <p className="mt-2 text-sm text-slate-500">{q ? `Không tìm thấy khóa học có từ khóa "${q}".` : "Hiện tại hệ thống chủ yếu có khóa học flashcard, khóa học lộ trình sẽ thêm sau."}</p>

@@ -189,10 +189,12 @@ export function AdminCoursesClient({ capabilities, courses, initialCreatePreset 
 
   useEffect(() => {
     if (!initialCreatePreset) return;
-    setSelectedCreatePreset(initialCreatePreset);
-    setForm(createFormForPreset(initialCreatePreset));
-    setError("");
-    setFormOpen(true);
+    queueMicrotask(() => {
+      setSelectedCreatePreset(initialCreatePreset);
+      setForm(createFormForPreset(initialCreatePreset));
+      setError("");
+      setFormOpen(true);
+    });
   }, [initialCreatePreset]);
 
   function updateQuery(next: Record<string, string | number>) {

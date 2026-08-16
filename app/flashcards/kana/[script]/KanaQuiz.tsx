@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { FiArrowLeft, FiCheck, FiChevronRight, FiHelpCircle, FiRefreshCw, FiSkipForward, FiTarget, FiVolume2, FiX } from "react-icons/fi";
 import { getKanaCharacters, KANA_GROUP_LABELS, type KanaCharacter, type KanaScript } from "../data";
 import { hiraganaToKatakana, RomajiKanaInput } from "../../components/RomajiKanaInput";
+import { useLanguage } from "../../i18n/LanguageProvider";
 
 type Result = "correct" | "incorrect" | null;
 
@@ -18,6 +19,7 @@ function shuffle<T>(items: T[]) {
 }
 
 export function KanaQuiz({ script }: Readonly<{ script: KanaScript }>) {
+  const { translate } = useLanguage();
   const allCharacters = useMemo(() => getKanaCharacters(script), [script]);
   const firstGroup = KANA_GROUP_LABELS[0];
   const [selectedGroups, setSelectedGroups] = useState<string[]>([firstGroup]);
@@ -35,7 +37,8 @@ export function KanaQuiz({ script }: Readonly<{ script: KanaScript }>) {
   const isHiragana = script === "hiragana";
 
   useEffect(() => {
-    setBest(Number(window.localStorage.getItem(`kana-best-${script}`) || 0));
+    const savedBest = Number(window.localStorage.getItem(`kana-best-${script}`) || 0);
+    queueMicrotask(() => setBest(savedBest));
   }, [script]);
 
   useEffect(() => {
@@ -137,7 +140,7 @@ export function KanaQuiz({ script }: Readonly<{ script: KanaScript }>) {
                 Nhìn chữ Kana, nhập cách đọc romaji rồi nhấn Enter. Bắt đầu từ một hàng chữ và mở rộng dần khi bạn đã quen.
               </p>
             </div>
-            <div className="rounded-2xl bg-white/15 px-4 py-3 text-sm font-black backdrop-blur">Tốt nhất: {best} câu đúng</div>
+            <div className="rounded-2xl bg-white/15 px-4 py-3 text-sm font-black backdrop-blur">{translate(`Tốt nhất: ${best} câu đúng`)}</div>
           </div>
         </header>
 

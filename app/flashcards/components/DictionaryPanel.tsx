@@ -6,6 +6,7 @@ import { LuPin, LuPinOff } from "react-icons/lu";
 import { vocabularyBookmarkKey, type VocabularyBookmark } from "../bookmarkStorage";
 import { FuriganaText } from "./FuriganaText";
 import { RomajiKanaInput } from "./RomajiKanaInput";
+import { useLanguage } from "../i18n/LanguageProvider";
 
 type DictionaryEntry = {
   id?: string; deckId?: string; term: string; reading: string; romaji?: string;
@@ -55,6 +56,7 @@ export function DictionaryPanel({
   pinned: boolean;
   preferenceKey: string;
 }>) {
+  const { translate } = useLanguage();
   const [open, setOpen] = useState(pinned);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
@@ -242,7 +244,7 @@ export function DictionaryPanel({
               onClick={() => setKeyboardOpen((value) => !value)}
               type="button"
             >
-              あ ア Bàn phím Nhật
+              あ ア {translate("Bàn phím Nhật")}
             </button>
             {keyboardOpen && (
               <>

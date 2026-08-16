@@ -19,7 +19,6 @@ export function FlashcardsHomeClient({ initialCourses }: Readonly<{ initialCours
     <LibraryScreen
       initialCourses={initialCourses}
       onAdd={() => router.push("/flashcards/add")}
-      onManage={() => router.push("/flashcards/manage")}
       onStudy={openStudy}
       onTest={(level, number) =>
         router.push(level && number ? `/flashcards/tests/${level.toLowerCase()}/${number}` : "/flashcards/tests")

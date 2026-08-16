@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { ApiActivityIndicator } from "./ApiActivityIndicator";
 import { LanguageProvider } from "../i18n/LanguageProvider";
+import type { AppLocale } from "../i18n/LanguageProvider";
 import { loadCurrentUser } from "../currentUserClient";
+import { ScrollReveal } from "./ScrollReveal";
 
 const DictionaryPanel = dynamic(
   () => import("./DictionaryPanel").then((module) => module.DictionaryPanel),
@@ -16,8 +17,12 @@ const AiChatbox = dynamic(
   () => import("./AiChatbox").then((module) => module.AiChatbox),
   { ssr: false },
 );
+const Sidebar = dynamic(
+  () => import("./Sidebar").then((module) => module.Sidebar),
+  { ssr: false },
+);
 
-export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AppShell({ children, initialLocale }: Readonly<{ children: React.ReactNode; initialLocale: AppLocale }>) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [dictionaryPinned, setDictionaryPinned] = useState(false);
@@ -59,16 +64,15 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
   }
 
   return (
-    <LanguageProvider>
-    <main className={`nihongo-app theme-${theme} min-h-screen bg-[#fbfaf5] text-slate-950 transition-colors duration-150 dark:bg-slate-950 dark:text-slate-100`}>
+    <LanguageProvider initialLocale={initialLocale}>
+    <main className={`nihongo-app theme-${theme} min-h-screen bg-[#fbfaf5] text-slate-950 transition-colors duration-150 dark:bg-slate-950 dark:text-slate-100`} data-i18n-root>
       <ApiActivityIndicator />
+      <ScrollReveal />
       <DictionaryPanel key={dictionaryPreferenceKey} onPinnedChange={setDictionaryPinned} pinned={dictionaryPinned} preferenceKey={dictionaryPreferenceKey} />
       <AiChatbox dictionaryPinned={dictionaryPinned} />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(225,29,72,0.08),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(20,184,166,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.4),transparent)] dark:bg-[radial-gradient(circle_at_16%_12%,rgba(244,63,94,0.18),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(45,212,191,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.78),transparent)]" />
       <div className="relative grid min-h-screen lg:grid-cols-[64px_1fr]">
-        <Suspense fallback={<div className="hidden w-[64px] bg-slate-950 lg:block" />}>
-          <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
-        </Suspense>
+        <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
         <section className={`min-w-0 transition-[padding] duration-150 ${dictionaryPinned ? "xl:pr-[390px]" : ""}`}>
           <Topbar theme={theme} onToggleTheme={toggleTheme} onOpenSidebar={() => setMobileSidebarOpen(true)} />
           {children}
