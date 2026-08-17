@@ -8,7 +8,7 @@ export default async function Home() {
   const cookieStore = await cookies();
   const savedLocale = cookieStore.get("nihongo-language")?.value;
   const initialLocale = savedLocale === "en" ? "en" : "vi";
-
+// 
   return (
     <AppShell initialLocale={initialLocale}>
       <FlashcardsHomeClient initialCourses={initialCourses} />
