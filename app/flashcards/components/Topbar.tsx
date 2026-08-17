@@ -254,7 +254,7 @@ export function Topbar({
                 type="button"
               >
                 <span aria-hidden="true" className="mr-1">{locale === "vi" ? "🇻🇳" : "🇬🇧"}</span>
-                {locale.toUpperCase()} <FiChevronDown className="ml-1 inline" />
+                {(locale ?? "vi").toUpperCase()} <FiChevronDown className="ml-1 inline" />
               </button>
               {languageOpen && (
                 <div className="absolute right-0 top-10 z-40 w-40 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
