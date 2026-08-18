@@ -155,6 +155,6 @@ Run data-import scripts only after configuring MongoDB and confirming that you a
 
 ## Author
 
-**Nguyễn Đức Hùng** · [GitHub](https://github.com/ndhung23)
+**Nguyen Duy Hung** · [GitHub](https://github.com/ndhung23)
 
 If you are a recruiter or engineer interested in discussing the product, architecture, or engineering decisions behind this project, I would be happy to connect.
