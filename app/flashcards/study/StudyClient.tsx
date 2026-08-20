@@ -38,6 +38,8 @@ type VocabularyItem = {
   examples?: Array<{
     ja?: string;
     vi?: string;
+    kana?: string;
+    romaji?: string;
   }>;
   synonyms?: string[];
   antonyms?: string[];
@@ -525,8 +527,13 @@ function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes
   }
 
   const grammarExample = buildGrammarExample(item.term, meaning, item.level, item.lesson);
-  const example = item.examples?.find((entry) => entry.ja)?.ja || grammarExample.ja;
-  const exampleVi = item.examples?.find((entry) => entry.vi)?.vi || grammarExample.vi;
+  const firstExample = item.examples?.find((entry) => entry.ja);
+  const rawFirstExample = firstExample as Record<string, unknown> | undefined;
+  const rawItem = item as Record<string, unknown>;
+  const example = firstExample?.ja || grammarExample.ja;
+  const exampleVi = firstExample?.vi || grammarExample.vi;
+  const exampleKana = firstExample?.kana || (rawFirstExample?.kanaexampleJa as string) || (rawFirstExample?.exampleKana as string) || (rawItem?.exampleKana as string) || (rawItem?.kanaexampleJa as string) || "";
+  const exampleRomaji = firstExample?.romaji || (rawFirstExample?.romajiexampleJa as string) || (rawFirstExample?.exampleRomaji as string) || (rawItem?.exampleRomaji as string) || (rawItem?.romajiexampleJa as string) || "";
 
   return {
     id: item._id,
@@ -539,6 +546,8 @@ function toStudyWord(item: VocabularyItem, meaningPool: string[], meaningIndexes
     wrong,
     example,
     exampleVi,
+    exampleKana,
+    exampleRomaji,
     synonyms: item.synonyms || [],
     antonyms: item.antonyms || [],
     tags: ["IT"],

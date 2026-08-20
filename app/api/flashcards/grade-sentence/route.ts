@@ -63,6 +63,8 @@ const VocabularySuggestionResponseSchema = z.object({
   meaningVi: z.string(),
   exampleJa: z.string(),
   exampleVi: z.string(),
+  exampleKana: z.string().default(""),
+  exampleRomaji: z.string().default(""),
 });
 
 const AiChatRequestSchema = z.object({
@@ -255,7 +257,9 @@ Chỉ trả về JSON thuần, không markdown, theo đúng cấu trúc:
   "partOfSpeech": "từ loại ngắn gọn, ví dụ n, v, i-adj, na-adj, adv",
   "meaningVi": "nghĩa tiếng Việt ngắn gọn và phổ biến nhất",
   "exampleJa": "một câu ví dụ tiếng Nhật tự nhiên có chứa từ",
-  "exampleVi": "bản dịch tiếng Việt chính xác của câu ví dụ"
+  "exampleVi": "bản dịch tiếng Việt chính xác của câu ví dụ",
+  "exampleKana": "cách đọc kana đầy đủ của câu ví dụ",
+  "exampleRomaji": "cách đọc romaji hepburn đầy đủ của câu ví dụ"
 }
 Không để trống trường nào. Nếu đầu vào đã là kana thì vẫn giữ cách đọc kana chính xác.
 `.trim();

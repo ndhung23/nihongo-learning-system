@@ -14,6 +14,8 @@ type WordForm = {
   meaningVi: string;
   exampleJa: string;
   exampleVi: string;
+  exampleKana: string;
+  exampleRomaji: string;
   imageUrl: string;
 };
 
@@ -32,6 +34,8 @@ const emptyForm: WordForm = {
   meaningVi: "",
   exampleJa: "",
   exampleVi: "",
+  exampleKana: "",
+  exampleRomaji: "",
   imageUrl: "",
 };
 
@@ -48,7 +52,9 @@ function fromFields(fields: string[], lineNumber: number, raw: string): ParsedIm
   const romaji = hasRomaji ? fields[2] : "";
   const meaningVi = hasRomaji ? fields[3] : fields[2];
   const exampleJa = hasRomaji ? fields[4] : fields[3];
-  const exampleVi = hasRomaji ? fields.slice(5).join(", ") : fields.slice(4).join(", ");
+  const exampleVi = hasRomaji ? (fields[5] ?? "") : fields.slice(4).join(", ");
+  const exampleKana = hasRomaji ? (fields[6] ?? "") : "";
+  const exampleRomaji = hasRomaji ? (fields[7] ?? "") : "";
 
   if (!term || !meaningVi) {
     return { lineNumber, raw, error: "Từ vựng và nghĩa tiếng Việt không được để trống." };
@@ -65,6 +71,8 @@ function fromFields(fields: string[], lineNumber: number, raw: string): ParsedIm
       meaningVi,
       exampleJa,
       exampleVi,
+      exampleKana,
+      exampleRomaji,
     },
   };
 }
@@ -113,16 +121,32 @@ function parseImportLine(raw: string, index: number): ParsedImportRow | null {
 }
 
 function wordFromRecord(record: Record<string, unknown>): WordForm {
-  const value = (key: string, fallback = "") => String(record[key] ?? fallback).trim();
+  const value = (...keys: string[]) => {
+    for (const key of keys) {
+      if (record[key] !== undefined && record[key] !== null) {
+        const val = String(record[key]).trim();
+        if (val) return val;
+      }
+    }
+    return "";
+  };
+  const firstExample = Array.isArray(record.examples) ? (record.examples[0] as Record<string, unknown> | undefined) : undefined;
+  const exampleJa = value("exampleJa", "example", "ví dụ") || (firstExample ? String(firstExample.ja || "").trim() : "");
+  const exampleVi = value("exampleVi", "exampleMeaning", "dịch ví dụ") || (firstExample ? String(firstExample.vi || "").trim() : "");
+  const exampleKana = value("exampleKana", "kanaexampleJa", "kanaExampleJa", "kanaExample", "example_kana", "ví dụ kana") || (firstExample ? String(firstExample.kana || firstExample.kanaexampleJa || firstExample.exampleKana || "").trim() : "");
+  const exampleRomaji = value("exampleRomaji", "romajiexampleJa", "romajiExampleJa", "romajiExample", "example_romaji", "ví dụ romaji") || (firstExample ? String(firstExample.romaji || firstExample.romajiexampleJa || firstExample.exampleRomaji || "").trim() : "");
+
   return {
     ...emptyForm,
-    term: value("term", value("word", value("từ"))),
+    term: value("term", "word", "từ"),
     kana: value("kana"),
     romaji: value("romaji"),
-    partOfSpeech: value("partOfSpeech", value("type", value("từ loại"))),
-    meaningVi: value("meaningVi", value("meaning", value("nghĩa"))),
-    exampleJa: value("exampleJa", value("example", value("ví dụ"))),
-    exampleVi: value("exampleVi", value("exampleMeaning", value("dịch ví dụ"))),
+    partOfSpeech: value("partOfSpeech", "type", "từ loại"),
+    meaningVi: value("meaningVi", "meaning", "nghĩa"),
+    exampleJa,
+    exampleVi,
+    exampleKana,
+    exampleRomaji,
     imageUrl: value("imageUrl"),
   };
 }
@@ -186,6 +210,8 @@ function toPayload(word: WordForm) {
           {
             ja: word.exampleJa.trim(),
             vi: word.exampleVi.trim(),
+            kana: word.exampleKana.trim(),
+            romaji: word.exampleRomaji.trim(),
           },
         ]
       : [],
@@ -221,9 +247,20 @@ export function AddWordScreen({
   useEffect(() => {
     if (!vocabularyId) return;
     void fetch(`/api/vocabulary/${encodeURIComponent(vocabularyId)}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { data?: { term?: string; kana?: string; romaji?: string; partOfSpeech?: string; meaningVi?: string; examples?: Array<{ ja?: string; vi?: string }>; imageUrl?: string }; message?: string };
+      const payload = await response.json() as { data?: { term?: string; kana?: string; romaji?: string; partOfSpeech?: string; meaningVi?: string; examples?: Array<{ ja?: string; vi?: string; kana?: string; romaji?: string }>; imageUrl?: string }; message?: string };
       if (!response.ok || !payload.data) throw new Error(payload.message || "Không thể tải từ vựng.");
-      setForm({ term: payload.data.term || "", kana: payload.data.kana || "", romaji: payload.data.romaji || "", partOfSpeech: payload.data.partOfSpeech || "", meaningVi: payload.data.meaningVi || "", exampleJa: payload.data.examples?.[0]?.ja || "", exampleVi: payload.data.examples?.[0]?.vi || "", imageUrl: payload.data.imageUrl || "" });
+      setForm({
+        term: payload.data.term || "",
+        kana: payload.data.kana || "",
+        romaji: payload.data.romaji || "",
+        partOfSpeech: payload.data.partOfSpeech || "",
+        meaningVi: payload.data.meaningVi || "",
+        exampleJa: payload.data.examples?.[0]?.ja || "",
+        exampleVi: payload.data.examples?.[0]?.vi || "",
+        exampleKana: payload.data.examples?.[0]?.kana || "",
+        exampleRomaji: payload.data.examples?.[0]?.romaji || "",
+        imageUrl: payload.data.imageUrl || "",
+      });
     }).catch((error: unknown) => setStatus({ tone: "error", message: error instanceof Error ? error.message : "Không thể tải từ vựng." }));
   }, [vocabularyId]);
 
@@ -487,23 +524,23 @@ export function AddWordScreen({
                     <li>Hỗ trợ JPG, PNG, WebP, GIF và PDF; tối đa 10 file/lần, 12 MB/file.</li>
                     <li>Ảnh phải thẳng, rõ chữ và không cắt mất từ, cách đọc hoặc nghĩa.</li>
                     <li>PDF nên là bảng/danh sách từ vựng; các trang được đọc theo đúng thứ tự.</li>
-                    <li>AI sẽ bổ sung thông tin còn thiếu. Hãy kiểm tra lại kana, nghĩa và ví dụ trong preview.</li>
+                    <li>AI sẽ bổ sung thông tin còn thiếu (bao gồm cách đọc ví dụ). Hãy kiểm tra lại trong preview.</li>
                   </ul>
                 </ImportHint>
                 <ImportHint title="2. TXT — một từ mỗi dòng">
                   <p>Dùng dấu <b>|</b> (khuyên dùng) hoặc dấu phẩy để ngăn cột.</p>
-                  <p className="mt-2 font-bold">Mẫu đầy đủ 6 cột:</p>
-                  <CodeSample>{`term | kana | romaji | meaningVi | exampleJa | exampleVi\n食べる | たべる | taberu | ăn | 毎朝パンを食べます。 | Mỗi sáng tôi ăn bánh mì.`}</CodeSample>
-                  <p className="mt-2">Có thể dùng mẫu ngắn 4 cột: <b>term | kana | meaningVi | exampleJa</b>.</p>
+                  <p className="mt-2 font-bold">Mẫu đầy đủ 8 cột (hoặc 6 cột):</p>
+                  <CodeSample>{`term | kana | romaji | meaningVi | exampleJa | exampleVi | exampleKana | exampleRomaji\n食べる | たべる | taberu | ăn | 毎朝パンを食べます。 | Mỗi sáng tôi ăn bánh mì. | まいあさぱんをたべます。 | Maiasa pan o tabemasu.`}</CodeSample>
+                  <p className="mt-2">Có thể dùng mẫu ngắn 4 cột hoặc 6 cột.</p>
                 </ImportHint>
                 <ImportHint title="3. CSV — UTF-8, dòng đầu là header">
                   <p>Giữ đúng tên cột dưới đây. Mỗi dòng sau header là một từ:</p>
-                  <CodeSample>{`term,kana,romaji,partOfSpeech,meaningVi,exampleJa,exampleVi\n勉強,べんきょう,benkyou,danh từ,học tập,日本語を勉強します。,Tôi học tiếng Nhật.`}</CodeSample>
+                  <CodeSample>{`term,kana,romaji,partOfSpeech,meaningVi,exampleJa,exampleVi,kanaexampleJa,romajiexampleJa\n勉強,べんきょう,benkyou,danh từ,học tập,日本語を勉強します。,Tôi học tiếng Nhật.,にほんごをべんきょうします。,Nihongo o benkyou shimasu.`}</CodeSample>
                   <p className="mt-2">Không bắt buộc đủ mọi cột, nhưng phải có <b>term</b> và <b>meaningVi</b>. Lưu file bằng UTF-8 để không lỗi tiếng Nhật/Việt.</p>
                 </ImportHint>
                 <ImportHint title="4. JSON — mảng hoặc object có words">
-                  <p>Tên field được hỗ trợ: term, kana, romaji, partOfSpeech, meaningVi, exampleJa, exampleVi, imageUrl.</p>
-                  <CodeSample>{`{\n  "words": [\n    {\n      "term": "図書館",\n      "kana": "としょかん",\n      "romaji": "toshokan",\n      "partOfSpeech": "danh từ",\n      "meaningVi": "thư viện",\n      "exampleJa": "図書館で本を読みます。",\n      "exampleVi": "Tôi đọc sách ở thư viện."\n    }\n  ]\n}`}</CodeSample>
+                  <p>Tên field được hỗ trợ: term, kana, romaji, partOfSpeech, meaningVi, exampleJa, exampleVi, romajiexampleJa, kanaexampleJa, imageUrl.</p>
+                  <CodeSample>{`{\n  "words": [\n    {\n      "term": "図書館",\n      "kana": "としょかん",\n      "romaji": "toshokan",\n      "partOfSpeech": "danh từ",\n      "meaningVi": "thư viện",\n      "exampleJa": "図書館で本を読みます。",\n      "exampleVi": "Tôi đọc sách ở thư viện.",\n      "romajiexampleJa": "Toshokan de hon o yomimasu.",\n      "kanaexampleJa": "としょかんで ほんを よみます."\n    }\n  ]\n}`}</CodeSample>
                 </ImportHint>
               </div>
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
@@ -516,7 +553,7 @@ export function AddWordScreen({
             id="vocabulary-import-text"
             className="mt-4 min-h-56 w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 font-semibold leading-7 outline-none transition-all duration-300 focus:border-teal-400 focus:bg-white focus:shadow-lg focus:shadow-teal-500/10"
             onChange={(event) => setImportText(event.target.value)}
-            placeholder={"何でも なんでも Gì cũng được 何でもいいです Gì cũng được\n何でも,なんでも,Gì cũng được,何でもいいです,Gì cũng được"}
+            placeholder={"何でも なんでも Gì cũng được 何でもいいです Gì cũng được\n何でも,なんでも,Gì cũng được,何んでもいいです,Gì cũng được"}
             value={importText}
           />
           {invalidRows.length ? (
@@ -565,7 +602,16 @@ export function AddWordScreen({
                       </div>
                       <p className="mt-1 text-sm font-bold text-slate-500">{row.word?.kana}</p>
                       <p className="mt-2 font-bold text-slate-700">{row.word?.meaningVi}</p>
-                      {row.word?.exampleJa ? <p className="mt-2 text-sm font-semibold text-slate-500">{row.word.exampleJa} - {row.word.exampleVi}</p> : null}
+                      {row.word?.exampleJa ? (
+                        <div className="mt-2 space-y-1 text-sm font-semibold text-slate-500">
+                          <p>{row.word.exampleJa} - {row.word.exampleVi}</p>
+                          {row.word.exampleKana || row.word.exampleRomaji ? (
+                            <p className="text-xs text-indigo-600">
+                              {[row.word.exampleKana, row.word.exampleRomaji].filter(Boolean).join(" / ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 ) : (
@@ -600,6 +646,23 @@ export function AddWordScreen({
                 value={form.exampleJa}
               />
               <FormField label="Dịch nghĩa ví dụ" name="exampleVi" onChange={handleFieldChange} placeholder="VD: Tôi học tiếng Nhật mỗi ngày" value={form.exampleVi} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  kanaSuggestions
+                  label="Kana ví dụ (kanaexampleJa)"
+                  name="exampleKana"
+                  onValueChange={(value) => setForm((current) => ({ ...current, exampleKana: value }))}
+                  placeholder="Gõ romaji hoặc kana ví dụ..."
+                  value={form.exampleKana}
+                />
+                <FormField
+                  label="Romaji ví dụ (romajiexampleJa)"
+                  name="exampleRomaji"
+                  onChange={handleFieldChange}
+                  placeholder="Romaji ví dụ..."
+                  value={form.exampleRomaji}
+                />
+              </div>
               <div className="mt-4">
                 <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Ảnh minh họa</p>
                 <div className="flex flex-wrap items-center gap-3">
@@ -630,6 +693,11 @@ export function AddWordScreen({
                 <p className="mt-2 font-bold text-slate-500">{previewWord.kana || "Chưa có kana"}</p>
                 <p className="mt-5 text-2xl font-black text-teal-700">{previewWord.meaningVi || "Chưa có nghĩa"}</p>
                 {previewWord.exampleJa ? <p className="mt-5 font-bold text-slate-600">{previewWord.exampleJa}</p> : null}
+                {previewWord.exampleKana || previewWord.exampleRomaji ? (
+                  <p className="mt-1 text-xs font-bold text-indigo-600">
+                    {[previewWord.exampleKana, previewWord.exampleRomaji].filter(Boolean).join(" / ")}
+                  </p>
+                ) : null}
                 {previewWord.exampleVi ? <p className="mt-2 text-sm font-semibold text-slate-500">{previewWord.exampleVi}</p> : null}
               </>
             ) : (

@@ -12,6 +12,8 @@ export type VocabularyBookmark = {
   meaning: string;
   example: string;
   exampleVi: string;
+  exampleKana?: string;
+  exampleRomaji?: string;
   savedAt: string;
 };
 
@@ -52,6 +54,8 @@ export function toVocabularyBookmark(word: Word, courseTitle?: string): Vocabula
     meaning: word.meaning,
     example: word.example,
     exampleVi: word.exampleVi,
+    exampleKana: word.exampleKana,
+    exampleRomaji: word.exampleRomaji,
     savedAt: new Date().toISOString(),
   };
 }

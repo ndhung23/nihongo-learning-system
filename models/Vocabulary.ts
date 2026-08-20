@@ -13,6 +13,8 @@ const VocabularySchema = new Schema(
       {
         ja: { type: String, required: true },
         vi: { type: String },
+        kana: { type: String },
+        romaji: { type: String },
       },
     ],
     distractors: { type: [String], default: [] },

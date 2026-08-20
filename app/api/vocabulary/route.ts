@@ -21,6 +21,8 @@ const CreateVocabularySchema = z.object({
       z.object({
         ja: z.string().min(1),
         vi: z.string().optional(),
+        kana: z.string().optional(),
+        romaji: z.string().optional(),
       }),
     )
     .default([]),

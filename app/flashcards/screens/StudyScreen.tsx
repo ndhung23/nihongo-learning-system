@@ -532,7 +532,17 @@ function FlashcardExercise({
               <div>
                 <p className="text-sm font-black uppercase tracking-widest text-teal-700">{t("meaning")}</p>
                 <h2 className="mt-4 text-4xl font-black">{currentWord.meaning}</h2>
-                <p className="mt-5 text-lg text-slate-500">{currentWord.exampleVi}</p>
+                {currentWord.example ? (
+                  <div className="mt-4 rounded-2xl bg-white/75 p-3.5 shadow-sm backdrop-blur-sm">
+                    <p className="font-bold text-slate-800">{currentWord.example}</p>
+                    {(currentWord.exampleKana || currentWord.exampleRomaji) ? (
+                      <p className="mt-1 text-xs font-semibold text-indigo-600">
+                        {[currentWord.exampleKana, currentWord.exampleRomaji].filter(Boolean).join(" · ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="mt-3 text-base font-semibold text-slate-600">{currentWord.exampleVi}</p>
               </div>
             </div>
           </div>
@@ -718,9 +728,17 @@ function ExampleExercise({ currentWord, onNext, onSpeak }: Readonly<{ currentWor
       </div>
       <div className="border-t border-teal-100 p-6">
         <p className="mb-4 text-sm font-black text-teal-700">{"G\u1ee3i \u00fd m\u1eabu"}</p>
-        <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-lg font-semibold">
-          <p className="min-w-0 flex-1">{currentWord.example}</p>
-          <SoundButton onSpeak={() => onSpeak(currentWord.example)} />
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <div className="flex items-start gap-3 text-lg font-semibold">
+            <p className="min-w-0 flex-1">{currentWord.example}</p>
+            <SoundButton onSpeak={() => onSpeak(currentWord.example)} />
+          </div>
+          {(currentWord.exampleKana || currentWord.exampleRomaji) && (
+            <div className="mt-2 border-t border-slate-200/60 pt-2 text-sm">
+              {currentWord.exampleKana && <p className="font-bold text-slate-700">{currentWord.exampleKana}</p>}
+              {currentWord.exampleRomaji && <p className="mt-0.5 text-xs font-semibold text-indigo-600">{currentWord.exampleRomaji}</p>}
+            </div>
+          )}
         </div>
         <button
           className="mt-3 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-black text-amber-800 transition hover:-translate-y-0.5 hover:bg-amber-100"
@@ -818,17 +836,40 @@ function ExampleTranslation({ currentWord }: Readonly<{ currentWord: Word }>) {
         type="button"
       >
         <FiGlobe />
-        {open ? "\u1ea8n d\u1ecbch" : "D\u1ecbch ngh\u0129a"}
+        {open ? "\u1ea8n d\u1ecbch & phi\u00ean \u00e2m" : "D\u1ecbch ngh\u0129a & phi\u00ean \u00e2m"}
       </button>
 
       {open && (
-        <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Ngh\u0129a t\u1eeb"}</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{currentWord.meaning}</p>
-          <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"D\u1ecbch c\u00e2u"}</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{currentWord.exampleVi}</p>
-          <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Phi\u00ean \u00e2m"}</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{reading}</p>
+        <div className="mt-3 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Ngh\u0129a t\u1eeb"}</p>
+            <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{currentWord.meaning}</p>
+            {(currentWord.kana || currentWord.romaji) && (
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                {[currentWord.kana, currentWord.romaji].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
+          {currentWord.exampleVi && (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"D\u1ecbch c\u00e2u v\u00ed d\u1ee5"}</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{currentWord.exampleVi}</p>
+            </div>
+          )}
+          {(currentWord.exampleKana || currentWord.exampleRomaji || reading) && (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">{"Phi\u00ean \u00e2m c\u00e2u v\u00ed d\u1ee5"}</p>
+              {currentWord.exampleKana && (
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{currentWord.exampleKana}</p>
+              )}
+              {currentWord.exampleRomaji && (
+                <p className="mt-0.5 text-xs font-semibold text-indigo-600">{currentWord.exampleRomaji}</p>
+              )}
+              {!currentWord.exampleKana && !currentWord.exampleRomaji && reading && (
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{reading}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -888,10 +929,14 @@ function FeedbackList({ items, title }: Readonly<{ items: string[]; title: strin
 }
 
 function getExampleReading(word: Word) {
+  if (word.exampleKana || word.exampleRomaji) {
+    return [word.exampleKana, word.exampleRomaji].filter(Boolean).join(" / ");
+  }
+
   const kana = word.kana || word.term;
   const romaji = word.romaji;
 
-  if (word.example.includes(word.term)) {
+  if (word.example && word.term && word.example.includes(word.term)) {
     const kanaSentence = word.example.replace(word.term, kana).replace(/\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002/g, "\u3092\u304b\u304f\u306b\u3093\u3057\u307e\u3059\u3002");
     const romajiSentence = romaji
       ? word.example.includes("\u3067\u3059\u3002")
@@ -902,7 +947,7 @@ function getExampleReading(word: Word) {
     return [kanaSentence, romajiSentence].filter(Boolean).join(" / ");
   }
 
-  return [kana, romaji].filter(Boolean).join(" / ");
+  return "";
 }
 
 type DeepLearnKind = "synonyms" | "antonyms" | "examples";

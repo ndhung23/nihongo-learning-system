@@ -13,6 +13,8 @@ const WordSchema = z.object({
   meaningVi: z.string().trim().min(1).max(500),
   exampleJa: z.string().trim().max(500).default(""),
   exampleVi: z.string().trim().max(500).default(""),
+  exampleKana: z.string().trim().max(500).default(""),
+  exampleRomaji: z.string().trim().max(500).default(""),
   imageUrl: z.string().default(""),
 });
 const ResultSchema = z.object({ words: z.array(WordSchema).min(1).max(300) });
@@ -49,8 +51,8 @@ export async function POST(request: Request) {
     })));
     const prompt = [
       "Trích xuất toàn bộ từ vựng tiếng Nhật trong các ảnh/PDF theo đúng thứ tự.",
-      "Mỗi từ gồm term, kana, romaji, partOfSpeech, meaningVi, exampleJa, exampleVi, imageUrl.",
-      "meaningVi phải là tiếng Việt. Nếu thiếu kana, romaji, từ loại, ví dụ hoặc bản dịch thì tự bổ sung chính xác.",
+      "Mỗi từ gồm term, kana, romaji, partOfSpeech, meaningVi, exampleJa, exampleVi, exampleKana, exampleRomaji, imageUrl.",
+      "meaningVi phải là tiếng Việt. Nếu thiếu kana, romaji, từ loại, ví dụ, bản dịch, ví dụ kana (exampleKana) hoặc ví dụ romaji (exampleRomaji) thì tự bổ sung chính xác.",
       "imageUrl luôn rỗng. Không tạo từ trùng lặp. Chỉ trả JSON đúng schema.",
     ].join("\n");
     const models = Array.from(new Set([process.env.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.0-flash"].filter(Boolean))) as string[];
@@ -70,8 +72,9 @@ export async function POST(request: Request) {
                   properties: { words: { type: "array", items: { type: "object", properties: {
                     term: { type: "string" }, kana: { type: "string" }, romaji: { type: "string" },
                     partOfSpeech: { type: "string" }, meaningVi: { type: "string" },
-                    exampleJa: { type: "string" }, exampleVi: { type: "string" }, imageUrl: { type: "string" },
-                  }, required: ["term", "kana", "romaji", "partOfSpeech", "meaningVi", "exampleJa", "exampleVi", "imageUrl"] } } },
+                    exampleJa: { type: "string" }, exampleVi: { type: "string" },
+                    exampleKana: { type: "string" }, exampleRomaji: { type: "string" }, imageUrl: { type: "string" },
+                  }, required: ["term", "kana", "romaji", "partOfSpeech", "meaningVi", "exampleJa", "exampleVi", "exampleKana", "exampleRomaji", "imageUrl"] } } },
                   required: ["words"],
                 },
                 temperature: 0.1,

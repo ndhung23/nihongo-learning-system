@@ -45,6 +45,11 @@ export function ManageScreen({ onBack }: Readonly<{ onBack: () => void }>) {
             <p className="text-slate-500">{word.kana} / {word.romaji}</p>
             <div>
               <p>{word.example}</p>
+              {(word.exampleKana || word.exampleRomaji) ? (
+                <p className="mt-0.5 text-xs text-indigo-600">
+                  {[word.exampleKana, word.exampleRomaji].filter(Boolean).join(" / ")}
+                </p>
+              ) : null}
               <p className="mt-1 text-slate-500">{word.exampleVi}</p>
             </div>
           </div>
